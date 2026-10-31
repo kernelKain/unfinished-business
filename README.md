@@ -15,7 +15,7 @@ OpenCode provides the agent loop, model access, tools, permissions, and native s
 
 ## Status
 
-Prompt 2 is active. Preflight, the native OpenCode 2.0.32 client route, the free DeepSeek model, a bounded native edit, and explicit edit denial have been verified at zero reported model cost. The Foundation implementation passes typecheck, build, tests, and a live local engine probe; its single phase commit and resulting Entire checkpoint inspection are the current gate. Backboard and Sentry access remain blocked because their credentials are absent, so no partner request or paid fallback has run.
+Prompt 2 is active. Foundation is committed at `14fc6a6`, with readable Entire checkpoint `01M683PGNKWVGNV1SEFKS51S73`. The native OpenCode 2.0.32/free-DeepSeek route and permission enforcement passed at zero reported model cost. Workflow state, exact approvals, selective invalidation, idempotent actions, atomic recovery, local mutation protection, and native-operation reconciliation are implemented and verified; the single Workflow phase commit is the current gate. Backboard and Sentry access remain blocked because their credentials are absent, so no partner request or paid fallback has run.
 
 Run the dependency-free diagnostic from the repository:
 
@@ -38,7 +38,7 @@ It checks the toolchain, read-only Git state, DNS, localhost socket access and E
 - Steps are work/checklist units, not individual commits. Commit subjects describe the change without phase or step numbering.
 - Preserve unrelated changes. A blocked commit blocks entry to the next implementation phase; do not bypass access restrictions.
 
-The active unit is the Foundation phase gate. No Workflow-phase work starts until the verified Foundation commit is complete and inspected. Publication and submission belong to Prompt 3.
+The active unit is the Workflow phase gate. No Experience-phase work starts until the verified Workflow commit is complete and inspected. Publication and submission belong to Prompt 3.
 
 ## Delivery
 

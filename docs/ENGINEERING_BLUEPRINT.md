@@ -1,10 +1,10 @@
 # Unfinished Business — Engineering Blueprint
 
-Version: 0.2.5  
+Version: 0.2.6  
 Updated: 31 October 2026, IST  
-Status: FOUNDATION_VERIFIED_UNCOMMITTED; partner access remains blocked  
+Status: WORKFLOW_VERIFIED_UNCOMMITTED; partner access remains blocked  
 Canonical path: `docs/ENGINEERING_BLUEPRINT.md`  
-Stage: Prompt 2 — Foundation phase gate; Workflow has not started
+Stage: Prompt 2 — Workflow phase gate; Experience has not started
 
 ## 1. Control, scope, and acceptance
 
@@ -466,3 +466,21 @@ The current user instruction resumed Prompt 2, required a fresh preflight, prese
 | Git/cost | Branch remains `main`, HEAD remains `e9585b0`, index is empty, existing work is preserved and no push occurred. Two native proof runs reported cost `0`; package downloads and local checks incurred no new cash spending |
 
 Foundation code and applicable checks are VERIFIED_UNCOMMITTED. The next permitted action is the single Foundation commit `chore: establish the OpenCode-backed application foundation`, followed immediately by commit and Entire checkpoint inspection. Only after that gate may Workflow begin. Partner-dependent work remains blocked pending supported access or a focused amendment; Prompt 3, deployment, publication and submission remain out of scope.
+
+### Workflow continuation — 31 October 2026, IST
+
+Foundation committed cleanly on `main` as `14fc6a6` (`chore: establish the OpenCode-backed application foundation`). Entire created readable checkpoint `01M683PGNKWVGNV1SEFKS51S73`, associated it with the Codex session/commit and recorded redaction metadata. The checkpoint remote remained unreachable and outgoing-queue inspection could not acquire its read-only lock; no checkpoint or source push was attempted. This satisfies local EP-06 evidence with the stated remote limitation.
+
+| Area | Actual evidence and result |
+|---|---|
+| W1 durable state | Added the versioned eight-section project schema, explicit dependencies/statuses, current section/next action, approvals, actions, operations and evidence records |
+| W2 approvals/invalidation | Exact section version/hash is required; only the active dependency-ready section can be approved; changed upstream content increments its version and marks only transitive dependent approvals/sections stale; compilation rejects every unresolved section |
+| W2 idempotency/concurrency | Unique action ID plus canonical payload hash returns one existing result for a retry, conflicts on changed payload and uses expected project revision for optimistic concurrency |
+| W3 persistence/recovery | Atomic temp-write/rename retains a previous snapshot. A corrupt current file is preserved and reported while the valid previous snapshot is offered; it is never silently reset |
+| W3 HTTP/security | Validated project/revision/approval routes enforce the 64 KiB content bound and a local browser-session token for mutations; conflicts return 409 and malformed requests return 400 |
+| W3 native operation state | Operations retain payload/native session/message references and move through the planned statuses. Disconnect produces UNKNOWN and never retries; explicit native reconciliation can resolve it to a terminal state |
+| EP-03 | PASS for app restart/idempotency plus deterministic native-state reconciliation. A live local run persisted revision 1, stopped/restarted on the same data, retried the same action and returned `duplicate: true`; revision/action count remained 1. Native interruption itself is modeled/tested without an additional inference call |
+| CK-02/03/04/05 | PASS for implemented scope. `npm run typecheck`, `npm run build`, `npm test`, `npm run test:workflow`, `npm run test:recovery`, contract and permission tests pass. Full suite: 15 tests, zero failures |
+| Scope/cost | No Experience UI work, deployment, publication, account changes, partner calls, extra model operations or spending occurred. EP-04/05 remain blocked as recorded above |
+
+Workflow is VERIFIED_UNCOMMITTED. The next permitted action is the single phase commit `feat: add durable staged planning and native execution`, followed by commit/Entire inspection. Experience remains gated until that succeeds.

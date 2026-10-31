@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "test:contracts": "node --import tsx --test tests/contracts.test.ts tests/prompts.test.ts",
-    "test:permissions": "node --import tsx --test tests/native-permissions.test.ts"
+    "test:permissions": "node --import tsx --test tests/native-permissions.test.ts",
+    "test:workflow": "node --import tsx --test tests/workflow.test.ts",
+    "test:recovery": "node --import tsx --test tests/recovery.test.ts"
   },
   "dependencies": {
     "@hono/node-server": "2.1.5",
