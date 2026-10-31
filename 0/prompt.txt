@@ -1,0 +1,4 @@
+opencode is not showing up on entire add it and add all sessions there: 
+OpenCode
+.opencode/plugins/entire.ts
+(not found)
