@@ -40,8 +40,8 @@ export interface ModeDescriptor {
 
 const local: ModeDescriptor = {
   id: "local",
-  label: "Full local",
-  badge: "Local · full execution",
+  label: "Local workshop",
+  badge: "Local · live OpenCode",
   summary: "Unfinished Business and OpenCode run on this machine. Maker edits an isolated demo workspace; arbitrary repositories are not mounted in this release.",
   capabilities: [
     { id: "repository", label: "Bounded demo-workspace edits", available: true, detail: "Maker can edit the isolated demo workspace under UB_DATA_DIR after an explicit scope grant. Arbitrary repository mounts are not implemented." },
@@ -87,9 +87,9 @@ const local: ModeDescriptor = {
 
 const demo: ModeDescriptor = {
   id: "demo",
-  label: "Hosted demo",
-  badge: "Demo · read-only sample",
-  summary: "A public, deterministic sample. It has no repository, OpenCode session, provider key, or user-specific storage.",
+  label: "Hosted sample",
+  badge: "Sample · read-only",
+  summary: "A public, read-only sample. It has no repository, OpenCode session, provider key, or user-specific storage.",
   capabilities: [
     { id: "repository", label: "Repository execution", available: false, detail: "The hosted demo cannot access a visitor's local repository or an arbitrary server path." },
     { id: "opencode", label: "Live OpenCode", available: false, detail: "The hosted demo does not start or connect to OpenCode." },
@@ -101,11 +101,11 @@ const demo: ModeDescriptor = {
   ],
   requirements: [
     "None. The demo is public and needs no account, repository, or provider key.",
-    "Run the full local mode for real approvals, Maker edits, and OpenCode execution.",
+    "Run the local workshop for real approvals, Maker edits, and OpenCode execution.",
     "Deploy a private hosted copy for a protected, persistent server-side workshop.",
   ],
   privacy: [
-    "The page serves deterministic fixture data and never reads local files or environment secrets.",
+    "The page serves recorded sample data and never reads local files or environment secrets.",
     "No workflow state is written for a visitor; reloading returns the same sample.",
     "Public health and mode responses contain no credentials, paths, or engine addresses.",
   ],
@@ -114,7 +114,7 @@ const demo: ModeDescriptor = {
     "No provider inference is performed by the demo.",
   ],
   recovery: [
-    "Use Reset demo or reload the page to return to the deterministic sample.",
+    "Use Reset demo or reload the page to return to the recorded sample.",
     "If an action is unavailable, follow the explanation and switch to local or private hosted mode.",
     "Nothing needs to be backed up because the demo stores no user data.",
   ],

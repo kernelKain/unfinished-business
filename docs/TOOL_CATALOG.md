@@ -2,9 +2,9 @@
 
 **Status:** Current release inventory.
 **Owner:** Engineering.
-**Last verified:** 2026-10-31.
+**Last verified:** 2026-11-01.
 
-This catalog distinguishes what the product **uses**, what it **recommends**, and what is only a **documented future possibility**. A listed tool is not an install, account, endorsement, or partner-category proof.
+This catalog distinguishes what the product **uses** and what is only a **documented future possibility**. A listed tool is not an install, account, endorsement, or partner-category proof.
 
 ## Core tools
 
@@ -22,9 +22,9 @@ This catalog distinguishes what the product **uses**, what it **recommends**, an
 
 | Tool | Role | Status | Evidence/limitation |
 |---|---|---|---|
-| Node test runner | Unit/integration/component tests | **Integrated** | 184 passing tests. |
-| Playwright 1.62 | Visual, keyboard, contrast, zoom, reduced-motion, overflow tests | **Integrated** | 19 passing tests with committed snapshots; uses system Chromium. |
-| `scripts/check-budget.mjs` | Production bundle/asset budget | **Integrated** | Passes: initial JS 195.6 KiB gzip, all JS 280.7 KiB (290 KiB budget), CSS 17.1 KiB (18 KiB budget), hero 570.9 KiB. |
+| Node test runner | Unit/integration/component tests | **Integrated** | 186 passing tests. |
+| Playwright 1.62 | Visual, keyboard, contrast, zoom, reduced-motion, overflow, and canonical-sample tests | **Integrated** | 20 passing tests with committed snapshots; uses system Chromium. |
+| `scripts/check-budget.mjs` | Production bundle/asset budget | **Integrated** | Passes: initial JS 201.3 KiB gzip, all JS 279.9 KiB (290 KiB budget), CSS 17.0 KiB (18 KiB budget), hero 581.2 KiB. |
 | `scripts/preflight.mjs` | Read-only environment diagnostic | **Integrated** | Checks toolchain, DNS, loopback, OpenCode CLI/help, Git reads, Entire status. Not an integration proof. |
 | `scripts/opencode-live-diagnostic.ts` | Opt-in compatibility probe | **Integrated; run in Phase 9** | Server 2.0.32, catalog, disposable session create/read/remove. No prompt/model call. |
 | Render | Optional demo or private hosting | **Documented; not deployed** | `render.demo.yaml` and `render.yaml` reviewed statically. No live URL asserted. |
@@ -40,21 +40,7 @@ This catalog distinguishes what the product **uses**, what it **recommends**, an
 
 ## Recommendation policy
 
-The landing page's "idea-to-tool" fixtures are static, reviewable guidance, not a live recommender:
-
-| Idea | Recommended path | Fit | Permission boundary |
-|---|---|---|---|
-| Campus lost-and-found | Node check + diff inspection | Small state model plus one verified test | Check runs only in the isolated demo workspace; diff inspection is read-only. |
-| Habit streak tracker | Keep the bounded Node check | Same capability, no new install | No arbitrary shell, package install, or network tool. |
-| Photo scavenger hunt | Recommend a focused scope change first | Asset handling is outside current scope | Do not silently widen permissions; the plan and native capability set must change explicitly. |
-
-Rules:
-
-1. Recommend only capabilities that exist in the current native mapping.
-2. Show availability, permission, and observed outcome; do not imply an install.
-3. Never recommend an arbitrary shell or remote repository mount for this release. Model costs and privacy are surfaced at selection; a paid or unknown-price route is never silently used.
-4. A recommendation is not an approval and does not grant Maker scope.
-5. Keep source/freshness metadata with each fixture; a stale source must be reviewed before adding a claim.
+There is no landing-page idea-to-tool recommender in this release. The previous static table was removed in Upgrade Phase 6 because it was not interactive or capability-driven. A future recommender must be tied to the discovered OpenCode capability set, cite source freshness, show permissions and observed outcomes, and never turn a recommendation into an approval or a Maker scope grant.
 
 Source freshness for this catalog:
 
@@ -65,7 +51,7 @@ Source freshness for this catalog:
 | Sentry privacy configuration | SDK code, redaction tests, deployment docs | 2026-10-31 |
 | Entire capture presence | Repository hooks/checkpoints and prior phase records | 2026-10-31 |
 | Render templates | `render.yaml`, `render.demo.yaml` static review | 2026-10-31 |
-| Playwright/browser availability | Visual suite against system Chromium | 2026-10-31 |
+| Playwright/browser availability | Visual suite against system Chromium | 2026-11-01 |
 
 ## Partner qualification truth
 

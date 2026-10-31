@@ -1,9 +1,9 @@
 # Evidence index and requirements matrix
 
-**Status:** Upgrade Phase 5 complete and verified.
+**Status:** Upgrade Phase 6 complete and verified.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
-**Baseline revision:** `6a96985` (`feat(architect): add reviewable generated revisions`). Phase 4's 179 tests passed before Phase 5 edits.
+**Baseline revision:** `4d811bf` (`refactor(ui): create a focused workshop experience`). Phase 5's 184 tests passed before Phase 6 edits.
 **Environment:** Linux, Node `22.22.1`, npm `9.2.0`, pinned OpenCode `2.0.32`, system Chromium. No provider credentials were used for inference in any phase.
 
 Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observed failure; **UNAVAILABLE** = prerequisite absent; **DEFERRED** = explicitly out of this release; **BLOCKED** = required prerequisite missing.
@@ -55,13 +55,13 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 | Provider privacy | Training/data-policy rejection gets a specific explanation and review-privacy repair | VERIFIED | `tests/provider-errors.test.ts` synthetic privacy fixture; provider error integration test | App cannot attest every provider's contract |
 | Navigation | Four stages, current section, and exact-version approval gate | VERIFIED | `tests/workflow.test.ts`, `tests/experience.test.ts`, `tests/http-workflow.test.ts`; visual suite | — |
 | Navigation | Approval does not grant native tool permission; denial remains denial | VERIFIED | `tests/native-permissions.test.ts`; guide permission arrays | App is a workflow authority, not an OS sandbox |
-| Landing/theme | Landing, workshop, and demo routes are distinct and truthful | VERIFIED | `tests/web.test.ts`, `tests/visual/landing.spec.ts`; snapshots | — |
+| Landing/theme | Landing, workshop, and guided sample routes are distinct and truthful | VERIFIED | `tests/web.test.ts`, `tests/visual/landing.spec.ts`; refreshed landing wide/narrow snapshots | — |
 | Landing/theme | No fabricated counts, awards, testimonials, or live-demo claims | VERIFIED | `tests/web.test.ts` copy assertions; `docs/PRODUCT_BRIEF.md` prohibited claims | — |
-| Recommendations | Recommendation fixtures match current capabilities and carry source/freshness | VERIFIED | `src/web/content/landing.ts`; `tests/web.test.ts` | Static guidance, not a live recommender |
+| Canonical sample | Landing preview, guided sample, evidence view, and screenshots use one Driftwatch fixture; the sample check is PASS and the live session is NOT_RUN on both pages | VERIFIED | `demoPreviewSteps` and `demoFixture` in `src/shared/demo.ts`; `tests/web.test.ts` canonical-outcome case; Playwright consistency case | Recorded fixture, not live inference |
 | Modes | `local`, `private-hosted`, `hosted-demo` startup and auth policy | VERIFIED | `tests/security.test.ts`, `tests/http-hardening.test.ts`, local/demo smoke | Private deployment not live |
-| Modes | Public demo is read-only, token-free, engine-free, persistence-free | VERIFIED | `tests/demo.test.ts`; local smoke; server enforcement | No public URL |
-| Demo | Deterministic playback, reset isolation, 90-second path | VERIFIED | `tests/demo.test.ts`, `tests/visual/demo.spec.ts` | Fixture is not live inference |
-| Demo | No network/inference/repository mutation from `/demo` | VERIFIED | Playwright request capture; source scan test; hosted-demo smoke | — |
+| Modes | Public sample is read-only, token-free, engine-free, persistence-free | VERIFIED | `tests/demo.test.ts`; local smoke; server enforcement | No public URL |
+| Sample | Guided playback, reset isolation, 90-second path, and one coherent Driftwatch story | VERIFIED | `tests/demo.test.ts`, `tests/visual/demo.spec.ts` | Recorded sample, not live inference |
+| Sample | No network/inference/repository mutation from `/demo` | VERIFIED | Playwright request capture; source scan test; hosted-sample smoke | — |
 | Security | Host/Origin/CSRF/content-type/size/rate/concurrency policy | VERIFIED | `tests/http-hardening.test.ts`, `tests/security.test.ts` | Rate limiter is in-process |
 | Security | Workspace traversal/symlink/broad-root and static containment | VERIFIED | `tests/security.test.ts` | No OS sandbox |
 | Security | SSRF/DNS/redirect/timeout/response-size policy | VERIFIED | `tests/security.test.ts`, `tests/oracle-discovery.test.ts` | Remote Git clone is intentionally narrow and is not an OS/network sandbox |
@@ -69,8 +69,8 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 | Security | Atomic state, lock, backups, quarantine, disk failure | VERIFIED | `tests/store-hardening.test.ts`, `tests/recovery.test.ts` | Single-writer, single-project |
 | Recovery | Previous snapshot offered; corrupt bytes preserved; no silent reset | VERIFIED | `tests/recovery.test.ts`, `tests/store-hardening.test.ts` | Both-corrupt state requires operator restore |
 | Serialization | Schema v7 JSON round-trip preserves source, field-level intake, answer/assumption provenance, structured proposal, candidate base/summary/decision metadata, access/budget policy, provider errors, operations, approvals, evidence, and recovery metadata | VERIFIED | `tests/migration.test.ts`, `tests/provider-errors.test.ts`, `tests/demo.test.ts` (projectSchema round-trip of the updated fixture) | Model cost/privacy facts remain provider-owned |
-| Accessibility | Keyboard/focus/dialog/tabs/drawers/zoom/overflow/reduced motion/contrast | VERIFIED | `tests/visual/landing.spec.ts`, `tests/visual/demo.spec.ts` (19 tests) | Automated checks do not replace a screen-reader audit |
-| Performance | Bundle/asset budgets | VERIFIED | `npm run budget`: initial JS 195.6 KiB gzip, all JS 280.7 KiB, CSS 17.1 KiB, hero 570.9 KiB, largest 86.7 KiB | All-JS budget deliberately raised from 280 to 290 KiB for the focused-workshop and Project memory surfaces; Vite reports a >500 KiB minified initial chunk warning |
+| Accessibility | Keyboard/focus/dialog/tabs/drawers/zoom/overflow/reduced motion/contrast | VERIFIED | `tests/visual/landing.spec.ts`, `tests/visual/demo.spec.ts` (20 tests) | Automated checks do not replace a screen-reader audit |
+| Performance | Bundle/asset budgets | VERIFIED | `npm run budget`: initial JS 201.3 KiB gzip, all JS 279.9 KiB, CSS 17.0 KiB, hero 581.2 KiB, largest 87.8 KiB | All-JS budget remains 290 KiB after adding the canonical sample and new hero; Vite reports a >500 KiB minified initial chunk warning |
 | Documentation | Canonical routes/schema/env/modes/UI terms and history pointers | VERIFIED | This documentation set; link scan | Ongoing maintenance |
 | Documentation | Runtime prompts separated from implementation prompts | VERIFIED | `src/server/prompts/loader.ts`, `tests/prompts.test.ts`, `docs/prompts/README.md` | Loader reads a fixed map |
 | Dependency audit | No high/critical production advisory | VERIFIED at high threshold | `npm audit --omit=dev --audit-level=high` exit 0 | 6 moderate `glob`/`minimatch` advisories remain in the Sentry bundler path; `npm audit` exits 1 |
@@ -86,10 +86,10 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 |---|---|
 | `npm ci` | PASS — exact lockfile install |
 | `npm run typecheck` | PASS |
-| `npm test` | PASS — 184 tests, 0 failures |
+| `npm test` | PASS — 186 tests, 0 failures |
 | `npm run build` | PASS — `dist/web` produced; one large-chunk warning |
-| `npm run budget` | PASS — all five budgets; all JS 280.7 KiB gzip, CSS 17.1 KiB |
-| `npm run test:visual` | PASS — 19 tests; intentional focused-workshop, Activity & results, and character snapshots updated; no horizontal overflow |
+| `npm run budget` | PASS — all five budgets; initial JS 201.3 KiB, all JS 279.9 KiB, CSS 17.0 KiB, hero 581.2 KiB |
+| `npm run test:visual` | PASS — 20 tests; rewritten landing, guided sample, consistency, Activity & results, and character snapshots updated; no horizontal overflow |
 | `npm audit --omit=dev --audit-level=high` | PASS (exit 0); 6 moderate advisories reported |
 | `npm audit` | FAIL (exit 1) — same 6 moderate advisories; no high/critical |
 | `node scripts/preflight.mjs` | BLOCKED for optional partner/runtime proof: Entire and global OpenCode CLI absent; DNS, Git read, loopback, and Node checks pass; no Phase 3 verification depends on it |
@@ -111,8 +111,8 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 
 ### Tests and reports
 
-- `tests/` — 184 unit/integration/component tests.
-- `tests/visual/` — 19 Playwright visual/accessibility tests with committed snapshots.
+- `tests/` — 186 unit/integration/component tests.
+- `tests/visual/` — 20 Playwright visual/accessibility tests with committed snapshots.
 - `tests/memory.test.ts` — project-memory add/correct/supersede transitions and the authenticated `/api/memory` route.
 - `tests/web.test.ts` — workshop surfaces, Activity & results structure, Project memory content, and collapsed Advanced diagnostics.
 - `tests/observable-runs.test.ts` — Phase 2 matrix: late Oracle reply, section 06 Architect timeout recovery, late Maker diff with exact-once application, duplicate reconciliation, permission waiting, cancellation, restart reconnect, retry lineage, mark-abandoned, prompt-progress visibility.
@@ -124,16 +124,17 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 - `tests/phase-zero-fixtures.test.ts` — reusable provider, timing, late-result, permission, and reconciliation fixture coverage.
 - `tests/experience-hardening.test.ts` — Maker timeout/permission/budget/cancel/reconcile matrix.
 - `tests/http-hardening.test.ts`, `tests/security.test.ts`, `tests/store-hardening.test.ts` — security/recovery matrix.
-- `tests/demo.test.ts` — fixture, drift, playback, reset, no-network, hosted-demo isolation.
+- `tests/demo.test.ts` — canonical fixture, drift, playback, reset, no-network, hosted-sample isolation.
+- `tests/web.test.ts` — landing hierarchy, one primary CTA, canonical landing/demo outcome, evidence details, and FAQ copy.
 
 ### Screenshots and demo assets
 
-- `tests/visual/snapshots/landing-wide.png`, `landing-narrow.png` — landing/theme.
+- `tests/visual/snapshots/landing-wide.png`, `landing-narrow.png` — rewritten landing hierarchy and bespoke hero.
 - `tests/visual/snapshots/workshop-wide.png`, `workshop-narrow.png`, `onboarding-wide.png` — focused workshop layout and first-run connection.
-- `tests/visual/snapshots/demo-guided-wide.png`, `demo-guided-narrow.png`, `demo-presentation-wide.png` — guided demo.
+- `tests/visual/snapshots/demo-guided-wide.png`, `demo-guided-narrow.png`, `demo-presentation-wide.png` — Driftwatch guided sample and consistency capture.
 - `tests/visual/snapshots/run-inspector.png`, `recovery-unknown.png` — Activity & results and abandoned-run recovery (snapshot filename retained for history).
 - `tests/visual/snapshots/spirit-*.png` — four-spirit states.
-- `assets/source/hero-ghostlight-workshop.webp` — hero master (not shipped); public variants under `public/assets/hero/`.
+- `assets/source/hero-workshop-revival.webp` — four-spirit hero master (not shipped); public variants under `public/assets/hero/`.
 
 ### Demo script and submission guidance
 
@@ -146,6 +147,20 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 - Sentry: metadata-only instrumentation and redaction tests exist; live release/source-map/trace evidence is **NOT RUN** without credentials.
 - Backboard: **BLOCKED**; no installation, session, contribution, or category claim.
 - OpenCode: central runtime dependency with deterministic integration tests and a no-inference live compatibility probe.
+
+## Upgrade Phase 6 evidence
+
+| Check | Result | Detail |
+|---|---|---|
+| One canonical sample | PASS | `demoFixture`, `demoPreviewSteps`, `sampleStory`, the landing evidence view, `/demo`, and snapshots all derive from `src/shared/demo.ts` |
+| No contradictory result | PASS | The old landing-only `FAIL` operation/evidence exports were removed; the sample check is `PASS` and the live proof is `NOT_RUN` on both pages |
+| Coherent story | PASS | All eight sections, the two revisions, Maker diff, recorded check, Witness findings, and landing preview describe the Driftwatch stale-issue change |
+| Landing hierarchy | PASS | Hero → workflow → sample → why OpenCode → setup/privacy → FAQ/final CTA; one primary `Try the example` CTA and secondary `Run locally` |
+| Recommendation removal | PASS | No static recommendation table, fixtures, or styles remain |
+| Hero asset | PASS | New four-spirit source master plus responsive AVIF/WebP/JPEG variants; total 581.2 KiB, largest 87.8 KiB |
+| Fixture consistency test | PASS | `tests/web.test.ts` compares the landing and demo outcome; Playwright repeats the comparison in a real browser |
+| Visual regression | PASS | 20 Playwright tests, including landing wide/narrow, 200% zoom, guided sample wide/narrow/presentation, and canonical consistency |
+| Migration | NOT REQUIRED | Demo-only change; schema v7 and saved projects are unchanged |
 
 ## Release classification
 

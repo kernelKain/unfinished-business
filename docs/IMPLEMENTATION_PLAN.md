@@ -1,6 +1,6 @@
 # Implementation plan and phase record
 
-**Status:** Upgrade Phase 5 complete and verified.
+**Status:** Upgrade Phase 6 complete and verified.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
@@ -23,6 +23,7 @@
 | Upgrade Phase 3 — Project intake and guided discovery | Four-way source onboarding, safe confirmation-gated imports, multi-turn Oracle intake, structured proposal/memory, schema v6 migration | Complete and verified; commit recorded by `git log -1` after phase handoff |
 | Upgrade Phase 4 — Reviewable generated revisions | Section content contracts, candidate revisions, explicit accept/reject, stale approvals, safe Markdown, unified/side-by-side diffs, schema v7 migration | Complete and verified; commit recorded by `git log -1` after phase handoff |
 | Upgrade Phase 5 — Focused workshop and reorganized OpenCode controls | One primary task, collapsible outline, contextual Activity & results, editable Project memory, compact model/connection header, lazy Advanced diagnostics, accessible drawers | Complete and verified; commit recorded by `git log -1` after phase handoff |
+| Upgrade Phase 6 — Canonical sample and rewritten landing page | One Driftwatch fixture, coherent abandoned-open-source story, rewritten landing hierarchy, one primary CTA, direct OpenCode explanation, bespoke hero, fixture-consistency and visual tests | Complete and verified; commit recorded by `git log -1` after phase handoff |
 
 The guided-interface line (`origin/main` at `b2d2654`) and the hardening line (`origin/phase-8-hardening` at `8c50439`) both descended from `2205774`. Phase 9 integrates them rather than choosing one and losing the other. The release candidate therefore keeps the landing page, onboarding, deterministic demo, security middleware, state migration, retention, and recovery in one build.
 
@@ -223,6 +224,46 @@ The workshop now presents one primary task at a time. The project outline, Proje
 
 Phase 5 acceptance passed on 2026-11-01. No live provider inference was used.
 
+## Upgrade Phase 6 — canonical sample and rewritten landing page
+
+### Outcome
+
+The product now tells one story. A single versioned Driftwatch fixture powers the guided sample, the landing preview, the evidence view, the visual snapshots, and the docs. The previous landing-only operation/evidence state, which reported a contradictory `FAIL`, is gone. The landing page is rebuilt around the hero, the four-stage workflow, one sample project, a direct explanation of OpenCode, local setup and privacy, and a short FAQ/final CTA.
+
+**Phase commit:** `feat(demo): unify the project revival story`.
+
+### Work units
+
+| Unit | Outcome | Evidence |
+|---|---|---|
+| U6-1 canonical fixture | Driftwatch, an abandoned open-source issue-triage CLI, replaces the campus umbrella scenario; all sections, operations, evidence, diff, check, Witness findings, and beats describe the same change | `src/shared/demo.ts`; `tests/demo.test.ts` |
+| U6-2 one source for the landing | `src/web/content/landing.ts` keeps copy only; the landing preview and evidence view read `demoPreviewSteps` and `demoFixture` from the canonical module | `src/web/landing/DemoTeaser.tsx`, `LandingPage.tsx`; `tests/web.test.ts` consistency case |
+| U6-3 remove contradiction | Deleted the separate landing operations/evidence/capabilities and the `FAIL` result; PASS and `NOT_RUN` now match on both pages | `tests/web.test.ts`; Playwright canonical-consistency case |
+| U6-4 plain language | Rewrote demo and sample copy around the maintainer problem, the bounded fix, the recorded check, and the missing live proof | `DemoPage.tsx`, `DemoTeaser.tsx`, `landing.ts` |
+| U6-5 disclosure hierarchy | Kept a concise “recorded sample” label visible and moved provenance, fixture version, technical caveats, and the evidence inspector under `<details>` | `DemoPage.tsx`, `DemoTeaser.tsx`, `styles.css` |
+| U6-6 landing structure | Hero → four-stage workflow → sample project → why OpenCode → local setup and privacy → FAQ/final CTA; removed the modes, controls, and recommendation sections | `LandingPage.tsx` |
+| U6-7 action hierarchy | **Try the example** is the primary CTA; **Run locally** is secondary; the duplicate “Watch the guided workflow” landing action is removed | `Hero.tsx`, `LandingPage.tsx`; visual suite |
+| U6-8 user-outcome hero facts | Replaced engine/build/evidence technical facts with Clarify the idea, Approve the plan, Build with OpenCode, Verify the result | `Hero.tsx`; `tests/web.test.ts` |
+| U6-9 direct OpenCode story | “OpenCode is the engine” became “OpenCode does the coding. This workshop does the deciding.” with four concrete boundary statements | `LandingPage.tsx`, `docs/PRODUCT_BRIEF.md` |
+| U6-10 rename non-functional labels | Hosted demo/private hosted → hosted sample/private hosted; full local mode → local workshop; deterministic walkthrough → guided sample | `landing.ts`, `modes.ts`, routes, README, docs |
+| U6-11 remove recommendation block | Deleted the static idea-to-tool table and fixtures because it was not interactive or capability-driven | `landing.ts`, `LandingPage.tsx`, `styles.css`, `tests/web.test.ts` |
+| U6-12 bespoke hero | New four-spirit abandoned-workshop illustration, source master, responsive AVIF/WebP/JPEG variants, updated budget and provenance docs | `assets/source/hero-workshop-revival.webp`, `public/assets/hero/*`, `scripts/build-hero-assets.py` |
+| U6-13 visual restraint | Reduced display type, glass cards, pills, outlines, glows, and monospace labels; flatter section rhythm and two-up outcome/privacy lists | `styles.css`; refreshed screenshots |
+| U6-14 tests and docs | Fixture-consistency unit test, landing/demo Playwright consistency test, refreshed snapshots, canonical documentation set | `tests/demo.test.ts`, `tests/web.test.ts`, `tests/visual/`, `docs/` |
+
+### Acceptance status
+
+- [x] Landing and demo report the same sample name, check, and live-proof status from one canonical fixture.
+- [x] The sample tells one coherent story from the abandoned CLI problem through Oracle discovery, the Architect plan, a bounded Maker change, a recorded test, and honest Witness evidence.
+- [x] The hackathon theme is functional: the sample is a hackathon team reviving abandoned open-source work through the product's stages, not a decorative badge.
+- [x] The landing page has one obvious primary CTA, with Run locally as the secondary action and no duplicate watch action.
+- [x] Desktop and mobile layouts have intentional scale and spacing; 200% text zoom and 390px width have no horizontal overflow.
+- [x] Technical fixture disclosures remain available under details.
+- [x] No schema change or migration is required; schema v7 and saved projects remain unchanged.
+- [x] Final typecheck, 186 tests, build, all five budgets, 20 visual/accessibility tests, and diff/security review pass.
+
+Phase 6 acceptance passed on 2026-11-01. No live provider inference was used.
+
 ## Phase 8 hardening units
 
 | Unit | Outcome | Evidence |
@@ -269,7 +310,7 @@ Phase 5 acceptance passed on 2026-11-01. No live provider inference was used.
 | Hosted demo | PASS — fixture project, no token, `DEMO_READ_ONLY`, no engine, `/demo` HTML | Preview only; no public deployment |
 | Navigation/approval gate | PASS — unit tests plus 18 visual tests | — |
 | Demo/reset isolation | PASS — fixture tests and Playwright request capture | — |
-| Recommendation fixtures | PASS — static policy fixtures and source/freshness test | Static guidance, not a live recommender |
+| Recommendation fixtures | REMOVED in Upgrade Phase 6 — the static table was not capability-driven | No replacement recommender is claimed |
 | Security/recovery | PASS — traversal, SSRF, origin, rate, size, redaction, corruption, disk, retention | Rate limiter is in-process |
 | Production dependency audit | PASS at `--audit-level=high`; 6 moderate advisories remain | Sentry bundler plugin, developer build path |
 | Sentry release/maps/traces | NOT RUN in Phase 9 | No authorized `SENTRY_AUTH_TOKEN`/deployment; config is statically reviewed |

@@ -1,24 +1,47 @@
 import { useState } from "react";
 import { ArrowLeft, ArrowRight, RotateCcw } from "lucide-react";
-import { demoSteps } from "../content/landing.ts";
+import {
+  DEMO_FIXTURE_VERSION,
+  DEMO_SOURCE_LABEL,
+  demoFixture,
+  demoPreviewSteps,
+} from "../../shared/demo.ts";
 import { SpiritCharacter } from "../components/SpiritCharacter.tsx";
+import { RunInspector } from "../components/RunInspector.tsx";
 import { StatusChip } from "../components/StatusChip.tsx";
+import { sampleStory } from "../content/landing.ts";
 
 export function DemoTeaser() {
   const [index, setIndex] = useState(0);
-  const step = demoSteps[index];
+  const step = demoPreviewSteps[index];
 
   return (
-    <section className="section demo-teaser" id="demo" aria-labelledby="demo-title">
+    <section className="section sample-section" id="demo" aria-labelledby="sample-title">
       <div className="section-heading">
-        <p className="eyebrow">Deterministic walkthrough</p>
-        <h2 id="demo-title">See the shape of the journey before you run it</h2>
+        <p className="eyebrow">Sample project</p>
+        <h2 id="sample-title">One abandoned project, four honest handoffs</h2>
         <p>
-          This teaser is a scripted fixture. It does not call a model, open a native session, or claim a
-          successful build. Use the controls to inspect the four handoffs.
+          {sampleStory.name} is a small open-source CLI that went quiet before its report could be trusted.
+          Follow the same recorded project from a vague idea to a check you can defend.
         </p>
       </div>
-      <div className="demo-shell" data-testid="demo-teaser">
+
+      <dl className="sample-story">
+        <div>
+          <dt>The original problem</dt>
+          <dd>{sampleStory.originalProblem}</dd>
+        </div>
+        <div>
+          <dt>What was left unfinished</dt>
+          <dd>{sampleStory.unfinished}</dd>
+        </div>
+        <div>
+          <dt>What the team changed</dt>
+          <dd>{sampleStory.revival}</dd>
+        </div>
+      </dl>
+
+      <div className="demo-shell" data-testid="demo-teaser" data-sample={sampleStory.name}>
         <div className="demo-stage">
           <div className="demo-spirit">
             <SpiritCharacter
@@ -30,7 +53,7 @@ export function DemoTeaser() {
           <div className="demo-copy" aria-live="polite">
             <div className="demo-meta">
               <span className="eyebrow">{step.stage}</span>
-              <StatusChip status="fixture" label="Scripted sample" />
+              <StatusChip status="fixture" label="Recorded sample" />
             </div>
             <h3>{step.title}</h3>
             <p className="demo-summary">{step.summary}</p>
@@ -41,8 +64,8 @@ export function DemoTeaser() {
           </div>
         </div>
         <div className="demo-controls">
-          <div className="demo-progress" role="group" aria-label="Walkthrough steps">
-            {demoSteps.map((item, itemIndex) => (
+          <div className="demo-progress" role="group" aria-label="Sample steps">
+            {demoPreviewSteps.map((item, itemIndex) => (
               <button
                 key={item.id}
                 type="button"
@@ -56,22 +79,43 @@ export function DemoTeaser() {
             ))}
           </div>
           <div className="demo-buttons">
-            <button className="action secondary" type="button" onClick={() => setIndex(index === 0 ? demoSteps.length - 1 : index - 1)}>
+            <button className="action secondary" type="button" onClick={() => setIndex(index === 0 ? demoPreviewSteps.length - 1 : index - 1)}>
               <ArrowLeft size={16} aria-hidden="true" /> Back
             </button>
             <button className="action secondary" type="button" onClick={() => setIndex(0)}>
               <RotateCcw size={16} aria-hidden="true" /> Restart
             </button>
-            <button className="action" type="button" onClick={() => setIndex((index + 1) % demoSteps.length)}>
+            <button className="action" type="button" onClick={() => setIndex((index + 1) % demoPreviewSteps.length)}>
               Next <ArrowRight size={16} aria-hidden="true" />
             </button>
           </div>
           <div className="demo-teaser-links">
-            <a className="text-link" href="/demo">Try the example <ArrowRight size={15} aria-hidden="true" /></a>
-            <a className="text-link" href="/demo?presentation=1">Watch the 90-second guided workflow <ArrowRight size={15} aria-hidden="true" /></a>
+            <a className="text-link" href="/demo">Open the full guided sample <ArrowRight size={15} aria-hidden="true" /></a>
           </div>
         </div>
       </div>
+
+      <details className="sample-details">
+        <summary>Sample details and provenance</summary>
+        <div>
+          <p>{DEMO_SOURCE_LABEL}. The sample is version {DEMO_FIXTURE_VERSION} and uses no repository, provider key, model quota, or visitor state.</p>
+          <p>
+            The command shown is <code>{sampleStory.command}</code>. The recorded result is “{sampleStory.check}”.
+            The live native session remains <strong>{sampleStory.liveProof}</strong>.
+          </p>
+          <p>{demoFixture.scenario.provenance}</p>
+        </div>
+        <RunInspector
+          operations={demoFixture.project.operations}
+          evidence={demoFixture.project.evidence}
+          capabilities={demoFixture.project.capabilities}
+          eyebrow="Sample evidence"
+          title="The same evidence view, with recorded data"
+          note="Every row comes from the canonical sample. The check is recorded; the live session is NOT_RUN."
+          sourceLabel="Recorded sample"
+          demo
+        />
+      </details>
     </section>
   );
 }

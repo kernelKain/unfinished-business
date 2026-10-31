@@ -87,9 +87,9 @@ export function DemoPage() {
         <div className="site-header-inner">
           <Brand />
           <div className="site-header-actions">
-            <span className="demo-mode-badge">Demo data</span>
+            <span className="demo-mode-badge">Recorded sample</span>
             <a className="text-link" href="/">Overview</a>
-            <a className="action" href="/workshop">Run live with OpenCode</a>
+            <a className="action" href="/workshop">Run locally</a>
           </div>
         </div>
       </header>
@@ -97,33 +97,37 @@ export function DemoPage() {
       <main id="demo-main" className={`demo-page${playback.presentation ? " demo-presentation" : ""}`}>
         <section className="demo-intro" aria-labelledby="demo-page-title">
           <div>
-            <p className="eyebrow">Guided deterministic example</p>
-            <h1 id="demo-page-title">Campus Umbrella Relay</h1>
+            <p className="eyebrow">Guided sample</p>
+            <h1 id="demo-page-title">{demoFixture.scenario.name}</h1>
             <p>
-              Recover a half-built campus lost-and-found: clarify the idea, approve a plan, apply one bounded
-              Maker change, run a deterministic check, and review honest Witness evidence.
+              Follow one abandoned open-source project through four honest steps: clarify the idea, approve
+              the plan, build one bounded change with OpenCode, and verify the result.
             </p>
             <div className="demo-intro-actions">
               <button className="action" type="button" onClick={() => dispatch({ type: "replay" })}>
-                <Play size={17} aria-hidden="true" /> Try the example
+                <Play size={17} aria-hidden="true" /> Play the sample
               </button>
               <button className="action secondary" type="button" onClick={startPresentation}>
-                <Timer size={17} aria-hidden="true" /> Watch the guided workflow
+                <Timer size={17} aria-hidden="true" /> Play the 90-second version
               </button>
-              <a className="action ghost" href="/workshop">Run live with OpenCode</a>
+              <a className="action ghost" href="/workshop">Run locally</a>
             </div>
           </div>
           <aside className="demo-honesty" aria-label="What this demo is">
             <Info size={20} aria-hidden="true" />
             <h2>What this is</h2>
             <p>
-              {demoFixture.sourceLabel}. No OpenCode session, provider call, repository read, or model quota is used.
+              This is a recorded sample. No model, provider, repository, or visitor state is used.
             </p>
-            <ul>
-              <li>Every run, diff, check, and finding is fixture data.</li>
-              <li>The live session remains <strong>NOT_RUN</strong>.</li>
-              <li>Reset changes only this demo fixture.</li>
-            </ul>
+            <details className="demo-honesty-details">
+              <summary>Sample details</summary>
+              <p>{demoFixture.sourceLabel}. No OpenCode session, provider call, repository read, or model quota is used.</p>
+              <ul>
+                <li>Every run, diff, check, and finding is recorded sample data.</li>
+                <li>The live session remains <strong>NOT_RUN</strong>.</li>
+                <li>Reset changes only this sample.</li>
+              </ul>
+            </details>
           </aside>
         </section>
 
@@ -198,7 +202,7 @@ export function DemoPage() {
           <article className="demo-beat-card" aria-live="polite" data-demo="true" data-beat={beat.id}>
             <div className="demo-beat-art">
               <SpiritCharacter id={beat.spirit} state={beat.state} label={`${spiritProfile(beat.spirit).name} in the ${beat.state} state`} />
-              <StatusChip status="fixture" label="Demo data" />
+              <StatusChip status="fixture" label="Sample data" />
             </div>
             <div className="demo-beat-copy">
               <p className="eyebrow">{beat.stage} · Step {playback.index + 1} of {demoFixture.beats.length}</p>
@@ -229,21 +233,21 @@ export function DemoPage() {
         {!playback.presentation ? (
           <section className="demo-inspector-section" aria-labelledby="demo-inspector-title">
             <div className="section-heading">
-              <p className="eyebrow">Fixture inspector</p>
-              <h2 id="demo-inspector-title">The same Activity &amp; results view, with demo data</h2>
+              <p className="eyebrow">Sample evidence</p>
+              <h2 id="demo-inspector-title">The same evidence view, with recorded data</h2>
               <p>
-                The workshop renders this component from live operations. Here the rows are labeled fixture data,
-                and the missing live session stays visible.
+                The workshop renders this component from live operations. Here every row is labeled sample
+                data, and the missing live session stays visible.
               </p>
             </div>
             <RunInspector
               operations={operationsForBeat(beat)}
               evidence={evidenceForBeat(beat)}
               capabilities={demoFixture.project.capabilities}
-              eyebrow="Demo fixture inspector"
+              eyebrow="Recorded sample evidence"
               title="Observed result, including the missing live proof"
-              note="Every row is demo data. The passing check is prerecorded; the live session is NOT_RUN."
-              sourceLabel="Demo data"
+              note="Every row is recorded sample data. The passing check is not live; the live session is NOT_RUN."
+              sourceLabel="Recorded sample"
               demo
             />
           </section>
@@ -251,15 +255,15 @@ export function DemoPage() {
 
         <section className="demo-evidence-section" id="fixture-evidence" aria-labelledby="fixture-evidence-title">
           <div className="section-heading">
-            <p className="eyebrow">Prerecorded fixture evidence</p>
-            <h2 id="fixture-evidence-title">Representative diff and deterministic check</h2>
+            <p className="eyebrow">Recorded sample evidence</p>
+            <h2 id="fixture-evidence-title">Representative diff and recorded check</h2>
             <p>{demoFixture.diff.sourceLabel}. The source label stays visible with the result.</p>
           </div>
           <div className="demo-evidence-grid">
             <article className="demo-diff" data-demo="true">
               <div className="panel-head">
                 <h3>Representative diff</h3>
-                <StatusChip status="fixture" label="Demo data" />
+                <StatusChip status="fixture" label="Sample data" />
               </div>
               <p>{demoFixture.diff.summary}</p>
               {demoFixture.diff.files.map((file) => (
@@ -286,7 +290,7 @@ export function DemoPage() {
 
             <article className="demo-check" data-demo="true">
               <div className="panel-head">
-                <h3>Deterministic check</h3>
+                <h3>Recorded check</h3>
                 <StatusChip status={demoFixture.verification.result} />
               </div>
               <p className="mono demo-command">{demoFixture.verification.command}</p>
@@ -363,7 +367,7 @@ export function DemoPage() {
               <div className="section-heading">
                 <p className="eyebrow">Recovery and reset</p>
                 <h2 id="recovery-title">Pause, inspect, resume, or reset without touching live state</h2>
-                <p>These are representative states, not live events. Reset affects only this fixture.</p>
+                <p>These are representative states, not live events. Reset affects only this sample.</p>
               </div>
               <div className="recovery-grid">
                 <article className="recovery-card" data-testid="demo-recovery">
@@ -399,10 +403,10 @@ export function DemoPage() {
           <div>
             <p className="eyebrow">Clean exit</p>
             <h2>Ready to do the real thing?</h2>
-            <p>Start OpenCode locally, connect the workshop, and replace fixture evidence with a native result.</p>
+            <p>Start OpenCode locally, connect the workshop, and replace recorded sample evidence with a native result.</p>
           </div>
           <div className="final-actions">
-            <a className="action action-large" href="/workshop">Run live with OpenCode <ArrowRight size={18} aria-hidden="true" /></a>
+            <a className="action action-large" href="/workshop">Run locally <ArrowRight size={18} aria-hidden="true" /></a>
             <a className="action action-large secondary" href="/#local-setup">Local setup</a>
           </div>
           <p className="demo-capability-note">
@@ -413,7 +417,7 @@ export function DemoPage() {
 
       <footer className="site-footer">
         <Brand compact />
-        <p>Deterministic demo. No live model call, no fabricated result.</p>
+        <p>Recorded sample. No live model call, no fabricated result.</p>
         <nav aria-label="Footer">
           <a href="/">Overview</a>
           <a href="/workshop">Workshop</a>
@@ -488,12 +492,12 @@ function SpiritWorkspace({ spirit, beat }: { spirit: SpiritId; beat: DemoBeat })
                 <span className="meta">{operation.kind}</span>
                 <StatusChip status={operation.status} />
                 <p>{operation.result ?? "No result recorded."}</p>
-                <p className="meta">{operation.nativeSessionId ? `Fixture session ${operation.nativeSessionId}` : "No session reference"}</p>
+                <p className="meta">{operation.nativeSessionId ? `Sample session ${operation.nativeSessionId}` : "No session reference"}</p>
               </li>
             ))}
           </ul>
         )}
-        <p className="meta">OpenCode remains the native tool-permission authority. This panel replays a fixture, not a live session.</p>
+        <p className="meta">OpenCode remains the native tool-permission authority. This panel replays a recorded sample, not a live session.</p>
       </div>
     );
   }

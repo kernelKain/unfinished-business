@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build responsive hero assets from the documented master image.
 
-Source/master: assets/source/hero-ghostlight-workshop.webp (1512x648, 21:9).
+Source/master: assets/source/hero-workshop-revival.webp (1512x648, 21:9).
 Outputs are written to public/assets/hero and are the only hero files shipped.
 
 Requires Pillow with WebP support and ffmpeg with libaom-av1 for AVIF.
@@ -14,7 +14,7 @@ from pathlib import Path
 from PIL import Image, ImageEnhance
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCE = ROOT / "assets" / "source" / "hero-ghostlight-workshop.webp"
+SOURCE = ROOT / "assets" / "source" / "hero-workshop-revival.webp"
 OUT = ROOT / "public" / "assets" / "hero"
 TEMP = ROOT / ".cache-hero-build"
 
@@ -59,7 +59,7 @@ def main() -> None:
         render(f"hero-ghostlight-wide-{width}", wide, jpeg=width <= 1280)
 
     # Portrait 3:4 crop around the workbench robot for narrow screens.
-    crop = master.crop((760, 0, 1246, 648))
+    crop = master.crop((720, 0, 1206, 648))
     for width in (900, 600):
         height = round(width * 4 / 3)
         portrait = crop.resize((width, height), Image.Resampling.LANCZOS)

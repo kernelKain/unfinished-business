@@ -1,15 +1,15 @@
 # Architecture — Unfinished Business
 
-**Status:** Upgrade Phase 5 (focused workshop and reorganized OpenCode controls) implemented on the verified Phase 4 baseline.
+**Status:** Upgrade Phase 6 (canonical sample and rewritten landing page) implemented on the verified Phase 5 baseline.
 **Owner:** Engineering.
-**Last verified:** 2026-11-01 against the Phase 5 verification matrix recorded in `docs/EVIDENCE.md`.
+**Last verified:** 2026-11-01 against the Phase 6 verification matrix recorded in `docs/EVIDENCE.md`.
 
 ## 1. System shape
 
 ```text
 Browser
   ├─ /            landing page (eager)
-  ├─ /demo        deterministic walkthrough (lazy chunk)
+  ├─ /demo        guided sample (lazy chunk)
   └─ /workshop    real workshop (lazy chunk)
         │
         │ same-origin fetch /api/*
@@ -61,7 +61,7 @@ Measured production chunks after Phase 5 (2026-11-01):
 - `WorkshopPage-*.js`: 69.1 KiB gzip (includes source onboarding, discovery, revision review, safe Markdown, project memory, and diffs);
 - `DemoPage-*.js`: 12.5 KiB gzip;
 - `SpiritStageTabs-*.js`: 3.6 KiB gzip;
-- CSS: 17.1 KiB gzip (18 KiB budget; all JS budget raised deliberately to 290 KiB).
+- CSS: 17.0 KiB gzip (18 KiB budget; all JS budget remains 290 KiB).
 
 The workshop presents one primary task at a time. A compact header carries the connection and selected model. The project outline is a collapsible drawer. Activity & results appears only when an operation or check exists, opens automatically for an active or abandoned run, and is organized into Progress, Changes, and Checks. Native IDs, capability mappings, raw evidence, and provider payloads live under Technical details. Project memory is a separate editable drawer; raw transcripts stay inside Advanced diagnostics. The previous permanent right rail and Session notes panel are gone.
 
@@ -142,7 +142,7 @@ The browser session token is issued only over loopback in local mode or after Ba
 
 Schema v7 is the single current shape. It preserves the v6 project-source and Oracle discovery record and makes Architect revisions reviewable:
 
-- project source metadata for new work, validated local repositories, confirmation-gated managed remote imports, saved work, and the deterministic demo;
+- project source metadata for new work, validated local repositories, confirmation-gated managed remote imports, saved work, and the recorded sample;
 - field-level Oracle intake for intended user, problem, desired outcome, deadline/event, must-have and optional features, budget, privacy, platforms, repository condition, non-goals, and unresolved questions, with answer provenance and update timestamps;
 - structured project memory buckets for answers, facts, user decisions, assumptions, constraints, and risks; corrections supersede prior entries instead of erasing history. The same fields support the editable Project memory drawer, which appends a user entry through `POST /api/memory` and marks the corrected entry `SUPERSEDED`;
 - Oracle replies with `questions` or `proposal` mode, no more than three explained questions, known constraints, structured proposals, unresolved risks, and a recommended next action;
@@ -202,16 +202,17 @@ Operational rules:
 
 `AtomicProjectStore` acquires a cross-process lock, writes a private temp file, fsyncs, renames, keeps `.previous` and rolling `backups/`, quarantines corrupt current files, and prunes bounded retention. A corrupt current with no valid previous returns `STATE_CORRUPT`; it never silently resets.
 
-## 8. Demo fixture boundaries
+## 8. Sample fixture boundaries
 
-The deterministic demo is a browser-bundled fixture, not a server response and not a parallel UI:
+The guided sample is a browser-bundled fixture, not a server response and not a parallel UI. The same fixture also feeds the landing preview, visual snapshots, and the sample evidence view; `src/web/content/landing.ts` holds copy and configuration only, with no second operation/evidence state.
 
 ```text
 src/shared/workflow.ts   production Zod schemas + types
         │
         ├─ src/server/workflow/model.ts  hashing, migration, persistence helpers
-        ├─ src/shared/demo.ts            versioned fixture + playback beats
-        └─ src/web/demo/DemoPage.tsx     playback + shared components
+        ├─ src/shared/demo.ts            versioned fixture + beats + landing preview
+        ├─ src/web/demo/DemoPage.tsx     playback + shared components
+        └─ src/web/landing/DemoTeaser.tsx landing preview from the same fixture
                     │
                     ├─ RunInspector
                     ├─ SpiritStageTabs (inspect variant)
@@ -219,7 +220,7 @@ src/shared/workflow.ts   production Zod schemas + types
                     └─ pure playback reducer (no API calls)
 ```
 
-`src/shared/demo.ts` has no `node:`, `fetch`, `process.env`, `Date.now`, or `Math.random`. Tests parse the fixture with the production schemas and recompute section hashes. Every fixture result is labeled; the live session remains `NOT_RUN`.
+`src/shared/demo.ts` has no `node:`, `fetch`, `process.env`, `Date.now`, or `Math.random`. Tests parse the fixture with the production schemas, recompute section hashes, and assert that the landing preview and guided sample report the same check and live-proof status. Every recorded result is labeled; the live session remains `NOT_RUN`.
 
 In `hosted-demo` mode the server independently returns the fixture from `/api/project` and `/api/export`, returns a read-only connection status, rejects `/api/session` and every non-GET `/api/*` request, and never constructs an OpenCode connection.
 

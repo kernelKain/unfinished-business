@@ -10,7 +10,7 @@ The application is a single-process Node service with one writer and one active 
 
 | Domain | State | Reset/recovery | Must not affect |
 |---|---|---|---|
-| Guided demo (`/demo`) | Browser playback + versioned fixture | Play/Pause, Previous/Next, Replay, Reset, route refresh, presentation mode | Live project, OpenCode session, repository, provider |
+| Guided sample (`/demo`) | Browser playback + canonical Driftwatch fixture | Play/Pause, Previous/Next, Replay, Reset, route refresh, presentation mode | Live project, OpenCode session, repository, provider |
 | Live workshop (`/workshop`) | `UB_DATA_DIR/project.json` + OpenCode native sessions | Restart app, reconcile abandoned run, restore previous snapshot/backup | Demo fixture |
 
 The demo and workshop share components and schemas, but not state.
@@ -26,9 +26,9 @@ The demo and workshop share components and schemas, but not state.
 - leaves the fixture immutable;
 - does not call `/api/*` or `fetch`.
 
-Playwright records requests during playback and asserts that no `/api/` or provider URL is contacted. `tests/demo.test.ts` asserts reset returns the initial state and the fixture source has no network/time/randomness/environment access.
+Playwright records requests during playback and asserts that no `/api/` or provider URL is contacted. `tests/demo.test.ts` asserts reset returns the initial state and the fixture source has no network/time/randomness/environment access. `tests/web.test.ts` and the Playwright consistency case assert that the landing preview and `/demo` report the same recorded check and `NOT_RUN` live proof.
 
-Route refresh always re-reads the bundled fixture. `/demo` starts paused; `/demo?presentation=1` starts in the 90-second path.
+Route refresh always re-reads the bundled fixture. `/demo` starts paused; `/demo?presentation=1` starts in the 90-second path. The landing preview derives from the same fixture, so there is no second operation/evidence state to reconcile.
 
 In hosted-demo mode the server independently enforces isolation: `/api/project` and `/api/export` return the fixture, `/api/session` issues no token, `/api/connection` reports a read-only demo status, `/api/opencode/*` is unavailable, and every non-GET `/api/*` request returns `403 DEMO_READ_ONLY`.
 

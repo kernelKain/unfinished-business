@@ -12,14 +12,16 @@ test.describe("landing", () => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto("/");
 
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Turn unfinished ideas into hackathon-ready builds.");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Finish the project you already started.");
     await expect(page.getByRole("link", { name: "Try the example" }).first()).toHaveAttribute("href", "/demo");
+    await expect(page.getByRole("link", { name: "Run locally" }).first()).toHaveAttribute("href", "/workshop");
     await expect(page.getByRole("link", { name: "Set up locally" }).first()).toHaveAttribute("href", "#local-setup");
     await expect(page.getByRole("button", { name: "Connect OpenCode" }).first()).toBeVisible();
-    await expect(page.getByText("The example is a deterministic fixture, not live inference.")).toBeVisible();
-    await expect(page.getByText("No second coding harness, no copied transcript database.")).toBeVisible();
-    await expect(page.getByText("The public demo runs the deterministic walkthrough")).toBeVisible();
-    await expect(page.getByText("never uses a visitor's repository and rejects every mutation")).toBeVisible();
+    await expect(page.getByText("The example is recorded and labeled.")).toBeVisible();
+    await expect(page.getByText("OpenCode does the coding. This workshop does the deciding.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "One abandoned project, four honest handoffs" })).toBeVisible();
+    await expect(page.getByText("Driftwatch").first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Watch the guided workflow" })).toHaveCount(0);
 
     const body = await page.locator("body").innerText();
     expect(body).not.toMatch(/trusted by|10,000|award-winning|guaranteed|used by \d/i);
@@ -185,11 +187,12 @@ test.describe("workshop", () => {
   });
 });
 
-test.describe("deterministic demo", () => {
-  test("labels the fixture and captures every spirit state", async ({ page }) => {
+test.describe("guided sample", () => {
+  test("labels the sample and captures every spirit state", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto("/demo");
-    await expect(page.getByRole("heading", { name: "Campus Umbrella Relay" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Driftwatch" })).toBeVisible();
+    await page.locator(".demo-honesty-details summary").click();
     await expect(page.getByText(/No OpenCode session, provider call, repository read, or model quota is used/)).toBeVisible();
 
     for (const [spirit, states] of Object.entries(spiritStates)) {
@@ -202,7 +205,7 @@ test.describe("deterministic demo", () => {
 
     const next = page.getByRole("button", { name: "Next step" });
     for (let step = 0; step < 7; step += 1) await next.click();
-    await expect(page.getByText("Deterministic check").first()).toBeVisible();
+    await expect(page.getByText("Recorded check").first()).toBeVisible();
     await expect(page.getByTestId("run-inspector")).toHaveScreenshot("run-inspector.png");
     await expect(page.getByTestId("demo-recovery")).toHaveScreenshot("recovery-unknown.png");
   });
@@ -213,8 +216,25 @@ test.describe("deterministic demo", () => {
     const next = page.getByRole("button", { name: "Next step" });
     await next.focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("heading", { name: "Oracle clarifies the smallest useful product" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Oracle names the smallest useful fix" })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(1);
+  });
+});
+
+test.describe("canonical sample consistency", () => {
+  test("landing preview and guided demo report the same outcome", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Driftwatch").first()).toBeVisible();
+    await page.locator(".sample-details > summary").click();
+    await expect(page.getByText(/4 tests passed, 0 failed/).first()).toBeVisible();
+    await expect(page.getByText(/The live native session remains/)).toBeVisible();
+
+    await page.goto("/demo");
+    await expect(page.getByRole("heading", { level: 1, name: "Driftwatch" })).toBeVisible();
+    await expect(page.getByText(/4 tests passed, 0 failed/).first()).toBeVisible();
+    await page.locator(".demo-honesty-details summary").click();
+    await expect(page.getByText(/The live session remains/).first()).toBeVisible();
+    await expect(page.getByText(/Campus Umbrella Relay/)).toHaveCount(0);
   });
 });

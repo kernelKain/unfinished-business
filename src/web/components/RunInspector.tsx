@@ -41,7 +41,7 @@ interface RunInspectorProps {
   title?: string;
   note?: string;
   sourceLabel?: string;
-  /** The deterministic demo renders the same read-only evidence without live controls. */
+  /** The recorded sample renders the same read-only evidence without live controls. */
   demo?: boolean;
 }
 

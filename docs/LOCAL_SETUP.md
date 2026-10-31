@@ -8,7 +8,7 @@
 
 - Landing page at `http://127.0.0.1:5173/` (Vite).
 - Real workshop at `http://127.0.0.1:5173/workshop`.
-- Deterministic demo at `http://127.0.0.1:5173/demo`.
+- Guided sample at `http://127.0.0.1:5173/demo`.
 - API on `http://127.0.0.1:4200`.
 - OpenCode on `http://127.0.0.1:4096`.
 

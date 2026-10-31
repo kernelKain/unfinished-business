@@ -227,5 +227,5 @@ Earlier native evidence from the Experience phase remains the only recorded infe
 - `session.fork` rejects an empty session; the UI disables the action when message count is zero.
 - OpenCode may report `variant: "default"` even when no variant was requested; the UI treats this as the model default.
 - Cost/token totals depend on provider usage reporting.
-- A public demo must not ask visitors for provider keys; it has no OpenCode connection at all.
+- A public sample must not ask visitors for provider keys; it has no OpenCode connection at all.
 - A remote OpenCode target is possible only with explicit allowlisting and a non-private resolved address. No remote browser-to-local pairing is implemented.

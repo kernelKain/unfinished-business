@@ -56,7 +56,7 @@ test("the demo fixture is versioned and validates against the production project
   assert.equal(demoFixture.version, DEMO_FIXTURE_VERSION);
   assert.equal(demoFixture.dataMode, "demo");
   assert.match(demoFixture.sourceLabel, /not a live OpenCode session/i);
-  assert.equal(demoFixture.project.id, "demo-campus-umbrella-relay");
+  assert.equal(demoFixture.project.id, "demo-driftwatch");
   assert.equal(demoFixture.project.sections.length, 8);
   assert.equal(demoFixture.project.stage, "WITNESS");
   assert.equal(demoFixture.project.makerScope.status, "GRANTED");
@@ -76,7 +76,7 @@ test("the demo fixture is versioned and validates against the production project
   for (const operation of project.operations) operationSchema.parse(operation);
   for (const evidence of project.evidence) evidenceSchema.parse(evidence);
   for (const capability of project.capabilities) capabilitySchema.parse(capability);
-  assert.equal(demoExport.limitation.includes("Deterministic demo data"), true);
+  assert.equal(demoExport.limitation.includes("Recorded sample data"), true);
   assert.equal(demoExport.drafts.length, project.witnessDrafts.length);
 });
 
@@ -99,6 +99,27 @@ test("every guided beat references valid production-shaped events and all four s
   assert.ok(checkBeat);
   assert.equal(evidenceForBeat(checkBeat!)[0].result, "PASS");
   assert.equal(evidenceForBeat(checkBeat!)[1].result, "NOT_RUN");
+});
+
+test("every fixture artifact describes the same Driftwatch revival", () => {
+  const serialized = JSON.stringify(demoFixture);
+  assert.doesNotMatch(serialized, /umbrella|campus/i);
+  assert.equal(demoFixture.project.product.structuredProposal?.title, demoFixture.scenario.name);
+
+  for (const section of demoFixture.project.sections) {
+    assert.ok(section.content.length > 0, `${section.id} needs content`);
+    assert.match(section.content, /Driftwatch|issues\.json|stale|report|sample/i, `${section.id} must stay on the sample`);
+  }
+  for (const revision of demoFixture.revisions) {
+    assert.ok(demoFixture.project.sections.some((section) => section.id === revision.sectionId));
+  }
+
+  assert.ok(demoFixture.makerAuthorization.includes(demoFixture.diff.files[0].path));
+  assert.ok(demoFixture.makerAuthorization.includes(demoFixture.diff.files[1].path));
+  assert.equal(demoFixture.verification.command, `node --test ${demoFixture.diff.files[1].path}`);
+  assert.match(demoFixture.verification.summary, /4 tests passed, 0 failed/);
+  assert.equal(demoFixture.project.evidence.filter((item) => item.result === "FAIL").length, 0);
+  assert.equal(demoFixture.witness.findings.filter((finding) => finding.kind === "PASS").length, 1);
 });
 
 test("the fixture is deterministic and does not read time, randomness, environment, or network", async () => {
@@ -224,7 +245,7 @@ test("hosted demo mode rejects every mutation before touching the live project",
 
   const exportResponse = await app.request("/api/export");
   assert.equal(exportResponse.status, 200);
-  assert.equal((await exportResponse.json()).limitation.includes("Deterministic demo data"), true);
+  assert.equal((await exportResponse.json()).limitation.includes("Recorded sample data"), true);
 
   const modeResponse = await app.request("/api/mode");
   assert.equal(modeResponse.status, 200);
@@ -250,11 +271,12 @@ test("the demo page exposes accessible controls, live regions, and all four insp
   const html = renderToStaticMarkup(createElement(DemoPage));
   const copy = text(html);
 
-  assert.match(copy, /Campus Umbrella Relay/);
+  assert.match(copy, /Driftwatch/);
+  assert.match(copy, /This is a recorded sample/);
   assert.match(copy, /No OpenCode session, provider call, repository read, or model quota is used/);
-  assert.match(copy, /Every run, diff, check, and finding is fixture data/);
-  assert.match(copy, /Reset changes only this demo fixture/);
-  assert.match(copy, /Representative diff and deterministic check/);
+  assert.match(copy, /Every run, diff, check, and finding is recorded sample data/);
+  assert.match(copy, /Reset changes only this sample/);
+  assert.match(copy, /Representative diff and recorded check/);
   assert.match(copy, /The live session remains NOT_RUN/);
 
   assert.match(html, /Skip to the guided example/);

@@ -4,6 +4,38 @@
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
+## 2026-11-01 — Upgrade Phase 6 canonical sample and landing page
+
+### Added
+
+- One canonical `driftwatch@1` fixture for the guided sample, landing preview, evidence view, visual snapshots, and evidence examples.
+- Shared `demoPreviewSteps` derived from the fixture so the landing cannot drift from the guided sample.
+- A concise sample-story block covering the original problem, what was left unfinished, and what the team changed.
+- Fixture-consistency unit coverage and a Playwright landing/demo consistency check.
+- A bespoke four-spirit abandoned-workshop hero and responsive AVIF/WebP/JPEG variants.
+
+### Changed
+
+- Rebuilt the landing page around hero, four-stage workflow, sample project, why OpenCode, local setup and privacy, and FAQ/final CTA.
+- Made **Try the example** the single primary CTA and **Run locally** the secondary action; removed the duplicate watch action.
+- Replaced technical hero facts with Clarify the idea, Approve the plan, Build with OpenCode, and Verify the result.
+- Rewrote “OpenCode is the engine” as “OpenCode does the coding. This workshop does the deciding.”
+- Renamed deterministic walkthrough to **guided sample**, hosted demo to **hosted sample**, and full local mode to **local workshop**.
+- Moved sample provenance, fixture version, technical caveats, and the evidence inspector under details.
+- Reduced oversized display type, glass cards, pills, outlines, glows, and monospace labels; refreshed visual snapshots.
+
+### Removed
+
+- The separate landing operations/evidence/capabilities exports and their contradictory `FAIL` result.
+- The static idea-to-tool recommendation table, fixtures, styles, and tests.
+- The duplicate “Watch the guided workflow” landing CTA.
+
+### Not in this entry
+
+- No schema change or migration; schema v7 remains current.
+- No new provider call, deployment, publication, or submission.
+- No change to approvals, Maker scope, native permissions, or run recovery.
+
 ## 2026-11-01 — Upgrade Phase 5 focused workshop and OpenCode controls
 
 ### Added

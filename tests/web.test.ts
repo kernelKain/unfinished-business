@@ -12,13 +12,10 @@ import { OpenCodePanel } from "../src/web/opencode-panel.tsx";
 import { connectionStatusSchema } from "../src/shared/opencode.ts";
 import { createProject } from "../src/server/workflow/model.ts";
 import { providerErrorSchema } from "../src/shared/workflow.ts";
-import { demoFixture } from "../src/shared/demo.ts";
+import { demoFixture, demoPreviewSteps } from "../src/shared/demo.ts";
 import {
-  demoCapabilities,
-  demoEvidence,
-  demoOperations,
   faqs,
-  recommendations,
+  sampleStory,
   usageModes,
 } from "../src/web/content/landing.ts";
 import { resolveRoute } from "../src/web/routes.ts";
@@ -39,7 +36,7 @@ function text(html: string): string {
     .trim();
 }
 
-test("routes keep the landing, real workshop, and deterministic demo separate", () => {
+test("routes keep the landing, real workshop, and guided sample separate", () => {
   assert.deepEqual(
     [resolveRoute("/").name, resolveRoute("/workshop").name, resolveRoute("/demo").name],
     ["landing", "workshop", "demo"],
@@ -48,26 +45,28 @@ test("routes keep the landing, real workshop, and deterministic demo separate", 
   assert.equal(resolveRoute("/unexpected").name, "landing");
   assert.equal(resolveRoute("/workshop").path, "/workshop");
   assert.match(resolveRoute("/").title, /Unfinished Business/);
-  assert.match(resolveRoute("/demo").title, /Deterministic demo/);
+  assert.match(resolveRoute("/demo").title, /Guided sample/);
 });
 
-test("landing hero names the product, the engine, and all three primary actions", () => {
+test("landing hero presents one primary action and four user outcomes", () => {
   const html = renderToStaticMarkup(createElement(LandingPage));
   const copy = text(html);
 
-  assert.match(copy, /Turn unfinished ideas into hackathon-ready builds\./);
-  assert.match(copy, /OpenCode-powered hackathon project builder/i);
+  assert.match(copy, /Finish the project you already started\./);
+  assert.match(copy, /A workshop for unfinished hackathon projects/i);
   assert.match(copy, /Try the example/);
-  assert.match(copy, /Watch the guided workflow/);
-  assert.match(copy, /Run live with OpenCode/);
+  assert.match(copy, /Run locally/);
   assert.match(copy, /Set up locally/);
+  assert.doesNotMatch(copy, /Watch the guided workflow/);
+  assert.match(copy, /The example is recorded and labeled/);
+  for (const outcome of ["Clarify the idea", "Approve the plan", "Build with OpenCode", "Verify the result"]) {
+    assert.ok(copy.includes(outcome), `missing hero outcome ${outcome}`);
+  }
   assert.match(html, /href="\/demo"/);
-  assert.match(html, /href="\/demo\?presentation=1"/);
   assert.match(html, /href="\/workshop"/);
   assert.match(html, /href="#local-setup"/);
   assert.match(html, /width="1920"/);
   assert.match(html, /height="823"/);
-  assert.match(html, /The example is a deterministic fixture, not live inference/);
 });
 
 test("usage modes are described truthfully and never claim local repository access", () => {
@@ -75,23 +74,20 @@ test("usage modes are described truthfully and never claim local repository acce
   const copy = text(html);
 
   for (const mode of usageModes) assert.ok(copy.includes(mode.title), `missing mode ${mode.id}`);
-  assert.match(copy, /public demo never uses a visitor's repository and rejects every mutation/);
+  assert.match(copy, /public sample never uses a visitor's repository and rejects every change/);
   assert.match(copy, /private instance is password-protected/);
-  assert.match(copy, /Neither path is a public execution sandbox/);
+  assert.match(copy, /Neither path claims remote access to your machine/);
   assert.match(copy, /Your machine, your OpenCode server, your session/);
-  assert.doesNotMatch(copy, /Password protection and a loopback OpenCode server are required for a hosted instance/);
+  assert.doesNotMatch(copy, /Hosted demo or private hosted|Full local mode/);
   assert.doesNotMatch(copy, /trusted by|10,000|award-winning|used by \d/i);
   assert.doesNotMatch(copy, /remote access to your local repository/i);
 });
 
-test("recommendation fixtures carry source freshness and stay inside current capabilities", () => {
-  assert.ok(recommendations.length >= 3);
-  for (const recommendation of recommendations) {
-    assert.ok(recommendation.source.length > 8, recommendation.idea);
-    assert.match(recommendation.verifiedAt, /^\d{4}-\d{2}-\d{2}$/);
-    assert.doesNotMatch(recommendation.path, /paid model|arbitrary shell|remote repository/i);
-    assert.doesNotMatch(recommendation.permission, /auto-?approve|install silently/i);
-  }
+test("the non-interactive tool recommendation block stays out of the product story", () => {
+  const html = renderToStaticMarkup(createElement(LandingPage));
+  const copy = text(html);
+  assert.doesNotMatch(copy, /Idea to tool recommendation|Recommended path|Habit streak tracker/i);
+  assert.doesNotMatch(html, /recommendation-table/);
 });
 
 test("the four spirits each expose distinct roles and states", () => {
@@ -134,16 +130,17 @@ test("setup tabs expose the tested local commands", () => {
   assert.match(text(html), /Commands are checked against docs\/LOCAL_SETUP\.md/);
 });
 
-test("demo and evidence previews label fixtures and keep the missing live proof visible", () => {
+test("demo and evidence previews use the canonical sample and keep the missing live proof visible", () => {
   const demo = renderToStaticMarkup(createElement(DemoPage));
   const copy = text(demo);
-  assert.match(copy, /Campus Umbrella Relay/);
+  assert.match(copy, new RegExp(demoFixture.scenario.name));
+  assert.match(copy, /This is a recorded sample/);
   assert.match(copy, /No OpenCode session, provider call, repository read, or model quota is used/);
-  assert.match(copy, /Every run, diff, check, and finding is fixture data/);
+  assert.match(copy, /Every run, diff, check, and finding is recorded sample data/);
   assert.match(copy, /The live session remains NOT_RUN/);
-  assert.match(copy, /Representative diff and deterministic check/);
-  assert.match(copy, /Reset changes only this demo fixture/);
-  assert.match(copy, /The same Activity & results view, with demo data/);
+  assert.match(copy, /Representative diff and recorded check/);
+  assert.match(copy, /Reset changes only this sample/);
+  assert.match(copy, /The same evidence view, with recorded data/);
   for (const spirit of ["oracle", "architect", "maker", "witness"] as const) {
     for (const state of new Set(demoFixture.beats.filter((beat) => beat.spirit === spirit).map((beat) => beat.state))) {
       assert.match(demo, new RegExp(`data-testid="spirit-state-${spirit}-${state}"`));
@@ -152,13 +149,33 @@ test("demo and evidence previews label fixtures and keep the missing live proof 
   assert.match(demo, /data-testid="demo-recovery"/);
 
   const inspector = renderToStaticMarkup(createElement(RunInspector, {
-    operations: demoOperations,
-    evidence: demoEvidence,
-    capabilities: demoCapabilities,
+    operations: demoFixture.project.operations,
+    evidence: demoFixture.project.evidence,
+    capabilities: demoFixture.project.capabilities,
   }));
-  assert.match(text(inspector), /Fail/);
-  assert.match(text(inspector), /Do not claim a working build/);
+  assert.match(text(inspector), /Pass/);
+  assert.doesNotMatch(text(inspector), /Do not claim a working build/);
   assert.match(text(inspector), /Workflow approval is not tool permission/);
+});
+
+test("landing preview and guided demo share one canonical sample outcome", () => {
+  const landing = text(renderToStaticMarkup(createElement(LandingPage)));
+  const demo = text(renderToStaticMarkup(createElement(DemoPage)));
+
+  assert.equal(demoPreviewSteps.length, 4);
+  assert.deepEqual(demoPreviewSteps.map((step) => step.stage), ["ORACLE", "ARCHITECT", "MAKER", "WITNESS"]);
+  assert.equal(sampleStory.name, demoFixture.scenario.name);
+  assert.equal(sampleStory.check, demoFixture.verification.summary);
+  assert.equal(sampleStory.liveProof, "NOT_RUN");
+
+  for (const surface of [landing, demo]) {
+    assert.ok(surface.includes(demoFixture.scenario.name), "sample name must match on both pages");
+    assert.ok(surface.includes(demoFixture.verification.summary), "recorded check must match on both pages");
+  }
+  assert.ok(demoPreviewSteps[3].lines.some((line) => line.includes(demoFixture.verification.summary)));
+  assert.ok(demoPreviewSteps[3].lines.some((line) => line.includes("NOT_RUN")));
+  assert.doesNotMatch(landing, /Do not claim a working build|Idea to tool recommendation|Campus Umbrella Relay/);
+  assert.doesNotMatch(demo, /Campus Umbrella Relay/);
 });
 
 test("empty Run Inspector states do not imply success", () => {
@@ -176,9 +193,9 @@ test("empty Run Inspector states do not imply success", () => {
 
 test("activity and results are organized into progress, changes, checks, and technical details", () => {
   const inspector = renderToStaticMarkup(createElement(RunInspector, {
-    operations: demoOperations,
-    evidence: demoEvidence,
-    capabilities: demoCapabilities,
+    operations: demoFixture.project.operations,
+    evidence: demoFixture.project.evidence,
+    capabilities: demoFixture.project.capabilities,
   }));
   const copy = text(inspector);
   assert.match(copy, /Activity & results/);
@@ -311,8 +328,9 @@ test("provider error cards expose safe repair and technical details", () => {
   assert.doesNotMatch(html, /sk-[A-Za-z0-9_-]{16,}/);
 });
 
-test("FAQ answers cover the open-source engine and the demo's limits", () => {
+test("FAQ answers cover the open-source engine and the sample's limits", () => {
   assert.ok(faqs.some((item) => /second coding harness/i.test(item.question)));
   assert.ok(faqs.some((item) => /hosted page read my local repository/i.test(item.question)));
-  assert.ok(faqs.some((item) => /deterministic walkthrough is a scripted fixture/i.test(item.answer)));
+  assert.ok(faqs.some((item) => /recorded fixture/i.test(item.answer)));
+  assert.ok(faqs.some((item) => /What is the Driftwatch sample/i.test(item.question)));
 });

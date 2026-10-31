@@ -4,7 +4,7 @@ test.describe("guided demo", () => {
   test("wide guided example is the canonical capture", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto("/demo");
-    await expect(page.getByRole("heading", { level: 1, name: "Campus Umbrella Relay" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Driftwatch" })).toBeVisible();
     await expect(page).toHaveScreenshot("demo-guided-wide.png");
   });
 
@@ -12,8 +12,9 @@ test.describe("guided demo", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/demo");
 
-    await expect(page.getByRole("heading", { level: 1, name: "Campus Umbrella Relay" })).toBeVisible();
-    await expect(page.getByText(/Every run, diff, check, and finding is fixture data/)).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Driftwatch" })).toBeVisible();
+    await page.locator(".demo-honesty-details summary").click();
+    await expect(page.getByText(/Every run, diff, check, and finding is recorded sample data/)).toBeVisible();
     await expect(page.getByText(/No OpenCode session, provider call, repository read, or model quota is used/)).toBeVisible();
 
     const overflow = await page.evaluate(() => ({
@@ -39,7 +40,7 @@ test.describe("guided demo", () => {
       document.querySelector(".stage-strip")?.scrollTo({ left: 0 });
     });
     await page.waitForTimeout(100);
-    await expect(page.getByRole("heading", { level: 1, name: "Campus Umbrella Relay" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Driftwatch" })).toBeVisible();
     await expect(page).toHaveScreenshot("demo-guided-narrow.png");
   });
 
@@ -51,7 +52,7 @@ test.describe("guided demo", () => {
     await expect(page.getByText(/90s recording path/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Exit presentation" })).toBeVisible();
     await expect(page.getByText("Guided callout.").first()).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Representative diff and deterministic check" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Representative diff and recorded check" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Findings, readiness, and the next honest step" })).toBeVisible();
     await expect(page).toHaveScreenshot("demo-presentation-wide.png");
 
@@ -59,7 +60,7 @@ test.describe("guided demo", () => {
     await expect(page.getByText("90-second presentation").first()).toBeVisible();
 
     await page.getByRole("button", { name: "Exit presentation" }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "Campus Umbrella Relay" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Driftwatch" })).toBeVisible();
   });
 
   test("the demo makes no API or provider request", async ({ page }) => {

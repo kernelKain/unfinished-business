@@ -196,13 +196,13 @@ export function createProject(
       ? {
           kind: "DEMO",
           status: "CONFIRMED",
-          label: "Guided demo fixture",
+          label: "Guided sample",
           repositoryUrl: null,
           workspacePath: null,
           managedWorkspace: true,
           importedAt: null,
           confirmedAt: now,
-          repositoryCondition: "Deterministic fixture; no repository is connected.",
+          repositoryCondition: "Recorded sample; no repository is connected.",
         }
       : {
           kind: "UNSELECTED",
@@ -270,13 +270,13 @@ function migrateSource(source: LegacySource, mode: ProjectMode, workspace: strin
     return {
       kind: "DEMO" as const,
       status: "CONFIRMED" as const,
-      label: source.label ?? "Guided demo fixture",
+      label: source.label ?? "Guided sample",
       repositoryUrl: null,
       workspacePath: null,
       managedWorkspace: true,
       importedAt: source.importedAt,
       confirmedAt: timestamp,
-      repositoryCondition: "Deterministic fixture; no repository is connected.",
+      repositoryCondition: "Recorded sample; no repository is connected.",
     };
   }
   return {

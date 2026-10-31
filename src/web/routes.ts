@@ -15,9 +15,9 @@ const paths: Record<RouteName, string> = {
 };
 
 const titles: Record<RouteName, string> = {
-  landing: "Unfinished Business — Turn unfinished ideas into hackathon-ready builds",
+  landing: "Unfinished Business — Finish the project you already started",
   workshop: "Workshop — Unfinished Business",
-  demo: "Deterministic demo — Unfinished Business",
+  demo: "Guided sample — Unfinished Business",
 };
 
 export function resolveRoute(pathname: string): AppRoute {

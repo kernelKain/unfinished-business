@@ -1006,8 +1006,8 @@ function demoConnectionStatus() {
     diagnostics: [{
       code: "DEMO_READ_ONLY",
       severity: "info",
-      title: "Hosted demo",
-      message: "The public demo is read-only. No OpenCode server, provider, repository, or secret is connected.",
+      title: "Hosted sample",
+      message: "The public sample is read-only. No OpenCode server, provider, repository, or secret is connected.",
       repair: "Run locally and connect OpenCode for live work, or deploy your own private hosted instance.",
     }],
     discovery: null,

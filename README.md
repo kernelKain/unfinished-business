@@ -8,11 +8,11 @@ Unfinished Business is an OpenCode-powered hackathon project builder. Four frien
 
 ## What it is
 
-- A **landing page** at `/` that explains the product, the four roles, OpenCode's role, and the three honest usage paths.
-- A **guided deterministic example** at `/demo`: a versioned Campus Umbrella Relay fixture with Play/Pause, step, replay, reset, four inspectable spirit tabs, a representative diff and check, Witness findings, and an optional 90-second presentation mode at `/demo?presentation=1`. It does not call a model or read a repository.
+- A **landing page** at `/` built around the hero, the four-stage workflow, one sample project, why OpenCode does the coding, local setup and privacy, and a short FAQ.
+- A **guided sample** at `/demo`: one versioned Driftwatch fixture — an abandoned open-source CLI revived through clarification, a plan, one bounded change, a recorded check, and Witness findings. It has Play/Pause, step, replay, reset, four inspectable spirit tabs, and an optional 90-second presentation mode at `/demo?presentation=1`. It does not call a model or read a repository.
 - The **real workshop** at `/workshop`, which connects to a local OpenCode server and records what actually happened.
 - A **first-run connection and discovery flow** that checks a supported OpenCode server, lists the models/providers/agents it actually reports, and lets the builder choose a model and reported reasoning variant. Provider API keys stay inside OpenCode.
-- A **read-only hosted demo** and a **private hosted** mode. Neither reaches into a visitor's local repository.
+- A **read-only hosted sample** and a **private hosted** mode. Neither reaches into a visitor's local repository.
 - A versioned **schema v7** contract for explicit project sources, field-level Oracle intake answers, structured facts/decisions/assumptions with editable superseding corrections, structured proposals, reviewable candidate section revisions, model preferences, provider errors, and recoverable operations. Explicit v1–v6 migrations keep older projects usable.
 - **Reviewable Architect revisions**: every section has a content contract; a change request generates a candidate with a summary and complete Markdown draft. The user inspects a unified or side-by-side diff, then accepts, requests another revision, or discards. Only an accepted candidate replaces the current draft, and approval remains a separate exact-version action.
 - **Focused workshop**: one primary task at a time, a collapsible project outline, a contextual Activity & results drawer, an editable Project memory drawer, and a compact model/connection header. Empty technical panels no longer occupy permanent space.
@@ -30,15 +30,15 @@ OpenCode supplies the agent loop, model access, native tools, permissions, execu
 | Maker | Perform an approved, bounded native edit through OpenCode |
 | Witness | Inspect evidence in a fresh session and prepare honest review drafts |
 
-## Three honest usage paths
+## Runtime modes
 
-**Hosted demo** — `UB_DEPLOYMENT_MODE=hosted-demo`. A public, deterministic sample. It has no OpenCode process, provider credentials, session token, visitor persistence, or repository access. Every non-GET `/api/*` request returns `403 DEMO_READ_ONLY`.
+**Hosted sample** — `UB_DEPLOYMENT_MODE=hosted-demo`. A public, read-only sample. It has no OpenCode process, provider credentials, session token, visitor persistence, or repository access. Every non-GET `/api/*` request returns `403 DEMO_READ_ONLY`.
 
 **Private hosted** — `UB_DEPLOYMENT_MODE=private-hosted`. A password-protected Render or self-hosted instance with a private disk and a loopback OpenCode child. Maker edits the server's isolated demo workspace. A hosted browser cannot edit a visitor's machine.
 
-**Full local mode** — `UB_DEPLOYMENT_MODE=local` (default). The browser app, local API, and pinned OpenCode server run on the builder's machine over loopback. Oracle source onboarding validates local directories and can import a public HTTPS repository into an app-managed workspace after explicit confirmation. Maker's edit remains bounded to the isolated demo workspace; selecting a source does not authorize implementation in that repository.
+**Local workshop** — `UB_DEPLOYMENT_MODE=local` (default). The browser app, local API, and pinned OpenCode server run on the builder's machine over loopback. Oracle source onboarding validates local directories and can import a public HTTPS repository into an app-managed workspace after explicit confirmation. Maker's edit remains bounded to the isolated demo workspace; selecting a source does not authorize implementation in that repository.
 
-The landing page exposes three distinct actions: **Try the example** (`/demo`), **Watch the guided workflow** (`/demo?presentation=1`), and **Run live with OpenCode** (`/workshop`). The example is always labeled as a prerecorded fixture; the live native session remains `NOT_RUN`.
+The landing page has one primary action, **Try the example** (`/demo`), and one secondary action, **Run locally** (`/workshop`). A quiet setup link goes to the tested local commands. The sample is always labeled as recorded; the live native session remains `NOT_RUN`. The 90-second playback stays available inside `/demo` but is no longer a competing landing CTA.
 
 Models are discovered from OpenCode rather than assumed. New projects default to **All accessible models**, so any model OpenCode reports as available can be selected. A project can deliberately switch to **Free and local only**, which blocks paid and unknown-price remote models. Paid or unknown-price remote models require an explicit first-use confirmation; the app never silently substitutes a model or makes a paid request without that confirmation. An optional USD session spending limit can be set, and the deployment can impose a stricter `UB_MAX_SESSION_COST_USD` ceiling. Cost is checked against the value OpenCode reports; an unknown-price provider may report it only after a request.
 
@@ -94,16 +94,16 @@ npm run test:visual
 
 Current results (2026-11-01, Node 22.22.1, no live provider inference):
 
-- **184 unit/integration/component tests pass**.
-- **19 Playwright visual/accessibility tests pass** with committed snapshots, including the focused workshop wide/narrow captures, guided demo wide/narrow/presentation captures, and the reorganized Activity & results view.
-- Initial JS is **195.6 KiB gzip**; all JS **280.7 KiB**; CSS **17.1 KiB gzip**; all hero variants **570.9 KiB** total. The all-JS budget was deliberately raised from 280 to 290 KiB and CSS remains within its 18 KiB budget for the focused-workshop, Project memory, and lazy-loaded diagnostics surfaces.
+- **186 unit/integration/component tests pass**.
+- **20 Playwright visual/accessibility tests pass** with committed snapshots, including the rewritten landing wide/narrow captures, the guided sample wide/narrow/presentation captures, the canonical sample-consistency check, and the reorganized Activity & results view.
+- Initial JS is **201.3 KiB gzip**; all JS **279.9 KiB**; CSS **17.0 KiB gzip**; all hero variants **581.2 KiB** total. The all-JS budget remains 290 KiB and CSS remains within its 18 KiB budget.
 - Keyboard focus order, dialog Escape, setup tab arrow keys, drawer operation, 200% text zoom, 390px overflow, reduced motion, and token contrast are checked.
-- Demo playback, reset isolation, fixture/schema drift, 90-second timing, tab inspection, no-network behavior, and hosted-demo mutation rejection are covered.
+- Sample playback, reset isolation, fixture/schema drift, 90-second timing, tab inspection, no-network behavior, canonical landing/demo consistency, and hosted-sample mutation rejection are covered.
 - State migration deterministically upgrades schema v1, both supported v2 shapes, schema v3, schema v4, schema v5, and schema v6 to v7 without dropping proposals, approvals, transcripts, operations, evidence, selected model data, provider policy, limits, or candidate history.
 - Project-source paths, incomplete intake, explained question limits, explicit assumptions, proposal provenance, reload persistence, correction history, and project-memory corrections are covered.
 - Section contracts, candidate creation/supersede, accept/reject, stale approvals, base-version conflicts, safe Markdown rendering, and unified/side-by-side diffs are covered.
 - Model access policy, paid/unknown-price confirmation, optional spending limits, provider failure classification/redaction, and runtime confirmation gates are covered.
-- Local and hosted-demo smoke journeys pass; the hosted demo makes no inference call and rejects mutation.
+- Local and hosted-sample smoke journeys pass; the hosted sample makes no inference call and rejects mutation.
 - OpenCode 2.0.32 live compatibility probe passed (version, catalog, and disposable session create/read/remove; no prompt or model call).
 - Production dependency audit at `--audit-level=high` passes. `npm audit` still reports six moderate `glob`/`minimatch` advisories reachable through the Sentry bundler plugin during developer builds; the suggested fix is a breaking Sentry downgrade and was not applied.
 
@@ -111,7 +111,7 @@ Current results (2026-11-01, Node 22.22.1, no live provider inference):
 
 ## Status and limitations
 
-The prior release phases remain integrated. Upgrade Phase 5 focuses the workshop: one main task, a collapsible outline, contextual Activity & results, editable Project memory, a compact model/connection header, and lazy Advanced diagnostics. The Activity view separates Progress, Changes, and Checks; technical references live under Technical details. Upgrade Phase 4 remains the reviewable-revision model: section contracts, explicit accept/reject, safe Markdown, responsive diffs, and separate approval. Schema v7 is unchanged.
+The prior release phases remain integrated. Upgrade Phase 6 rewrites the public story around one canonical Driftwatch sample: the landing page now has one primary action, a four-stage workflow, a coherent abandoned-open-source sample, a direct OpenCode explanation, local setup and privacy, and a short FAQ. The non-interactive idea-to-tool recommendation block was removed, and the technical sample disclosure moved under details. Upgrade Phase 5 remains the focused workshop: one main task, a collapsible outline, contextual Activity & results, editable Project memory, a compact model/connection header, and lazy Advanced diagnostics. Schema v7 is unchanged.
 
 Known limitations:
 
@@ -135,7 +135,7 @@ Canonical:
 - [OpenCode integration](docs/OPENCODE_INTEGRATION.md) — tested version/API surface, discovery, credentials ownership, sessions, limits.
 - [Local setup](docs/LOCAL_SETUP.md) — tested commands and troubleshooting.
 - [Hosted deployment](docs/HOSTED_DEPLOYMENT.md) — Render/private instance, demo policy, secrets, review procedure.
-- [Tool catalog](docs/TOOL_CATALOG.md) — selected tools, honest availability, recommendation policy.
+- [Tool catalog](docs/TOOL_CATALOG.md) — selected tools and honest availability.
 - [UX and visual system](docs/UX_AND_VISUAL_SYSTEM.md) — theme, tokens, components, character states, motion, accessibility, performance budget.
 - [Operations and recovery](docs/OPERATIONS_AND_RECOVERY.md) — data layout, backups, migrations, retention, failure matrix.
 - [Demo and submission](docs/DEMO_AND_SUBMISSION.md) — scenario, fixture provenance, playback/reset, exact claims, video beats, disclosure.

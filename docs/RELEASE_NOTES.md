@@ -1,9 +1,29 @@
 # Release notes — Unfinished Business release candidate
 
 **Date:** 2026-11-01
-**Status:** Upgrade Phase 5 implemented; deployment, publication, and submission remain outside this phase.
+**Status:** Upgrade Phase 6 implemented; deployment, publication, and submission remain outside this phase.
 
 ## What changed
+
+### Upgrade Phase 6 — canonical sample and rewritten landing page
+
+- The public story now uses **one canonical sample**: Driftwatch, a small abandoned open-source issue-triage CLI. The same versioned fixture powers the guided sample, landing preview, evidence view, screenshots, and evidence examples.
+- Removed the separate landing operation/evidence exports that reported a contradictory `FAIL`. The recorded check is `PASS`; the live native session remains `NOT_RUN` on both pages.
+- The sample now tells one coherent story: a maintainer finds an abandoned CLI, the Oracle scopes the smallest useful fix, the Architect approves eight sections, Maker makes one bounded change, a recorded Node check passes, and Witness separates the result from the missing live proof.
+- Rewrote technical sample copy in plain language. A concise “recorded sample” label stays visible; provenance, fixture version, technical caveats, and the evidence inspector moved under `<details>`.
+- Rebuilt the landing page around **hero → four-stage workflow → sample project → why OpenCode → local setup and privacy → FAQ/final CTA**.
+- **Try the example** is the single primary CTA. **Run locally** is the secondary action. The duplicate “Watch the guided workflow” landing action is gone; the 90-second path remains inside `/demo`.
+- Replaced technical hero facts with user outcomes: **Clarify the idea**, **Approve the plan**, **Build with OpenCode**, **Verify the result**.
+- Rewrote “OpenCode is the engine” as **“OpenCode does the coding. This workshop does the deciding.”** with concrete approval, plan, evidence, and permission boundaries.
+- Renamed hosted demo/full local labels to **hosted sample** and **local workshop**, and renamed the deterministic walkthrough to the **guided sample**.
+- Removed the static idea-to-tool recommendation block; it was not interactive or capability-driven.
+- Replaced the generic hero with a bespoke four-spirit abandoned-workshop illustration and responsive AVIF/WebP/JPEG variants.
+- Reduced oversized typography, glass cards, pills, outlines, glows, and monospace labels on the landing page.
+- Added fixture-consistency assertions and a browser-level landing/demo consistency test; refreshed the visual snapshots.
+- No schema change or migration is required. Schema v7 and saved projects are unchanged.
+- Verification passes: typecheck, **186 tests**, production build, all five bundle/asset budgets (initial JS 201.3 KiB, all JS 279.9 KiB, CSS 17.0 KiB, hero 581.2 KiB), and **20 visual/accessibility tests**.
+
+Known limits: the sample is recorded and does not prove live inference, the visitor's repository, or a deployment; the hero remains a decorative image with all meaning in HTML; automated visual checks do not replace a full screen-reader audit.
 
 ### Upgrade Phase 5 — focused workshop and reorganized OpenCode controls
 

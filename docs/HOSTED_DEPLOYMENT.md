@@ -8,23 +8,23 @@
 
 | Shape | Mode | Public? | OpenCode | Persistence | Template |
 |---|---|---|---|---|---|
-| Deterministic demo | `hosted-demo` | Yes, read-only | None | No visitor state | `render.demo.yaml` |
+| Hosted sample | `hosted-demo` | Yes, read-only | None | No visitor state | `render.demo.yaml` |
 | Private workshop | `private-hosted` | Password-protected | Loopback child | Private persistent disk | `render.yaml` |
 
 Both serve the same build:
 
 - `/` — landing page;
-- `/demo` — labeled deterministic walkthrough;
+- `/demo` — labeled recorded Driftwatch sample;
 - `/workshop` — real workshop (read-only notice in demo mode);
 - `/api/*` — validated API.
 
 A hosted instance is **not** a public sandbox, a remote mount of a visitor's checkout, proof of free-model availability, or a substitute for the local real-execution demonstration.
 
-## Hosted demo behavior
+## Hosted sample behavior
 
 `UB_DEPLOYMENT_MODE=hosted-demo` serves the public guided example without OpenCode, provider credentials, a repository, a session token, or visitor persistence:
 
-| Behavior | Hosted demo |
+| Behavior | Hosted sample |
 |---|---|
 | Routes | `/`, `/demo`, `/workshop` public; `/api/health` and `/api/mode` public |
 | API reads | `/api/project` and `/api/export` return the versioned fixture |
@@ -32,7 +32,7 @@ A hosted instance is **not** a public sandbox, a remote mount of a visitor's che
 | Session token | `/api/session` returns `403`; no token is issued |
 | OpenCode | `/api/opencode/*` is unavailable; no connection object is constructed |
 | Connection | `/api/connection` returns a read-only demo status with no engine address |
-| Repository | None. Fixture workspace is `demo://campus-umbrella-relay` |
+| Repository | None. Sample workspace is `demo://driftwatch` |
 | Persistence | No visitor state is written; reload returns the same sample |
 | Inference | Zero model/provider calls |
 | Reset | Changes only client playback state |
@@ -160,7 +160,7 @@ No step below was executed in Phase 9. Deployment is a separate authorized actio
 
 Approved:
 
-> A hosted instance can show the deterministic walkthrough or run a private, password-protected workshop on the server's own isolated demo workspace.
+> A hosted instance can show the recorded Driftwatch sample or run a private, password-protected workshop on the server's own isolated demo workspace.
 
 > Password protection and a loopback OpenCode server are required for the private instance.
 

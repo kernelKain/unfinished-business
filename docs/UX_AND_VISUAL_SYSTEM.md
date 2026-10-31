@@ -1,6 +1,6 @@
 # UX and visual system — Ghostlight Hacker Workshop
 
-**Status:** Implemented release candidate; Upgrade Phase 5 focused the workshop, reorganized Activity & results, added editable Project memory, and moved technical controls into lazy Advanced diagnostics.
+**Status:** Implemented release candidate; Upgrade Phase 6 rewrote the public landing page around one canonical sample, with a bespoke hero and a single primary CTA. Upgrade Phase 5 remains the focused-workshop layout.
 **Owner:** Interface/UX.
 **Last verified:** 2026-11-01.
 **Source of truth:** `src/web/styles.css`, `src/web/spirits.ts`, `src/web/components/`, `src/web/content/landing.ts`, `src/web/demo/`.
@@ -121,23 +121,23 @@ Status chips include a dot and text; color is never the only signal. `.status-ch
 
 ### Site header
 
-- Sticky, blurred near-black bar with brand, section anchors, and two actions.
-- Under 720px: navigation collapses; header actions may wrap; the brand name may wrap instead of overflowing.
-- Never hide the primary “Open workshop” action behind hover.
+- Sticky, blurred near-black bar with the brand, section anchors, a connect action, and a quiet Run locally link.
+- Under 720px: navigation and the connect action collapse; the brand name and Run locally link wrap instead of overflowing.
+- The page-level primary CTA lives in the hero, not in the header. Never hide the only path to the workshop behind hover.
 
 ### Hero
 
-- 21:9 cinematic image with a dark left-to-right and bottom-up veil; copy in the left third.
-- `<picture>` serves AVIF, WebP, and a JPEG fallback; mobile gets a 3:4 portrait crop.
+- 21:9 cinematic four-spirit image with a dark left-to-right and bottom-up veil; copy in the left third.
+- `<picture>` serves AVIF, WebP, and a JPEG fallback; mobile gets a 3:4 portrait crop around the Architect, Maker, project, and Witness.
 - Explicit `width="1920" height="823"` on the fallback image prevents layout shift.
 - The hero image is decorative (`aria-hidden` on the `<picture>`); its description is preserved in `heroAlt` for catalog and fallback use. All essential meaning is in text.
-- Headline uses a non-breaking `hackathon-ready` unit to avoid an orphaned hyphen.
+- Display type is capped below the previous oversized scale; the four hero facts are user outcomes, not technical facts.
 
-### Mode cards
+### Ways to run
 
-- Exactly two on wide screens; one per row on mobile.
-- Each card states what the path **is** and what it **is not**.
-- Do not place a “live” badge on the deterministic sample.
+- Two compact paths on wide screens; one per row on mobile.
+- Each path states what it **is** and what it **is not**.
+- Do not place a “live” badge on the recorded sample.
 
 ### Spirit cards
 
@@ -150,15 +150,15 @@ Status chips include a dot and text; color is never the only signal. `.status-ch
 
 - A semantic `<nav aria-label="Four-stage workflow">` containing an ordered list.
 - The workshop uses non-interactive stage items: they do not pretend to be clickable tabs. `aria-current="step"` marks the current stage.
-- The guided demo passes `onSelect`, so each stage is a real button labeled “Inspect Oracle/Architect/Maker/Witness”. Selecting a tab pauses playback and shows that spirit's fixture workspace. `aria-current="step"` still marks the inspected stage.
+- The guided sample passes `onSelect`, so each stage is a real button labeled “Inspect Oracle/Architect/Maker/Witness”. Selecting a tab pauses playback and shows that spirit's sample workspace. `aria-current="step"` still marks the inspected stage.
 - Each item includes a mini spirit, stage number, name, state text, and a visually hidden “Stage X of 4”.
 - Horizontal scroll on narrow screens; never truncate the current stage text.
 
-### Guided demo
+### Guided sample
 
-- The demo is a guided example, not a separate interface. It reuses `RunInspector` (rendered as Activity & results), `SpiritCharacter`, `SpiritStageTabs`, `StatusChip`, and the production workflow shapes.
+- The sample is a guided story, not a separate interface. It reuses `RunInspector` (rendered as Activity & results), `SpiritCharacter`, `SpiritStageTabs`, `StatusChip`, and the production workflow shapes.
 - The layout is: intro/honesty panel → playback controls → four-spirit tabs → guided beat + spirit workspace → Activity & results → representative diff/check → Witness findings → character gallery/recovery → clean exit.
-- Every fixture operation, evidence row, diff, and finding carries a `Demo data` chip or a `Prerecorded demo fixture` source label.
+- Every recorded sample operation, evidence row, diff, and finding carries a `Sample data` chip or a `Recorded sample` source label.
 - Playback controls are Play/Pause, Previous, Next, Replay, Reset, and 90s mode. Reset returns to beat 1, paused, and clears inspection; it never calls an API.
 - Tabs are available during playback. Inspecting a tab pauses auto-advance and shows “Playback paused so you can inspect …”. Resume with Play.
 - Presentation mode (`?presentation=1`) uses 10 beats × 9 seconds = 90 seconds, hides the intro/gallery/recovery, and keeps the diff, check, and Witness sections visible. It is optional; normal interactive use remains available.
@@ -293,9 +293,9 @@ The state classes also drive the workshop header character: Oracle listening/cla
 - Semantic landmarks (`header`, `nav`, `main`, `footer`), one `h1` per route.
 - Skip link is the first focusable element on each route.
 - Visible 3px amber focus ring with a soft halo.
-- Minimum 44px targets for actions, tabs, stage rows, and demo controls.
+- Minimum 44px targets for actions, tabs, stage rows, and sample controls.
 - Tabs use roving tabindex and full arrow-key support.
-- Stage strip is a list; the demo's inspectable stages are real buttons with visible focus rings.
+- Stage strip is a list; the sample's inspectable stages are real buttons with visible focus rings.
 - Playback status is announced through `role="status"` / `aria-live="polite"`; progress uses `role="progressbar"` with a beat value.
 - Status chips pair color with text.
 - Character SVGs are decorative by default; labelled instances expose `role="img"` and `<title>`.
@@ -310,16 +310,16 @@ The state classes also drive the workshop header character: Oracle listening/cla
 
 ### Master
 
-- File: `assets/source/hero-ghostlight-workshop.webp`
+- File: `assets/source/hero-workshop-revival.webp`
 - Dimensions: **1512 × 648** (exactly 21:9)
-- Size: 212 KiB
-- Generated: 2026-10-31 with the environment's authorized image-generation tool, model `openrouter/sourceful/riverflow-v2.6-pro`.
-- Output is an original project asset used under the repository's MIT license. It does not intentionally depict a third-party protected character, logo, or trademark. The source prompt explicitly excluded text, logos, watermarks, and UI panels. The CRT contains abstract geometric shapes only.
+- Size: 264 KiB
+- Generated: 2026-11-01 with the environment's authorized image-generation tool, model `openrouter/sourceful/riverflow-v2.6-pro`.
+- Output is an original project asset used under the repository's MIT license. It does not intentionally depict a third-party protected character, logo, or trademark. The source prompt explicitly excluded text, logos, watermarks, and UI panels. The laptop contains abstract geometric shapes only.
 - Master files live outside `public/` and are not shipped.
 
 ### Prompt
 
-> Wide 21:9 cinematic matte painting of a spectral hacker workshop at night, designed as a website hero background. An unfinished friendly robot sits on a workbench with a CRT-style terminal, scattered blueprints, coils of cable, and hand tools. Four subtle, friendly glowing spirits drift in the background: a lantern orb, a compass-like blueprint spirit, a small mechanical ghost, and an archival moth with a camera lens. Deep navy and indigo atmosphere, restrained amber lantern/workbench light, ultraviolet and spectral blue glow, layered depth, soft volumetric haze, fine film grain. Composition: keep the left third dark, calm, and uncluttered with empty space for hero copy; place the workbench and characters to the right. Elegant, original, painterly, dimensional. Absolutely no text, no letters, no numbers, no logos, no watermarks, no user interface panels, no frames, no borders.
+> Wide cinematic 21:9 illustration for a dark, warm hacker workshop at night. A half-finished open-source software project sits on a wooden workbench: an old laptop showing abstract code, a taped paper plan, a small cardboard box of parts, and a half-built mechanical creature. Four small, distinct, friendly ghost-spirits gather around the bench: a lantern-orb seer with soft rings (Oracle), a blueprint-compass spirit holding parchment (Architect), a tiny mechanical ghost with a tool belt and goggles (Maker), and a pale archival moth with a single lens eye (Witness). Left third of the frame is deliberately dark and uncluttered for text overlay. Painterly editorial illustration, deep indigo and near-black background, warm amber work-lamp light, restrained spectral cyan and violet accents, subtle grain, no glossy sci-fi, no neon excess. No text, no letters, no logos, no user interface, no watermark, no mockup. Coherent composition, readable silhouettes, gentle hopeful mood about reviving abandoned work.
 
 ### Derived outputs
 
@@ -333,11 +333,11 @@ Built by `scripts/build-hero-assets.py` (`npm run assets:hero`) into `public/ass
 | `hero-ghostlight-portrait-900` | 900 × 1200 | AVIF, WebP | Mobile 3:4 crop |
 | `hero-ghostlight-portrait-600` | 600 × 800 | AVIF, WebP | Narrow mobile |
 
-The portrait crop focuses on the workbench robot and CRT; it is generated from the master, not a separate scene. The `<picture>` element selects the mobile portrait below 720px. The fallback `<img>` carries explicit `1920 × 823` dimensions; CSS aspect ratios prevent layout shift for the portrait source.
+The portrait crop focuses on the blueprint spirit, the mechanical Maker, the project on the bench, and the archival moth; it is generated from the master, not a separate scene. The `<picture>` element selects the mobile portrait below 720px. The fallback `<img>` carries explicit `1920 × 823` dimensions; CSS aspect ratios prevent layout shift for the portrait source.
 
 ### Character provenance
 
-All four characters are hand-authored SVG in this repository. They are not generated, traced, or derived from protected characters. Their state vocabulary is defined in `src/web/spirits.ts` and shared with the demo gallery.
+All four characters are hand-authored SVG in this repository. They are not generated, traced, or derived from protected characters. Their state vocabulary is defined in `src/web/spirits.ts` and shared with the sample gallery.
 
 ## 8. Performance budget
 
@@ -345,15 +345,15 @@ All four characters are hand-authored SVG in this repository. They are not gener
 
 | Metric | Budget | Measured (2026-11-01) | Status |
 |---|---|---|---|
-| Initial JS (gzip) | ≤ 220 KiB | 195.6 KiB | PASS |
-| All JS chunks (gzip) | ≤ 290 KiB | 280.7 KiB | PASS |
-| CSS (gzip) | ≤ 18 KiB | 17.1 KiB | PASS |
-| All hero variants (total) | ≤ 640 KiB | 570.9 KiB | PASS |
-| Largest single hero file | ≤ 190 KiB | 86.7 KiB | PASS |
+| Initial JS (gzip) | ≤ 220 KiB | 201.3 KiB | PASS |
+| All JS chunks (gzip) | ≤ 290 KiB | 279.9 KiB | PASS |
+| CSS (gzip) | ≤ 18 KiB | 17.0 KiB | PASS |
+| All hero variants (total) | ≤ 640 KiB | 581.2 KiB | PASS |
+| Largest single hero file | ≤ 190 KiB | 87.8 KiB | PASS |
 
-The all-JS budget was deliberately raised from 280 to 290 KiB in Upgrade Phase 5 for the focused-workshop surfaces, editable Project memory, the reorganized Activity & results view, and split OpenCode controls. CSS remains within the 18 KiB budget raised in Phase 4 for the safe Markdown typography, diff review, and audit-history surfaces. Both increases are recorded here rather than silently accepted.
+The all-JS budget remains 290 KiB after Upgrade Phase 6 replaced the static recommendation block and hero with the canonical sample and a new image. CSS remains within the 18 KiB budget raised in Phase 4 for the safe Markdown typography, diff review, and audit-history surfaces. Any increase is recorded here rather than silently accepted.
 
-The initial route is the landing page. Workshop and demo are lazy-loaded (69.1 KiB and 12.5 KiB gzip). The demo chunk includes the versioned fixture, playback reducer, and guided UI. The workshop chunk includes the connection/discovery wizard, project memory, Activity & results, and lazy Advanced diagnostics. The hero transfers **34.7–58.2 KiB** as AVIF on a typical wide viewport and **30.9–49.1 KiB** as AVIF on mobile depending on pixel density; the total covers all breakpoints and formats, not one visit.
+The initial route is the landing page. Workshop and sample are lazy-loaded (69.4 KiB and 5.6 KiB gzip, plus 3.5 KiB shared stage tabs). The canonical fixture is shared by the eager landing chunk and the lazy sample chunk; the sample chunk adds the playback reducer and guided UI. This removes the previous duplicate landing state and raises initial JS to 201.3 KiB while lowering all-JS to 279.9 KiB. The workshop chunk includes the connection/discovery wizard, project memory, Activity & results, and lazy Advanced diagnostics. The hero transfers **15.6–56.3 KiB** as AVIF on a typical wide viewport and **32.8–52.4 KiB** as AVIF on mobile depending on pixel density; the total covers all breakpoints and formats, not one visit.
 
 ### Rules
 
@@ -378,9 +378,9 @@ npm run test:visual
 ## 9. Phase 9 release copy and boundary states
 
 - Local mode copy says Maker edits the isolated demo workspace, not an arbitrary repository. The mode descriptor no longer claims workspace selection.
-- Hosted-demo copy says there is no OpenCode, provider, session token, visitor persistence, or repository. `/workshop` is a read-only notice with exits to `/demo` and local setup.
+- Hosted-sample copy says there is no OpenCode, provider, session token, visitor persistence, or repository. `/workshop` is a read-only notice with exits to `/demo` and local setup.
 - Private-hosted copy says the URL, password, and secrets are environment-managed; the browser cannot edit them.
 - API copy distinguishes invalid session token, invalid origin, rate limit, concurrent mutation, request too large, stale revision, unknown native outcome, pending permission, and corrupt/busy state.
-- Recommendation previews carry source and `verifiedAt` metadata. They describe only current capabilities and never imply an install, paid model, arbitrary shell, or approval.
+- There is no landing-page recommender in this release. The static recommendation table was removed in Upgrade Phase 6; a future recommender must be capability-driven, cite source freshness, and never imply an install, paid model, arbitrary shell, or approval.
 - Evidence and Activity & results labels keep fixture results separate from live `NOT_RUN`/native results. No color or animation is the only status signal.
 - The final accessibility matrix covers keyboard focus, dialog Escape, setup-tab arrow keys, 200% text zoom, 390px/wide layouts, overflow, reduced motion, contrast, and relevant screen-reader/live-region semantics.

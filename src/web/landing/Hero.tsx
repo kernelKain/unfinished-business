@@ -1,4 +1,4 @@
-import { ArrowRight, CircleDot, PlugZap, TerminalSquare, Timer } from "lucide-react";
+import { ArrowRight, CircleDot, PlugZap, TerminalSquare } from "lucide-react";
 import { heroAlt } from "../content/landing.ts";
 
 export function Hero() {
@@ -43,22 +43,19 @@ export function Hero() {
       <div className="hero-inner">
         <p className="hero-kicker">
           <span className="pulse-dot" aria-hidden="true" />
-          OpenCode-powered hackathon project builder
+          A workshop for unfinished hackathon projects
         </p>
-        <h1 id="hero-title">Turn unfinished ideas into <span className="keep-together">hackathon-ready</span> builds.</h1>
+        <h1 id="hero-title">Finish the project you already started.</h1>
         <p className="hero-lede">
-          Four friendly spirits guide one idea through a clear proposal, an approved plan, a real bounded
-          build, and evidence you can defend. OpenCode does the coding work; the workshop keeps the decisions honest.
+          Unfinished Business takes one abandoned idea through four honest steps: clarify it, approve the
+          plan, build with OpenCode, and verify the result. You keep the decisions; OpenCode does the coding.
         </p>
         <div className="hero-actions">
           <a className="action action-large" href="/demo">
             Try the example <ArrowRight size={18} aria-hidden="true" />
           </a>
-          <a className="action action-large secondary" href="/demo?presentation=1">
-            <Timer size={18} aria-hidden="true" /> Watch the guided workflow
-          </a>
-          <a className="action action-large ghost" href="/workshop">
-            <PlugZap size={18} aria-hidden="true" /> Run live with OpenCode
+          <a className="action action-large secondary" href="/workshop">
+            <PlugZap size={18} aria-hidden="true" /> Run locally
           </a>
         </div>
         <p className="hero-secondary-link">
@@ -68,12 +65,13 @@ export function Hero() {
         </p>
         <p className="hero-note">
           <CircleDot size={14} aria-hidden="true" />
-          The example is a deterministic fixture, not live inference. Local mode connects to your own OpenCode server.
+          The example is recorded and labeled. Run locally to connect your own OpenCode server.
         </p>
-        <dl className="hero-facts">
-          <div><dt>Engine</dt><dd>OpenCode 2.x</dd></div>
-          <div><dt>Build scope</dt><dd>Isolated workspace</dd></div>
-          <div><dt>Evidence</dt><dd>Observed, not assumed</dd></div>
+        <dl className="hero-facts" aria-label="The four outcomes">
+          <div><dt>01</dt><dd>Clarify the idea</dd></div>
+          <div><dt>02</dt><dd>Approve the plan</dd></div>
+          <div><dt>03</dt><dd>Build with OpenCode</dd></div>
+          <div><dt>04</dt><dd>Verify the result</dd></div>
         </dl>
       </div>
     </section>
