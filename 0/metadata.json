@@ -1,0 +1,52 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M683TTG8444432TG4KT58HNJ",
+  "session_id": "01a19032-02d2-7b60-a490-ef43320f665f",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-31T04:35:08.858757897Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "README.md",
+    "docs/ENGINEERING_BLUEPRINT.md",
+    "package.json",
+    "src/server/app.ts",
+    "src/server/index.ts",
+    "src/server/opencode/operations.ts",
+    "src/server/store/atomic-project-store.ts",
+    "src/server/workflow/model.ts",
+    "src/server/workflow/service.ts",
+    "src/server/workflow/transitions.ts",
+    "tests/http-workflow.test.ts",
+    "tests/operations.test.ts",
+    "tests/recovery.test.ts",
+    "tests/workflow.test.ts"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.6-sol",
+  "turn_id": "3ef8ab83ffba",
+  "checkpoint_transcript_start": 391,
+  "transcript_lines_at_start": 391,
+  "compact_transcript_start": 43,
+  "token_usage": {
+    "input_tokens": 10589,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 1965824,
+    "output_tokens": 12282,
+    "api_call_count": 14
+  },
+  "redaction": {
+    "replacements": 21,
+    "layers": {
+      "betterleaks": 4,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 5,
+      "credentialed_uri": 0,
+      "entropy": 12,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
