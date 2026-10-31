@@ -4,6 +4,34 @@
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
+## 2026-11-01 — Upgrade Phase 2 observable, cancellable, recoverable runs
+
+### Added
+
+- Oracle, Architect, Witness, and Maker runs as persisted asynchronous operations: `POST /api/messages` (stage intents) and `POST /api/runs` return `202` with a queued operation; the saved project updates as the run progresses.
+- Persisted live progress phases on operations: `CONNECTING`, `SESSION_CREATED`, `WAITING_FOR_MODEL`, `RECEIVING_OUTPUT`, `VALIDATING_RESULT`, `WAITING_PERMISSION`, `APPLYING_RESULT`, `RUNNING_CHECKS`, `AWAITING_RECONCILIATION` — observed through bounded OpenCode polling and direction checks from the guide.
+- Operation recovery metadata: `intent`, `sectionId`, `startingRevision`, `idempotencyKey`, `expectedOutput`, `retryOf`, `progress` (schema v5 with explicit v1/v2/v3/v4 migration and deterministic reconciliation markers for old unresolved runs).
+- Run Inspector recovery controls: elapsed time plus **Continue waiting**, **Reconcile now**, **Open in OpenCode**, **Cancel**, **Retry after failure**, **Mark abandoned**.
+- `POST /api/runs/:id/retry` — confirmed-failure Maker retry with explicit `retryOf` lineage; refuses non-Maker rows, unresolved runs, active runners, and already-finished targets.
+- `POST /api/runs/:id/abandon` — operator-only abandon with a recorded status reason.
+- Deeper reconciliation: outcome observation, actual late-reply retrieval (`message.list`), actual diff retrieval (`session.diff`), same-schema validation, node re-check, and exact-once application guarded by `appliedAt` plus the idempotent action record; `COMPLETED_UNAPPLIED` is reachable when the result is not yet readable.
+- `SpiritGuide` observation surface: `lastAssistantText`, `sessionDiff`, `hasPendingPermission`, and progress callbacks.
+
+### Changed
+
+- Maker timeout/disconnect/restart outcomes leave a recoverable `ABANDONED` record with its native session reference and recovery marker instead of an unrecoverable dead end.
+- Restart recovery stamps `AWAITING_RECONCILIATION` and keeps native references; reconciliation stays available after a reconnect.
+- Cancellation works for guide runs too and a late reply cannot overwrite an already-`CANCELLED` record.
+- `refreshNextAction` pins an unresolved guide run to the stage of the spirit that owns it.
+- Demo fixture version bumped to `campus-umbrella-relay@2` for schema v5 fields.
+
+### Not in this entry
+
+- No raw model streaming, no partial output in the document, and no private chain-of-thought display.
+- No SSE event-stream consumption yet (documented future upgrade path in `ARCHITECTURE.md`).
+- No automatic reconciliation of abandoned runs; reconciliation is explicit.
+- No live provider inference, deployment, publication, or submission.
+
 ## 2026-11-01 — Upgrade Phase 1 model access and provider recovery
 
 ### Added

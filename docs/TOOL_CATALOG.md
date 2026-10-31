@@ -15,7 +15,7 @@ This catalog distinguishes what the product **uses**, what it **recommends**, an
 | Node.js 22.14+ | Runtime, build, and bounded Node check | **Required** | Tested on 22.22.1; `engines` minimum 22.14. |
 | React 19 + TypeScript + Vite 8 | Browser interface and build | **Integrated** | Production build and bundle budget pass. |
 | Hono 4 + `@hono/node-server` | HTTP API and static serving | **Integrated** | Security middleware, validation, SSE, and static containment are tested. |
-| Zod 4 | Shared request/state/output validation | **Integrated** | Workflow schema v4, explicit v1/v2/v3 migration, model policy, provider-error, and engine/discovery contracts. |
+| Zod 4 | Shared request/state/output validation | **Integrated** | Workflow schema v5, explicit v1/v2/v3/v4 migration, model policy, provider-error, and engine/discovery contracts. |
 | Motion 14 + Lucide | Purposeful motion and icons | **Integrated** | Free libraries only; reduced-motion fallback tested. No second animation framework. |
 
 ## Verification and operations tools

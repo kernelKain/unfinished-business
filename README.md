@@ -13,7 +13,8 @@ Unfinished Business is an OpenCode-powered hackathon project builder. Four frien
 - The **real workshop** at `/workshop`, which connects to a local OpenCode server and records what actually happened.
 - A **first-run connection and discovery flow** that checks a supported OpenCode server, lists the models/providers/agents it actually reports, and lets the builder choose a model and reported reasoning variant. Provider API keys stay inside OpenCode.
 - A **read-only hosted demo** and a **private hosted** mode. Neither reaches into a visitor's local repository.
-- A versioned **schema v4** contract for source metadata, Oracle intake, structured memory, candidate section revisions, model access/privacy/spending preferences, structured provider errors, and late-result-safe operation states. Explicit migrations keep older projects usable.
+- A versioned **schema v5** contract for source metadata, Oracle intake, structured memory, candidate section revisions, model access/privacy/spending preferences, structured provider errors, late-result-safe operation states, and run-recovery metadata. Explicit migrations keep older projects usable.
+- **Observable, cancellable, recoverable runs**: every Oracle, Architect, Maker, and Witness run is a persisted asynchronous operation with live progress phases, elapsed time, and Continue waiting / Reconcile / Open in OpenCode / Cancel / Retry / Mark abandoned controls. A timed-out or restarted run never permanently blocks the project; reconciliation retrieves and validates the actual late response or diff and applies it exactly once.
 
 OpenCode supplies the agent loop, model access, native tools, permissions, execution, interruption, and native sessions. Unfinished Business adds the four-stage workshop, exact-version approvals, dependency invalidation, evidence views, the onboarding/discovery flow, and the Ghostlight interface. It does **not** ship a second coding harness or a general command executor.
 
@@ -88,7 +89,7 @@ npm run test:visual
 
 Current results (2026-11-01, Node 22.22.1, no live provider inference):
 
-- **139 unit/integration/component tests pass**.
+- **150 unit/integration/component tests pass**.
 - **18 Playwright visual/accessibility tests pass** with committed snapshots, including guided demo wide/narrow/presentation captures.
 - Initial JS is **194.0 KiB gzip**; all JS **266.4 KiB**; CSS **14.5 KiB gzip**; all hero variants **570.9 KiB** total.
 - Keyboard focus order, dialog Escape, setup tab arrow keys, 200% text zoom, 390px overflow, reduced motion, and token contrast are checked.
@@ -103,7 +104,7 @@ Current results (2026-11-01, Node 22.22.1, no live provider inference):
 
 ## Status and limitations
 
-The prior release phases remain integrated. Upgrade Phase 1 adds model access policy, optional spending limits, informed paid/unknown-price confirmation, schema v4, and structured provider failure recovery while preserving the four-stage workflow and its approval gates.
+The prior release phases remain integrated. Upgrade Phase 1 adds model access policy, optional spending limits, informed paid/unknown-price confirmation, schema v4, and structured provider failure recovery while preserving the four-stage workflow and its approval gates. Upgrade Phase 2 makes OpenCode runs observable, cancellable, and recoverable: runs queue as persisted async operations with live progress, timed-out sessions reconcile their real late results exactly once, and retries cannot duplicate native work.
 
 Known limitations:
 

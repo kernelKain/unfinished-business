@@ -173,7 +173,7 @@ export function OpenCodePanel(props: {
   }
 
   return (
-    <details className="advanced" id="opencode-panel">
+    <details className="advanced" id="opencode-panel" tabIndex={-1}>
       <summary><Wrench size={18} aria-hidden="true" /> OpenCode settings and controls <ChevronDown size={16} aria-hidden="true" /></summary>
       <div className="advanced-body">
         <div className="advanced-head">

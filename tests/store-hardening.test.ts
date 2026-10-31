@@ -53,7 +53,7 @@ test("migrates a v1 snapshot to the current schema without resetting content", (
   const migrated = migrateProject(legacy);
   assert.equal(migrated.migrated, true);
   assert.equal(migrated.fromVersion, 1);
-  assert.equal(migrated.project.schemaVersion, 4);
+  assert.equal(migrated.project.schemaVersion, 5);
   assert.equal(migrated.project.mode, "local");
   assert.equal(migrated.project.demoWorkspace, true);
   assert.equal(projectSchema.parse(migrated.project).revision, current.revision);
@@ -91,7 +91,7 @@ test("retains bounded actions, operations, evidence, transcript, and drafts", ()
   const project = createProject("/workspace");
   for (let index = 0; index < 10; index += 1) {
     project.actions.push({ id: `a-${index}`, payloadHash: payloadHash({ index }), resultRevision: index, createdAt: new Date().toISOString() });
-    project.operations.push({ id: `o-${index}`, kind: "guide", payloadHash: "x", nativeSessionId: null, nativeMessageId: null, status: "FAILED", result: "x", model: null, agent: null, startedAt: null, finishedAt: null, statusReason: null, lastObservedAt: null, appliedAt: null, providerError: null });
+    project.operations.push({ id: `o-${index}`, kind: "guide", payloadHash: "x", nativeSessionId: null, nativeMessageId: null, status: "FAILED", result: "x", model: null, agent: null, startedAt: null, finishedAt: null, statusReason: null, lastObservedAt: null, appliedAt: null, providerError: null, intent: null, sectionId: null, startingRevision: null, idempotencyKey: null, expectedOutput: null, retryOf: null, progress: null });
     project.transcript.push({ id: `t-${index}`, spirit: "system", text: "x", createdAt: new Date().toISOString() });
   }
   const retained = applyRetention(project, {
@@ -142,6 +142,13 @@ test("marks in-flight operations abandoned after restart and never repeats them"
     lastObservedAt: null,
     appliedAt: null,
     providerError: null,
+    intent: null,
+    sectionId: null,
+    startingRevision: null,
+    idempotencyKey: null,
+    expectedOutput: null,
+    retryOf: null,
+    progress: { phase: "CONNECTING", detail: "store fixture", updatedAt: new Date().toISOString() },
   });
   project.operations.push({
     id: "22222222-2222-4222-8222-222222222222",
@@ -159,6 +166,13 @@ test("marks in-flight operations abandoned after restart and never repeats them"
     lastObservedAt: null,
     appliedAt: null,
     providerError: null,
+    intent: null,
+    sectionId: null,
+    startingRevision: null,
+    idempotencyKey: null,
+    expectedOutput: null,
+    retryOf: null,
+    progress: { phase: "CONNECTING", detail: "store fixture", updatedAt: new Date().toISOString() },
   });
   await store.save(0, project);
 

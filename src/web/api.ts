@@ -56,11 +56,20 @@ export interface WorkshopProject {
     status: string;
     result: string | null;
     nativeSessionId: string | null;
+    nativeMessageId?: string | null;
     model: EngineModel | null;
     agent: string | null;
     startedAt: string | null;
     finishedAt: string | null;
     providerError: ProviderErrorDetails | null;
+    /** Recovery metadata from schema v5. Older mirrors keep them optional. */
+    intent?: string | null;
+    sectionId?: string | null;
+    startingRevision?: number | null;
+    idempotencyKey?: string | null;
+    expectedOutput?: string | null;
+    retryOf?: string | null;
+    progress?: { phase: string; detail: string | null; updatedAt: string } | null;
   }>;
   capabilities: Array<{
     id: string;
@@ -271,6 +280,26 @@ export function cancelRun(project: WorkshopProject, operationId: string) {
 
 export function reconcileRun(project: WorkshopProject, operationId: string) {
   return request<ActionResult>(`/api/runs/${operationId}/reconcile`, {
+    method: "POST",
+    body: { actionId: crypto.randomUUID(), expectedRevision: project.revision },
+  });
+}
+
+/**
+ * Retries a Maker run that previously failed with a confirmed outcome. A new
+ * operation carries `retryOf`, so the recovered lineage stays complete and no
+ * previous native run is duplicated.
+ */
+export function retryRun(project: WorkshopProject, operationId: string) {
+  return request<MakerStartResult>(`/api/runs/${operationId}/retry`, {
+    method: "POST",
+    body: { actionId: crypto.randomUUID(), expectedRevision: project.revision },
+  });
+}
+
+/** Marks an outstanding operation abandoned after the user confirms. */
+export function abandonRun(project: WorkshopProject, operationId: string) {
+  return request<ActionResult>(`/api/runs/${operationId}/abandon`, {
     method: "POST",
     body: { actionId: crypto.randomUUID(), expectedRevision: project.revision },
   });

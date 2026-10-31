@@ -1,6 +1,6 @@
 # Implementation plan and phase record
 
-**Status:** Upgrade Phase 1 complete and verified.
+**Status:** Upgrade Phase 2 complete and verified.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
@@ -19,6 +19,7 @@
 | Phase 9 — Release gate | Reconciled both lines, canonical docs, migration fixtures, full matrix, local/demo/OpenCode evidence, evidence index | Complete; final phase commit recorded by `git log -1` |
 | Upgrade Phase 0 — Product-upgrade preparation | Baseline record, schema v3, explicit v1/v2 migration, richer operation states, reusable provider/timing/reconciliation fixtures | Complete and verified; commit recorded by `git log -1` after phase handoff |
 | Upgrade Phase 1 — Model access and provider recovery | All accessible models, per-project access policy, optional spending limits, paid/unknown-price confirmation, structured provider errors, schema v4 migration | Complete and verified; commit recorded by `git log -1` after phase handoff |
+| Upgrade Phase 2 — Run observability and recovery | Persisted async Oracle/Architect/Witness/Maker runs, live progress phases, elapsed/cancel/retry/abandon/reconcile controls, exact-once late-result reconciliation, schema v5 migration | Complete and verified; commit recorded by `git log -1` after phase handoff |
 
 The guided-interface line (`origin/main` at `b2d2654`) and the hardening line (`origin/phase-8-hardening` at `8c50439`) both descended from `2205774`. Phase 9 integrates them rather than choosing one and losing the other. The release candidate therefore keeps the landing page, onboarding, deterministic demo, security middleware, state migration, retention, and recovery in one build.
 
@@ -83,6 +84,40 @@ The product can use any model OpenCode reports as available to the connected acc
 - [x] Final typecheck, 139 tests, build, budget, visual suite, and diff/security review pass.
 
 Phase 1 acceptance passed on 2026-11-01. No live provider inference was used for the new tests.
+
+## Upgrade Phase 2 — run observability and recovery
+
+### Outcome
+
+OpenCode operations are persisted asynchronous work with honest live progress. A slow run shows where it actually is; a timed-out or restarted run stays reconcileable; reconciliation retrieves and validates the real late response or diff and applies it exactly once; confirmed failures can be retried into a fresh, lineage-tracked operation without duplicating native work.
+
+**Phase commit:** `fix(runtime): make OpenCode runs observable and recoverable`.
+
+### Work units
+
+| Unit | Outcome | Evidence |
+|---|---|---|
+| U2-1 contracts and migration | Schema v5 adds operation `intent`, `sectionId`, `startingRevision`, `idempotencyKey`, `expectedOutput`, `retryOf`, and persisted `progress` phases; explicit v1/v2/v3/v4 migrations backfill deterministic `AWAITING_RECONCILIATION` markers for non-terminal rows | `src/shared/workflow.ts`, `src/server/workflow/model.ts`, `tests/migration.test.ts` |
+| U2-2 observation layer | `@opencode/client` event/session APIs inspected; safe polling implemented through `message.list`, `session.get`, and permission reads; `SpiritGuide` gains `lastAssistantText`, `sessionDiff`, `hasPendingPermission` and progress callbacks | `src/server/experience/guide.ts`, `docs/DECISIONS.md` U2-01 |
+| U2-3 async guide runs | Oracle/Architect/Witness runs queue (`202`) via `GuideRunCoordinator`; persisted queued operation, live phases, cancel support, malformed/timeout classification, schema-valid application of replies | `src/server/experience/guide-runs.ts`, `src/server/experience/service.ts`, `tests/experience.test.ts` |
+| U2-4 maker progress | Maker coordinator records `CONNECTING → SESSION_CREATED → WAITING_FOR_MODEL → RECEIVING_OUTPUT → VALIDATING_RESULT → RUNNING_CHECKS` plus terminal states; terminal writes clear progress coherently | `src/server/experience/runs.ts`, `tests/observable-runs.test.ts` |
+| U2-5 exact-once reconciliation | Reconcile observes outcome, retrieves the actual diff/reply, validates with live-schema logic, applies once per operation; `COMPLETED_UNAPPLIED` reachable; aggregated helper for Maker recovery | `src/server/experience/service.ts`, `runs.ts`, `tests/experience-hardening.test.ts`, `tests/observable-runs.test.ts` |
+| U2-6 controls | New routes `POST /api/runs/:id/retry` (confirmed-failure Maker only, `retryOf` lineage) and `POST /api/runs/:id/abandon`; cancel extended to guide runs; Run Inspector: elapsed time, progress phases, Continue waiting, Reconcile now, Open in OpenCode, Cancel, Retry, Mark abandoned | `src/server/app.ts`, `src/web/components/RunInspector.tsx`, `src/web/workshop/WorkshopPage.tsx`, `src/web/api.ts` |
+| U2-7 restart recovery | Startup recovery keeps native references and stamps the recovery marker; reconnect tests reconcile a persisted late Maker diff through a fresh service | `src/server/workflow/service.ts`, `tests/observable-runs.test.ts`, `tests/store-hardening.test.ts` |
+| U2-8 documentation | README, architecture, decisions, operations/recovery, integration, implementation plan, evidence, release notes, changelog | canonical documentation set |
+
+### Acceptance status
+
+- [x] A slow run shows useful progress promptly (persisted phases: connecting, session created, waiting for model, receiving output, validating result, waiting for permission, applying result, running checks).
+- [x] A timed-out run does not permanently block the project: `AWAITING_RECONCILIATION` marker plus working reconcile path; `RUN_UNRESOLVED` clears after reconciliation.
+- [x] Reconciliation applies a valid late result once (Oracle reply, Architect section 06 draft, Maker diff with check evidence).
+- [x] Retrying cannot duplicate a previous native run (new operation per retry, `retryOf` lineage, confirm-failure gate, unresolved-run gate).
+- [x] Cancelled or abandoned operations remain understandable in history (visible statuses, reasons, and recovery notes).
+- [x] No private chain-of-thought or unvalidated raw JSON is displayed or saved as a section; partial output is never shown.
+- [x] Old unknown operations are recoverable through migration (v1/v2/v3/v4 → deterministic recovery marker, native references kept).
+- [x] Final typecheck, 150 unit/integration tests, build, budget, 18-test visual suite, and diff/security review pass.
+
+Phase 2 acceptance passed on 2026-11-01. No live provider inference was used for the new tests.
 
 ## Phase 8 hardening units
 

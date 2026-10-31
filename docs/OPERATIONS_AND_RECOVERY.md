@@ -2,7 +2,7 @@
 
 **Status:** Implemented release candidate.
 **Owner:** Operations/engineering.
-**Last verified:** 2026-11-01; schema v4 migration, provider-budget enforcement, recovery, corruption, restart, and hosted-demo isolation covered by tests.
+**Last verified:** 2026-11-01; schema v5 migration, run observability/recovery, provider-budget enforcement, recovery, corruption, restart, and hosted-demo isolation covered by tests.
 
 The application is a single-process Node service with one writer and one active project. It is not a multi-tenant service.
 
@@ -66,7 +66,7 @@ Recovery rules:
 - Current invalid, previous valid → copy the current bytes to `project.json.corrupt-*`, use the previous snapshot, and log the recovery. The corrupt original remains.
 - Both invalid → refuse to reset. State routes return `STATE_CORRUPT`; health stays minimal.
 - Newer schema version → refuse and preserve. Do not downgrade.
-- Schema v1, either supported v2 shape, or schema v3 → deterministically migrate on read; the next successful write persists canonical schema v4.
+- Schema v1, either supported v2 shape, schema v3, or schema v4 → deterministically migrate on read; the next successful write persists canonical schema v5.
 
 Migration policy:
 
@@ -74,6 +74,7 @@ Migration policy:
 - add source/intake/memory/candidate/model-preference fields with explicit defaults;
 - map v3 `requireFreeOrLocal: true` to `FREE_OR_LOCAL_ONLY` and `false` to `ALL_ACCESSIBLE`; map a zero v3 cost limit to unlimited;
 - map legacy operation `UNKNOWN` to `ABANDONED` without erasing the recorded result or native references;
+- backfill every non-terminal migrated operation with a deterministic `AWAITING_RECONCILIATION` progress marker stamped with the fixed epoch sentinel, so old unknown runs remain reconcilable;
 - use the fixed epoch sentinel for timestamps absent from old files, never the migration wall clock;
 - make repeated migration idempotent; refuse and preserve future schema versions.
 
@@ -110,17 +111,37 @@ Deletion: stop the app and remove `UB_DATA_DIR` to delete the project, demo work
 
 The operation state set is `QUEUED`, `RUNNING`, `WAITING_PERMISSION`, `COMPLETED_UNAPPLIED`, `SUCCEEDED`, `FAILED`, `CANCELLED`, and `ABANDONED`.
 
-`COMPLETED_UNAPPLIED` reserves a safe state for a response or Maker diff that arrives after the active request deadline. Its output exists, but no later phase may treat it as applied without an explicit review/apply transition.
+Oracle, Architect, Witness, and Maker runs are persisted asynchronous operations. Stage messages (`clarify`, `draft`, `witness`) and Maker runs return `202 Accepted` with the queued operation; the run continues in the background and the saved project updates as it progresses. Progress phases are recorded while the run is in flight and cleared at a terminal status. A `question` remains a synchronous request because it changes no saved state.
+
+`COMPLETED_UNAPPLIED` means a native result was observed but its actual reply/diff has not yet been retrieved and validated, or validation produced content that is recorded but not yet applied. Reconciling again retrieves and validates the result and applies it **exactly once** (`appliedAt` guard plus the idempotent action record).
+
+Reconciliation (`POST /api/runs/:id/reconcile`, or **Reconcile now** in the Run Inspector):
+
+1. keeps `RUNNING`/`WAITING_PERMISSION` honestly if the session is still running or a native permission is still pending;
+2. reads the native outcome through `session.get` — an idle session without a reported outcome is `unknown`, never success;
+3. on a succeeded Maker session, retrieves the real file diff (`session.diff`), re-runs the bounded Node check, and applies it once with evidence;
+4. on a succeeded guide session, retrieves the latest assistant message, validates it against `ORACLE_REPLY`/`SECTION_DRAFT`/`WITNESS_REPLY` exactly as a live reply would be, and applies it once;
+5. confirms a `FAILED` outcome without repeating anything;
+6. leaves a still-unknown outcome `ABANDONED` with the recovery marker; nothing is invented.
+
+Additional controls:
+
+| Control | Effect |
+|---|---|
+| Continue waiting | Dismisses the recovery panel; polling continues; nothing is repeated |
+| Open in OpenCode | Focuses the app's OpenCode panel with the native session list |
+| Cancel | Interrupts the native session (for an active in-process runner) and records `CANCELLED` |
+| Retry after failure | `POST /api/runs/:id/retry` — Maker runs only, after a confirmed `FAILED` outcome; creates a new operation with `retryOf` lineage |
+| Mark abandoned | `POST /api/runs/:id/abandon` — refuses active in-process runners and already-finished/abandoned rows |
+
+Retries never reuse the prior native session or operation id, so a retried run cannot duplicate a previous native edit; the original row keeps its history.
 
 If the app restarts or the connection drops while a run is in flight:
 
-1. the operation becomes `ABANDONED`;
+1. startup recovery marks the operation `ABANDONED` with the `AWAITING_RECONCILIATION` marker and keeps the native session reference;
 2. the app does not repeat the native action automatically;
-3. inspect the native session reference and Run Inspector;
-4. use the explicit reconcile action only after confirming native state;
-5. cancellation does not undo completed effects.
-
-Startup recovery marks `QUEUED`, `RUNNING`, and `WAITING_PERMISSION` operations `ABANDONED` and records a system transcript entry. It never re-sends a prompt.
+3. use Reconcile now to adopt the actual late result once, or Mark abandoned to record the operator decision;
+4. cancellation does not undo completed effects.
 
 ## Failure matrix
 
@@ -135,10 +156,11 @@ Startup recovery marks `QUEUED`, `RUNNING`, and `WAITING_PERMISSION` operations 
 | Provider privacy/data-policy rejection | provider status/message | `PROVIDER_DATA_POLICY`; no automatic retry | Review the provider's terms, choose a compliant route, or deliberately change the workspace privacy preference |
 | Provider authentication failure | 401/provider auth text | `PROVIDER_AUTH`; no automatic retry | Reconnect the provider inside OpenCode, then retry |
 | Provider rate/quota limit | 429/402/quota text | `PROVIDER_RATE_LIMIT`/`PROVIDER_QUOTA`; no automatic retry | Wait for the limit window or check quota/billing, then start a new request |
-| Native permission pending | permission list/timeout | operation `WAITING_PERMISSION`; app never approves | Resolve in OpenCode, then reconcile |
-| Native timeout/disconnect | timeout/network error | operation `ABANDONED`; never replay | Reconcile; inspect native session first |
-| Late native success/diff | response arrives after timeout | retain as `COMPLETED_UNAPPLIED`; do not claim application | Review and explicitly apply or discard in a later phase |
-| App restart with in-flight work | startup recovery | in-flight statuses → `ABANDONED` | Reconcile; do not start another run |
+| Native permission pending | permission list/timeout/progress phase | operation `WAITING_PERMISSION`; app never approves | Resolve in OpenCode, then reconcile |
+| Native timeout/disconnect | timeout/network error | operation `ABANDONED` with recovery marker; never replay | Reconcile now (retrieves and validates the late result once), retry after a confirmed failure, or mark abandoned |
+| Late native success/diff | response arrives after timeout | retrieved and validated on reconcile; applied exactly once | Reconcile now; if the diff/reply is not retrievable yet it stays `COMPLETED_UNAPPLIED` and reconcile again later |
+| App restart with in-flight work | startup recovery | in-flight statuses → `ABANDONED` with recovery marker | Reconcile now; do not start another run before reconciliation |
+| Retry of an uncertain run | retry endpoint gate | refused (`RETRY_NOT_CONFIRMED`) | Reconcile first; only a confirmed `FAILED` Maker run can be retried |
 | Duplicate action | action ID + payload hash | return existing result; no second native call | None |
 | Changed payload with same action ID | hash mismatch | 409 conflict | Use a new action ID |
 | Stale approval/revision | revision/version/hash mismatch | 409; approval does not apply | Reload and use current version/hash |
@@ -175,7 +197,7 @@ The stricter deployment or project limit wins. The app enforces what OpenCode ex
 1. Stop the app with `SIGTERM`/`SIGINT`; wait for the server to close.
 2. Start OpenCode first, then the app.
 3. Check `/api/health` (minimal), sign in if hosted, and load `/api/runtime` with the session token.
-4. Check `/api/project`; reconcile any `ABANDONED` operation before a new run.
+4. Check `/api/project`; reconcile any `ABANDONED` operation (Reconcile now) before a new run — the app will refuse a new run until the uncertainty is resolved or abandoned.
 5. Inspect `backups/` if startup logged recovery.
 6. Hosted Render restarts are ordinary process restarts; the persistent disk keeps state and OpenCode data.
 

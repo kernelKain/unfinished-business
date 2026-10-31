@@ -154,8 +154,22 @@ test("protects hosted routes with Basic auth and still requires the session toke
   assert.deepEqual(await session.json(), { token });
 });
 
-test("returns understandable rate, concurrency, and duplicate responses", async () => {
-  const { app } = await fixture({ limits: { rateLimitPerMinute: 2 } });
+/** Waits for the latest queued operation to reach the given status. */
+async function waitForOperation(
+  store: AtomicProjectStore,
+  status: "SUCCEEDED" | "FAILED",
+  options: { timeout?: number } = {},
+): Promise<void> {
+  const deadline = Date.now() + (options.timeout ?? 5_000);
+  while (Date.now() < deadline) {
+    const state = (await store.load()).state;
+    if (state.operations.at(-1)?.status === status) return;
+    await new Promise((resolve) => setTimeout(resolve, 15));
+  }
+  throw new Error(`Operation did not reach ${status} in time.`);
+}
+
+test("returns understandable rate, concurrency, and duplicate responses", async () => {  const { app } = await fixture({ limits: { rateLimitPerMinute: 2 } });
   assert.equal((await app.request("/api/project", { headers: { "x-ub-session-token": token } })).status, 200);
   assert.equal((await app.request("/api/project", { headers: { "x-ub-session-token": token } })).status, 200);
   const limited = await app.request("/api/project", { headers: { "x-ub-session-token": token } });
@@ -179,16 +193,18 @@ test("returns understandable rate, concurrency, and duplicate responses", async 
     },
   });
   const { app: concurrent } = await fixture({ guide: slowGuide, limits: { maxConcurrentMutations: 1 } });
+  // The question adapter stays synchronous, so it occupies the mutation gate
+  // exactly like a long native call; stage runs are queued asynchronously.
   const first = concurrent.request("/api/messages", {
     method: "POST",
     headers: jsonHeaders,
-    body: JSON.stringify({ actionId: "first", expectedRevision: 0, intent: "clarify", text: "Idea one." }),
+    body: JSON.stringify({ actionId: "first", expectedRevision: 0, intent: "question", text: "Idea one." }),
   });
   await speaking;
   const second = await concurrent.request("/api/messages", {
     method: "POST",
     headers: jsonHeaders,
-    body: JSON.stringify({ actionId: "second", expectedRevision: 0, intent: "clarify", text: "Idea two." }),
+    body: JSON.stringify({ actionId: "second", expectedRevision: 0, intent: "question", text: "Idea two." }),
   });
   assert.equal(second.status, 429);
   assert.equal((await second.json()).code, "TOO_MANY_CONCURRENT");
@@ -198,7 +214,7 @@ test("returns understandable rate, concurrency, and duplicate responses", async 
   const { app: duplicateApp } = await fixture();
   const body = { actionId: "same", expectedRevision: 0, intent: "clarify", text: "Idea." };
   const one = await duplicateApp.request("/api/messages", { method: "POST", headers: jsonHeaders, body: JSON.stringify(body) });
-  assert.equal(one.status, 200);
+  assert.equal(one.status, 202);
   const two = await duplicateApp.request("/api/messages", { method: "POST", headers: jsonHeaders, body: JSON.stringify(body) });
   assert.equal(two.status, 200);
   assert.equal((await two.json()).duplicate, true);
@@ -265,8 +281,10 @@ test("redacts secrets from errors, persisted project state, and exports", async 
     headers: jsonHeaders,
     body: JSON.stringify({ actionId: "secret", expectedRevision: 0, intent: "clarify", text: "Idea." }),
   });
+  assert.equal(clarify.status, 202);
   const clarified = await clarify.json();
   assert.equal(JSON.stringify(clarified).includes("hunter2"), false);
+  await waitForOperation(store, "SUCCEEDED");
   const projectResponse = await app.request("/api/project", { headers: { "x-ub-session-token": token } });
   assert.equal(JSON.stringify(await projectResponse.json()).includes("hunter2"), false);
 
@@ -278,7 +296,26 @@ test("redacts secrets from errors, persisted project state, and exports", async 
     nativeSessionId: null,
     createdAt: new Date().toISOString(),
   });
-  await store.save(project.revision, project);
+  // Background writes may still be settling; retry the confined append briefly.
+  let saved = false;
+  for (let attempt = 0; attempt < 10 && !saved; attempt += 1) {
+    const current = (await store.load()).state;
+    try {
+      const next = structuredClone(current);
+      next.witnessDrafts.push({
+        id: randomUUID(),
+        title: "Findings",
+        content: `Bearer supersecret and ${secret}`,
+        nativeSessionId: null,
+        createdAt: new Date().toISOString(),
+      });
+      await store.save(current.revision, next);
+      saved = true;
+    } catch (error) {
+      if (attempt === 9) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
   const exported = await app.request("/api/export", { headers: { "x-ub-session-token": token } });
   const exportBody = await exported.json();
   assert.equal(JSON.stringify(exportBody).includes("hunter2"), false);
@@ -292,7 +329,8 @@ test("UB_REDACT_PROMPTS-style transcript privacy keeps the product usable", asyn
     headers: jsonHeaders,
     body: JSON.stringify({ actionId: "private-prompt", expectedRevision: 0, intent: "clarify", text: "a private prompt" }),
   });
-  assert.equal(response.status, 200);
+  assert.equal(response.status, 202);
+  await waitForOperation(store, "SUCCEEDED");
   const state = (await store.load()).state;
   const userEntry = state.transcript.find((entry) => entry.spirit === "user");
   assert.equal(userEntry?.text, "[REDACTED_PROMPT]");
@@ -305,16 +343,16 @@ test("returns a redacted operational error without repeating a native side effec
       throw new Error("Authorization: Bearer supersecret");
     },
   });
-  const { app } = await fixture({ guide: failing });
+  const { app, store } = await fixture({ guide: failing });
   const response = await app.request("/api/messages", {
     method: "POST",
     headers: jsonHeaders,
     body: JSON.stringify({ actionId: "fail", expectedRevision: 0, intent: "clarify", text: "Idea." }),
   });
-  assert.equal(response.status, 502);
-  const body = await response.json();
-  assert.equal(JSON.stringify(body).includes("supersecret"), false);
-  assert.ok(body.requestId);
+  assert.equal(response.status, 202);
+  assert.equal(JSON.stringify(await response.json()).includes("supersecret"), false);
+  await waitForOperation(store, "FAILED", { timeout: 5_000 });
   const project = await (await app.request("/api/project", { headers: { "x-ub-session-token": token } })).json();
   assert.equal(project.operations[0].status, "FAILED");
+  assert.equal(JSON.stringify(project).includes("supersecret"), false);
 });

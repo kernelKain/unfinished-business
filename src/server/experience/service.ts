@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { OpenCodeDiscovery } from "../../shared/opencode.ts";
-import type { ProviderErrorDetails } from "../../shared/workflow.ts";
+import type { OperationPhase, ProviderErrorDetails } from "../../shared/workflow.ts";
 import { LEGACY_FIXED_MODEL_KEY, payloadHash, refreshNextAction, type ModelRef, type Project, type SpiritRole } from "../workflow/model.ts";
 import { AtomicProjectStore, RevisionConflict, StateError } from "../store/atomic-project-store.ts";
 import { loadStagePrompt, type Stage } from "../prompts/loader.ts";
@@ -16,11 +16,15 @@ import {
   reviseSection,
   WorkflowConflict,
 } from "../workflow/transitions.ts";
-import type { GuideBudgets, SpiritGuide } from "./guide.ts";
+import { PHASE_DETAIL, type GuideBudgets, type SpiritGuide } from "./guide.ts";
 import { NativeBudgetError, NativeSessionError, NativeTimeoutError } from "./guide.ts";
-import { NetworkPolicyError } from "../security/network.ts";
-import { redactText, type RedactOptions } from "../security/redaction.ts";
+import { applyValidatedReply, GuideRunCoordinator, validateReply, type ValidatedReply } from "./guide-runs.ts";
+import { applyRecoveredMakerResult, MakerRunCoordinator } from "./runs.ts";
 import { runApprovedNodeCheck } from "./node-check.ts";
+import { classifyNativeError, providerErrorFor as providerFailureFor } from "./failures.ts";
+import { NetworkPolicyError } from "../security/network.ts";
+import { markRecovered } from "./runs.ts";
+import { redactText, type RedactOptions } from "../security/redaction.ts";
 import {
   extractJsonObject,
   formatSectionDraft,
@@ -28,9 +32,9 @@ import {
   sectionReplySchema,
   witnessReplySchema,
 } from "./parse.ts";
-import { MakerRunCoordinator } from "./runs.ts";
 import { traceAgentOperation, traceToolOperation } from "./telemetry.ts";
-import { classifyProviderError, isProviderFailureCandidate, ProviderRequestError } from "../opencode/provider-errors.ts";
+import { isProviderFailureCandidate, ProviderRequestError } from "../opencode/provider-errors.ts";
+import { classifyProviderError } from "../opencode/provider-errors.ts";
 
 export class ExperienceFailure extends Error {
   constructor(
@@ -62,6 +66,8 @@ export interface ExperienceOptions {
   redactPrompts?: boolean;
   mode?: Project["mode"];
   engine?: EngineSelectionService;
+  /** Safe-poll interval for live run observation in milliseconds. */
+  progressPollIntervalMs?: number;
 }
 
 interface Claimed {
@@ -93,6 +99,7 @@ const legacyModel: ModelRef = { providerID: "opencode", id: "deepseek-v4.1-flash
 
 export class ExperienceService {
   private readonly runs: MakerRunCoordinator;
+  private readonly guides: GuideRunCoordinator;
   private readonly budgets: typeof defaultBudgets;
 
   constructor(
@@ -108,6 +115,12 @@ export class ExperienceService {
       demoWorkspace: options.demoWorkspace,
       nodeCheckTimeoutMs: this.budgets.nodeCheckTimeoutMs,
     });
+    this.guides = new GuideRunCoordinator({
+      workflow,
+      guide,
+      redact: (value) => redactText(value, this.options.redact ?? {}),
+      pollIntervalMs: this.options.progressPollIntervalMs,
+    });
   }
 
   async sendMessage(actionId: string, expectedRevision: number, intent: "clarify" | "draft" | "question" | "witness", text: string) {
@@ -116,10 +129,14 @@ export class ExperienceService {
     if (claimed.duplicate) return { project: claimed.project, duplicate: true };
     const project = claimed.project;
     try {
-      if (intent === "clarify") return await this.clarify(actionId, payload, expectedRevision, project, text);
-      if (intent === "draft") return await this.draft(actionId, payload, expectedRevision, project, text);
-      if (intent === "question") return await this.question(actionId, payload, expectedRevision, project, text);
-      return await this.witness(actionId, payload, expectedRevision, project, text);
+      if (intent === "clarify" || intent === "draft" || intent === "witness") {
+        // Oracle, Architect, and Witness stage runs are persisted asynchronous
+        // operations: the request returns as soon as the run is queued. The
+        // `question` adapter stays synchronous because it changes no saved
+        // state and answers directly.
+        return await this.queueGuide(actionId, payload, expectedRevision, intent, text, project);
+      }
+      return await this.question(actionId, payload, expectedRevision, project, text);
     } catch (error) {
       if (error instanceof ExperienceFailure
         || error instanceof WorkflowConflict
@@ -137,13 +154,24 @@ export class ExperienceService {
     });
   }
 
-  async runMaker(actionId: string, expectedRevision: number) {
-    const payload = { intent: "maker" };
+  async runMaker(actionId: string, expectedRevision: number, retryOf: string | null = null) {
+    const payload = { intent: "maker", retryOf };
     const claimed = await this.claim(actionId, payload, expectedRevision);
     if (claimed.duplicate) return { project: claimed.project, duplicate: true, accepted: false };
     const project = claimed.project;
     if (project.makerScope.status !== "GRANTED" || !project.makerScope.statement) {
       throw new ExperienceFailure("Grant a separate Maker scope before a native run.", "MAKER_SCOPE_REQUIRED", 409, false);
+    }
+    if (retryOf) {
+      const source = project.operations.find((operation) => operation.id === retryOf);
+      if (!source || source.kind !== "maker" || source.status !== "FAILED") {
+        throw new ExperienceFailure(
+          "A Maker run can be retried only after a confirmed failure of that same run. Reconcile uncertain runs first.",
+          "RETRY_NOT_CONFIRMED",
+          409,
+          false,
+        );
+      }
     }
     if (project.operations.some((operation) => ["QUEUED", "RUNNING", "WAITING_PERMISSION", "COMPLETED_UNAPPLIED", "ABANDONED"].includes(operation.status))) {
       throw new ExperienceFailure("An earlier native run is unresolved. Reconcile it before starting another.", "RUN_UNRESOLVED", 409, false);
@@ -169,7 +197,7 @@ export class ExperienceService {
         id: randomUUID(),
         kind: "maker",
         payloadHash: payloadHash(payload),
-        nativeSessionId: null,
+        nativeSessionId: sessionFor(next, "maker"),
         nativeMessageId: null,
         status: "QUEUED",
         result: `Queued for OpenCode with ${context.model.providerID}/${context.model.id}${context.model.variant ? `#${context.model.variant}` : ""}.`,
@@ -181,8 +209,21 @@ export class ExperienceService {
         lastObservedAt: null,
         appliedAt: null,
         providerError: null,
+        intent: "maker-run",
+        sectionId: null,
+        startingRevision: expectedRevision,
+        idempotencyKey: actionId,
+        expectedOutput: "MAKER_DIFF",
+        retryOf,
+        progress: {
+          phase: "CONNECTING",
+          detail: PHASE_DETAIL.CONNECTING,
+          updatedAt: startedAt,
+        },
       });
-      rememberTranscript(next, "user", this.redactPrompt(`Queued a Maker run with ${context.model.providerID}/${context.model.id}${context.model.variant ? `#${context.model.variant}` : ""}.`));
+      rememberTranscript(next, "user", retryOf
+        ? this.redactPrompt(`Retried the Maker run after a confirmed failure.`)
+        : this.redactPrompt(`Queued a Maker run with ${context.model.providerID}/${context.model.id}${context.model.variant ? `#${context.model.variant}` : ""}.`));
       return refreshNextAction(next);
     });
     const operation = queued.project.operations.at(-1);
@@ -210,9 +251,55 @@ export class ExperienceService {
     return { project: queued.project, duplicate: false, accepted: true, operation };
   }
 
+  /** Retries a Maker run whose previous attempt failed with a confirmed outcome. */
+  async retryRun(actionId: string, expectedRevision: number, operationId: string) {
+    const project = await this.workflow.get();
+    const operation = project.operations.find((item) => item.id === operationId);
+    if (!operation) throw new WorkflowConflict("That operation is not in this project.");
+    if (operation.kind !== "maker" || operation.status !== "FAILED") {
+      throw new ExperienceFailure(
+        "Retry after failure is available for a Maker run with a confirmed FAILED outcome. Uncertain runs must be reconciled first.",
+        "RETRY_NOT_CONFIRMED",
+        409,
+        false,
+        operationId,
+      );
+    }
+    if (this.runs.active(operationId)) {
+      throw new ExperienceFailure("That run is still active. Cancel it instead of retrying.", "RUN_STILL_ACTIVE", 409, false, operationId);
+    }
+    return this.runMaker(actionId, expectedRevision, operationId);
+  }
+
+  /** Marks a still-outstanding operation abandoned after the user confirms. */
+  async abandonRun(actionId: string, expectedRevision: number, operationId: string) {
+    const payload = { operationId, intent: "mark-abandoned" };
+    const claimed = await this.claim(actionId, payload, expectedRevision);
+    if (claimed.duplicate) return { project: claimed.project, duplicate: true };
+    if (this.runs.active(operationId) || this.guides.active(operationId)) {
+      throw new ExperienceFailure("An active in-process run must be cancelled instead of abandoned.", "RUN_STILL_ACTIVE", 409, false, operationId);
+    }
+    return this.workflow.execute(actionId, payload, expectedRevision, (project) => {
+      const next = structuredClone(project);
+      const operation = next.operations.find((item) => item.id === operationId);
+      if (!operation) throw new WorkflowConflict("That operation is not in this project.");
+      if (["SUCCEEDED", "FAILED", "CANCELLED", "ABANDONED"].includes(operation.status)) {
+        throw new WorkflowConflict("A finished or already abandoned operation cannot be marked abandoned again.");
+      }
+      operation.status = "ABANDONED";
+      operation.statusReason = "user-marked-abandoned";
+      operation.finishedAt = new Date().toISOString();
+      operation.lastObservedAt = operation.finishedAt;
+      operation.result = `${operation.result ?? "The native run is outstanding."} Marked abandoned without a confirmed outcome; reconcile the native session if work must be recovered later.`;
+      operation.progress = null;
+      rememberTranscript(next, "system", operation.result);
+      return refreshNextAction(next);
+    });
+  }
+
   async cancel(actionId: string, expectedRevision: number, operationId: string) {
     void expectedRevision;
-    const active = this.runs.active(operationId);
+    const active = this.runs.active(operationId) ?? this.guides.active(operationId);
     if (!active) {
       const project = (await this.store.load()).state;
       const operation = project.operations.find((item) => item.id === operationId);
@@ -223,6 +310,8 @@ export class ExperienceService {
       throw new ExperienceFailure("The in-process runner is no longer present. Reconcile the native session before taking another action.", "RUN_NOT_ACTIVE", 409, false, operationId);
     }
     let interrupted = false;
+    const project = (await this.store.load()).state;
+    const operation = project.operations.find((item) => item.id === operationId);
     if (active.sessionId && this.guide.interrupt) {
       try {
         interrupted = await this.guide.interrupt(active.sessionId);
@@ -236,7 +325,8 @@ export class ExperienceService {
         );
       }
     }
-    this.runs.markCancelled(operationId);
+    if (operation?.kind === "maker") this.runs.markCancelled(operationId);
+    else this.guides.markCancelled(operationId);
     return this.workflow.executeLatest(actionId, { operationId, intent: "cancel" }, (project) => {
       const next = structuredClone(project);
       const operation = next.operations.find((item) => item.id === operationId);
@@ -249,6 +339,7 @@ export class ExperienceService {
       operation.finishedAt = new Date().toISOString();
       operation.lastObservedAt = operation.finishedAt;
       operation.statusReason = "user-cancelled";
+      operation.progress = null;
       operation.result = interrupted
         ? "Interrupted the native OpenCode session; the run was cancelled."
         : "Cancellation recorded. The native session was already idle or did not report an active request.";
@@ -257,49 +348,169 @@ export class ExperienceService {
     });
   }
 
+  /**
+   * Reconciles an outstanding operation against its native session.
+   *
+   * The native outcome is observed, then the actual latest response or diff is
+   * retrieved and validated before anything is applied. A validation pass marks
+   * the operation once (appliedAt); repeated or duplicated reconcile actions
+   * can never apply native work twice, and an idle session is never treated as
+   * a successful run on its own.
+   */
   async reconcile(actionId: string, expectedRevision: number, operationId: string) {
     const payload = { operationId, intent: "reconcile" };
     const claimed = await this.claim(actionId, payload, expectedRevision);
     if (claimed.duplicate) return { project: claimed.project, duplicate: true };
-    const operation = claimed.project.operations.find((item) => item.id === operationId);
+    const current = (await this.store.load()).state;
+    const operation = current.operations.find((item) => item.id === operationId);
     if (!operation?.nativeSessionId) {
-      throw new ExperienceFailure("This operation has no native session to reconcile.", "NOTHING_TO_RECONCILE", 409, false);
+      throw new ExperienceFailure("This operation has no native session to reconcile.", "NOTHING_TO_RECONCILE", 409, false, operationId);
     }
     if (["SUCCEEDED", "FAILED", "CANCELLED"].includes(operation.status)) {
-      throw new ExperienceFailure("A finished operation does not need reconciliation.", "ALREADY_FINISHED", 409, false);
+      throw new ExperienceFailure("A finished operation does not need reconciliation.", "ALREADY_FINISHED", 409, false, operationId);
     }
-    const role = operation.kind === "maker" ? "maker" : operation.kind === "witness" ? "witness" : "architect";
-    const observed = await this.guide.inspect(operation.nativeSessionId, {
-      conversationId: claimed.project.id,
+    const role = operation.kind === "maker"
+      ? "maker"
+      : operation.kind === "witness"
+        ? "witness"
+        : operation.intent === "clarify" ? "oracle" : "architect";
+    const sessionId = operation.nativeSessionId;
+
+    // A waiting permission stays waiting until OpenCode reports it resolved.
+    if (operation.status === "WAITING_PERMISSION" || operation.status === "ABANDONED"
+      || operation.progress?.phase === "WAITING_PERMISSION") {
+      const pending = this.guide.hasPendingPermission
+        ? await this.guide.hasPendingPermission(sessionId, operation.kind === "maker" ? this.options.demoWorkspace : this.options.safeDirectory)
+        : null;
+      if (pending === true) {
+        return this.workflow.execute(actionId, payload, expectedRevision, (project) =>
+          markPermissionStillPending(project, operationId));
+      }
+    }
+
+    const observed = await this.guide.inspect(sessionId, {
+      conversationId: current.id,
       role,
     });
-    return this.workflow.execute(actionId, payload, expectedRevision, (project) => {
-      const next = structuredClone(project);
-      const current = next.operations.find((item) => item.id === operationId);
-      if (!current) throw new WorkflowConflict("That operation is not in this project.");
-      if (observed === "running") {
-        current.status = "RUNNING";
-        current.result = "Native session is still running. It was not started again.";
-      } else if (observed === "succeeded") {
-        current.status = "SUCCEEDED";
-        current.finishedAt ??= new Date().toISOString();
-        current.result = "Reconciled from the native session outcome.";
-      } else if (observed === "failed") {
-        current.status = "FAILED";
-        current.finishedAt ??= new Date().toISOString();
-        current.result = "Reconciled from a failed or interrupted native session.";
-      } else {
-        current.status = "ABANDONED";
-        current.statusReason = "native-outcome-unconfirmed";
-        current.lastObservedAt = new Date().toISOString();
-        current.result = "Native outcome is still unknown. This action was not repeated.";
-      }
-      return refreshNextAction(next);
-    });
+
+    if (observed === "running") {
+      return this.workflow.execute(actionId, payload, expectedRevision, (project) =>
+        markRecovered(project, operationId, {
+          status: "RUNNING",
+          result: "The native session is still running. It was not started again; keep waiting or reconcile later.",
+          sessionId,
+          messageId: operation.nativeMessageId,
+          diff: null,
+          check: null,
+          model: operation.model,
+          phase: "RECEIVING_OUTPUT",
+        }));
+    }
+
+    if (observed === "unknown" && operation.kind !== "maker") {
+      // An unknown guide outcome stays reconcilable; nothing is invented here.
+      return this.workflow.execute(actionId, payload, expectedRevision, (project) =>
+        markRecoveredGuide(project, operationId, {
+          status: "ABANDONED",
+          result: "Native outcome is still unknown. This action was not repeated; reconcile again later or mark it abandoned.",
+          statusReason: "native-outcome-unconfirmed",
+          phase: "AWAITING_RECONCILIATION",
+        }));
+    }
+
+    if (operation.kind === "maker") {
+      // An idle Maker session is never success on its own: read the outcome
+      // plus the actual recovered diff, then apply it exactly once.
+      const diff = observed === "succeeded" && this.guide.sessionDiff
+        ? await this.guide.sessionDiff(sessionId, this.options.demoWorkspace)
+        : null;
+      await applyRecoveredMakerResult(
+        { workflow: this.workflow, demoWorkspace: this.options.demoWorkspace, nodeCheckTimeoutMs: this.budgets.nodeCheckTimeoutMs },
+        {
+          projectId: current.id,
+          operationId,
+          observed,
+          diff,
+          sessionId,
+          messageId: operation.nativeMessageId,
+          model: operation.model,
+        },
+      );
+      const project = (await this.store.load()).state;
+      return { project, duplicate: false };
+    }
+
+    // Guide operation: retrieve the actual late response before applying it.
+    const snapshot = this.guide.lastAssistantText
+      ? await this.guide.lastAssistantText(sessionId)
+      : null;
+    if (observed === "succeeded" && !snapshot) {
+      return this.workflow.execute(actionId, payload, expectedRevision, (project) =>
+        markRecoveredGuide(project, operationId, {
+          status: "COMPLETED_UNAPPLIED",
+          result: "The native session reported success, but the recovered reply could not be read yet. Reconcile again before any new run.",
+          statusReason: "native-result-not-retrieved",
+          phase: "AWAITING_RECONCILIATION",
+        }));
+    }
+    if (observed === "failed") {
+      return this.workflow.execute(actionId, payload, expectedRevision, (project) =>
+        markRecoveredGuide(project, operationId, {
+          status: "FAILED",
+          result: "Reconciled from a failed or interrupted native session.",
+          statusReason: "native-failure-confirmed",
+          phase: null,
+        }));
+    }
+    const intent = operation.intent === "clarify" || operation.intent === "draft" || operation.intent === "witness"
+      ? operation.intent
+      : null;
+    if (!intent) {
+      throw new ExperienceFailure(
+        "This operation has no replayable guide action. Mark it abandoned and repeat the request.",
+        "GUIDE_INTENT_UNKNOWN",
+        409,
+        false,
+        operationId,
+      );
+    }
+    const expected = readExpectedOutput(operation);
+    if (expected === "QUESTION_REPLY" && observed === "succeeded") {
+      // A question never mutates saved state; record the late confirmation.
+      return this.workflow.execute(actionId, payload, expectedRevision, (project) =>
+        markRecoveredGuide(project, operationId, {
+          status: "SUCCEEDED",
+          result: "Reconciled from the native session outcome.",
+          statusReason: null,
+          phase: null,
+          messageId: snapshot?.messageId ?? null,
+        }));
+    }
+    const reply = snapshot
+      ? validateReply(intent, snapshot.text, (value) => this.redact(value))
+      : { ok: false as const, resultText: "The recovered reply could not be read." };
+    if (!reply.ok) {
+      return this.workflow.execute(actionId, payload, expectedRevision, (project) =>
+        markRecoveredGuide(project, operationId, {
+          status: "FAILED",
+          result: `The late ${spiritName(intent)} response does not match the expected format, so nothing was applied. Reply summary: ${reply.resultText.slice(0, 200)}`,
+          statusReason: "malformed-response",
+          phase: null,
+          messageId: snapshot?.messageId ?? null,
+        }));
+    }
+    const result = await this.workflow.execute(actionId, payload, expectedRevision, (project) =>
+      applyValidatedReply(project, operationId, reply, {
+        redact: (value) => this.redact(value),
+        sessionId,
+        messageId: snapshot?.messageId ?? null,
+      }));
+    const next = result.project;
+    return { project: next, duplicate: result.duplicate };
   }
 
   isRunActive(operationId: string): boolean {
-    return this.runs.active(operationId) !== null;
+    return this.runs.active(operationId) !== null || this.guides.active(operationId) !== null;
   }
 
   async exportApproved() {
@@ -323,80 +534,117 @@ export class ExperienceService {
     };
   }
 
-  private async clarify(actionId: string, payload: object, expectedRevision: number, project: Project, text: string) {
-    return traceAgentOperation("oracle", project.id, async () => {
-      if (project.product.status === "APPROVED") {
-        throw new ExperienceFailure("The product proposal is already approved.", "PRODUCT_ALREADY_APPROVED", 409, false);
-      }
-      const context = await this.modelContext(project);
-      const spoken = await this.guide.speak({
-        role: "oracle",
-        conversationId: project.id,
-        sessionId: sessionFor(project, "oracle"),
-        prompt: await this.instructions("oracle", project, text, context.model),
+  private async queueGuide(
+    actionId: string,
+    payload: object,
+    expectedRevision: number,
+    intent: "clarify" | "draft" | "witness",
+    text: string,
+    project: Project,
+  ) {
+    if (intent === "clarify" && project.product.status === "APPROVED") {
+      throw new ExperienceFailure("The product proposal is already approved.", "PRODUCT_ALREADY_APPROVED", 409, false);
+    }
+    if (intent === "draft" && (project.product.status !== "APPROVED" || !project.currentSectionId)) {
+      throw new ExperienceFailure("Drafting waits for an approved product and an active section.", "SECTION_NOT_READY", 409, false);
+    }
+    if (intent === "witness") {
+      const makerDone = project.operations.some((operation) => operation.kind === "maker" && operation.status === "SUCCEEDED");
+      if (!makerDone) throw new ExperienceFailure("Witness review waits for a completed Maker run.", "WITNESS_NOT_READY", 409, false);
+    }
+    if (project.operations.some((operation) => ["QUEUED", "RUNNING", "WAITING_PERMISSION", "COMPLETED_UNAPPLIED", "ABANDONED"].includes(operation.status))) {
+      throw new ExperienceFailure("An earlier native run is unresolved. Reconcile it before starting another.", "RUN_UNRESOLVED", 409, false);
+    }
+    const context = await this.modelContext(project);
+    const startedAt = new Date().toISOString();
+    const expectedOutput = intent === "clarify" ? "ORACLE_REPLY" : intent === "draft" ? "SECTION_DRAFT" : "WITNESS_REPLY";
+    const sessionId = sessionFor(project, intent === "witness" ? "witness" : intent === "draft" ? "architect" : "oracle");
+    const queued = await this.workflow.execute(actionId, payload, expectedRevision, (current) => {
+      const next = structuredClone(current);
+      next.engine = {
+        model: context.model,
+        source: context.source === "selected"
+          ? current.engine.source
+          : context.source === "legacy"
+            ? "migrated-legacy"
+            : context.source === "auto-discovery"
+              ? "auto-discovery"
+              : current.engine.source,
+        updatedAt: startedAt,
+        legacyModel: current.engine.legacyModel,
+      };
+      next.operations.push({
+        id: randomUUID(),
+        kind: intent === "witness" ? "witness" : "guide",
+        payloadHash: payloadHash(payload),
+        nativeSessionId: sessionId,
+        nativeMessageId: null,
+        status: "QUEUED",
+        result: `Queued for OpenCode with ${context.model.providerID}/${context.model.id}${context.model.variant ? `#${context.model.variant}` : ""}.`,
+        model: context.model,
+        agent: context.roleAgents[intent === "witness" ? "witness" : intent === "draft" ? "architect" : "oracle"],
+        startedAt,
+        finishedAt: null,
+        statusReason: null,
+        lastObservedAt: null,
+        appliedAt: null,
+        providerError: null,
+        intent,
+        sectionId: intent === "draft" ? current.currentSectionId : null,
+        startingRevision: expectedRevision,
+        idempotencyKey: actionId,
+        expectedOutput,
+        retryOf: null,
+        progress: {
+          phase: "CONNECTING",
+          detail: PHASE_DETAIL.CONNECTING,
+          updatedAt: startedAt,
+        },
+      });
+      rememberTranscript(next, "user", this.redactPrompt(text));
+      return refreshNextAction(next);
+    });
+    const operation = queued.project.operations.at(-1);
+    if (!operation) throw new ExperienceFailure("The run was not recorded.", "RUN_NOT_RECORDED", 500, true);
+    const role: "oracle" | "architect" | "maker" | "witness" = intent === "witness" ? "witness" : intent === "draft" ? "architect" : "oracle";
+    try {
+      const prompt = await this.instructions(role, queued.project, intent === "witness" ? text : text, context.model);
+      this.guides.start({
+        operationId: operation.id,
+        actionId,
+        projectId: queued.project.id,
+        intent,
+        expectedOutput,
+        sectionId: operation.sectionId,
+        userText: text,
+        sessionId,
+        prompt,
         workspace: this.options.safeDirectory,
         model: context.model,
-        agent: context.roleAgents.oracle,
-        budget: project.modelPreferences.budget,
+        agent: context.roleAgents[intent === "witness" ? "witness" : intent === "draft" ? "architect" : "oracle"],
+        budget: queued.project.modelPreferences.budget,
       });
-      const reply = oracleReplySchema.parse(extractJsonObject(spoken.text));
-      return this.workflow.execute(actionId, payload, expectedRevision, (current) => {
-        const seeded = structuredClone(current);
-        rememberTranscript(seeded, "user", this.redactPrompt(text));
-        const next = recordOracleProposal(seeded, {
-          ...reply,
-          proposal: this.redact(reply.proposal),
-          clarification: this.redact(reply.clarification),
-          openQuestions: reply.openQuestions.map((question) => this.redact(question)),
-          sessionId: spoken.sessionId,
-        });
-        next.operations.push(operation("guide", payload, spoken, "SUCCEEDED", "Oracle proposal stored. It is not approved.", context.model));
-        return refreshNextAction(next);
-      });
-    });
-  }
-
-  private async draft(actionId: string, payload: object, expectedRevision: number, project: Project, text: string) {
-    return traceAgentOperation("architect", project.id, async () => {
-      if (project.product.status !== "APPROVED" || !project.currentSectionId) {
-        throw new ExperienceFailure("Drafting waits for an approved product and an active section.", "SECTION_NOT_READY", 409, false);
-      }
-      const sectionId = project.currentSectionId;
-      const context = await this.modelContext(project);
-      const spoken = await this.guide.speak({
-        role: "architect",
-        conversationId: project.id,
-        sessionId: sessionFor(project, "architect"),
-        prompt: await this.instructions("architect", project, text, context.model),
+    } catch (error) {
+      await this.guides.markFailed({
+        operationId: operation.id,
+        actionId,
+        projectId: queued.project.id,
+        intent,
+        expectedOutput,
+        sectionId: operation.sectionId,
+        userText: text,
+        sessionId,
+        prompt: "",
         workspace: this.options.safeDirectory,
         model: context.model,
-        agent: context.roleAgents.architect,
-        budget: project.modelPreferences.budget,
-      });
-      let reply;
-      try {
-        reply = sectionReplySchema.parse(extractJsonObject(spoken.text));
-      } catch {
-        const prose = spoken.text.trim();
-        if (prose.length < 80) {
-          return this.recordFailure(actionId, payload, expectedRevision, "architect", spoken.sessionId, `The Architect reply was malformed, so the section was left unchanged. Reply began: ${this.redact(prose.slice(0, 240))}`);
-        }
-        reply = {
-          content: prose.slice(0, 12_000),
-          recommendation: "The Architect returned prose. Review the draft before approval.",
-          tradeoff: "Separate recommendation and tradeoff fields were not returned.",
-        };
-      }
-      const content = this.redact(formatSectionDraft(reply));
-      return this.workflow.execute(actionId, payload, expectedRevision, (current) => {
-        const next = reviseSection(current, sectionId, content);
-        rememberSession(next, "architect", spoken.sessionId);
-        rememberTranscript(next, "user", this.redactPrompt(text));
-        rememberTranscript(next, "architect", content);
-        next.operations.push(operation("guide", payload, spoken, "SUCCEEDED", "Draft stored as the current section version.", context.model));
-        return refreshNextAction(next);
-      });
-    });
+        agent: null,
+        budget: queued.project.modelPreferences.budget,
+      }, error);
+      throw error instanceof ExperienceFailure
+        ? error
+        : new ExperienceFailure(error instanceof Error ? this.redact(error.message) : "The run could not start.", "RUN_START_FAILED", 500, true, operation.id);
+    }
+    return { project: queued.project, duplicate: false, accepted: true, operation };
   }
 
   private async question(actionId: string, payload: object, expectedRevision: number, project: Project, text: string) {
@@ -418,48 +666,30 @@ export class ExperienceService {
         rememberSession(next, role, spoken.sessionId);
         rememberTranscript(next, "user", this.redactPrompt(text));
         rememberTranscript(next, role, this.redactPrompt(spoken.text.slice(0, 4_000)));
-        next.operations.push(operation("guide", payload, spoken, "SUCCEEDED", "Question answered without changing approvals.", context.model));
-        return refreshNextAction(next);
-      });
-    });
-  }
-
-  private async witness(actionId: string, payload: object, expectedRevision: number, project: Project, text: string) {
-    return traceAgentOperation("witness", project.id, async () => {
-      const makerDone = project.operations.some((operation) => operation.kind === "maker" && operation.status === "SUCCEEDED");
-      if (!makerDone) throw new ExperienceFailure("Witness review waits for a completed Maker run.", "WITNESS_NOT_READY", 409, false);
-      const context = await this.modelContext(project);
-      const spoken = await this.guide.speak({
-        role: "witness",
-        conversationId: project.id,
-        sessionId: null,
-        prompt: await this.instructions("witness", project, text, context.model),
-        workspace: this.options.safeDirectory,
-        model: context.model,
-        agent: context.roleAgents.witness,
-        budget: project.modelPreferences.budget,
-      });
-      let reply;
-      try {
-        reply = witnessReplySchema.parse(extractJsonObject(spoken.text));
-      } catch {
-        const prose = spoken.text.trim();
-        if (prose.length < 80) {
-          return this.recordFailure(actionId, payload, expectedRevision, "witness", spoken.sessionId, `The Witness reply was malformed, so no draft was stored. Reply began: ${this.redact(prose.slice(0, 240))}`);
-        }
-        reply = {
-          findings: prose.slice(0, 8_000),
-          limitations: "The Witness returned prose rather than separate fields.",
-          draftNotes: "These notes are an in-app review. They are not a submitted article or video.",
-        };
-      }
-      return this.workflow.execute(actionId, payload, expectedRevision, (current) => {
-        const next = recordWitnessDrafts(current, [
-          { title: "Findings", content: this.redact(reply.findings) },
-          { title: "Limitations", content: this.redact(reply.limitations) },
-          { title: "Draft notes", content: this.redact(reply.draftNotes) },
-        ], spoken.sessionId);
-        next.operations.push(operation("witness", payload, spoken, "SUCCEEDED", "Witness drafts stored from a fresh session.", context.model));
+        next.operations.push({
+          id: randomUUID(),
+          kind: "guide",
+          payloadHash: payloadHash(payload),
+          nativeSessionId: spoken.sessionId,
+          nativeMessageId: null,
+          status: "SUCCEEDED",
+          result: "Question answered without changing approvals.",
+          model: context.model,
+          agent: context.roleAgents[role],
+          startedAt: new Date().toISOString(),
+          finishedAt: new Date().toISOString(),
+          statusReason: null,
+          lastObservedAt: new Date().toISOString(),
+          appliedAt: new Date().toISOString(),
+          providerError: null,
+          intent: "question",
+          sectionId: null,
+          startingRevision: expectedRevision,
+          idempotencyKey: actionId,
+          expectedOutput: "QUESTION_REPLY",
+          retryOf: null,
+          progress: null,
+        });
         return refreshNextAction(next);
       });
     });
@@ -601,53 +831,19 @@ export class ExperienceService {
     return { project: loaded.state, duplicate: false };
   }
 
-  private async recordFailure(
-    actionId: string,
-    payload: object,
-    expectedRevision: number,
-    role: SpiritRole,
-    sessionId: string | null,
-    message: string,
-  ) {
-    const safeMessage = this.redact(message);
-    const saved = await this.workflow.execute(actionId, payload, expectedRevision, (project) => {
-      const next = structuredClone(project);
-      next.operations.push({
-        id: randomUUID(),
-        kind: role === "witness" ? "witness" : "guide",
-        payloadHash: payloadHash(payload),
-        nativeSessionId: sessionId,
-        nativeMessageId: null,
-        status: "FAILED",
-        result: safeMessage,
-        model: project.engine.model,
-        agent: null,
-        startedAt: new Date().toISOString(),
-        finishedAt: new Date().toISOString(),
-        statusReason: "malformed-response",
-        lastObservedAt: new Date().toISOString(),
-        appliedAt: null,
-        providerError: null,
-      });
-      rememberTranscript(next, "system", safeMessage);
-      return refreshNextAction(next);
-    });
-    throw new ExperienceFailure(safeMessage, "MALFORMED_RESPONSE", 400, true, saved.project.operations.at(-1)?.id ?? null);
-  }
-
-  private async recordUncertain(actionId: string, payload: object, expectedRevision: number, intent: string, error: unknown) {
+  private async recordUncertain(actionId: string, payload: object, expectedRevision: number, intent: string, error: unknown): Promise<never> {
     const nativeSessionId = typeof (error as { nativeSessionId?: unknown })?.nativeSessionId === "string"
       ? (error as { nativeSessionId: string }).nativeSessionId
       : null;
     const current = (await this.store.load()).state;
-    const providerFailure = providerErrorFor(
+    const providerFailure = providerFailureFor(
       error,
       current.engine.model?.providerID ?? "unknown",
       nativeSessionId,
       intent === "maker" && nativeSessionId ? "possibly" : "no",
     );
-    const classification = classifyNativeError(providerFailure ?? error);
-    const message = this.redact(classification.message);
+    const classification = classifyNativeError(error);
+    const message = this.redact(providerFailure?.whatHappened ?? classification.message);
     const uncertain = classification.unknown || (intent === "maker" && Boolean(nativeSessionId));
     const saved = await this.workflow.execute(actionId, payload, expectedRevision, (project) => {
       const next = structuredClone(project);
@@ -666,7 +862,30 @@ export class ExperienceService {
         statusReason: uncertain ? "native-outcome-unconfirmed" : classification.code.toLowerCase(),
         lastObservedAt: new Date().toISOString(),
         appliedAt: null,
-        providerError: providerFailure?.details ?? null,
+        providerError: providerFailure ?? null,
+        intent: intent === "clarify" || intent === "draft" || intent === "witness" || intent === "question"
+          ? intent
+          : "maker-run",
+        sectionId: null,
+        startingRevision: expectedRevision,
+        idempotencyKey: actionId,
+        expectedOutput: intent === "clarify"
+          ? "ORACLE_REPLY"
+          : intent === "draft"
+            ? "SECTION_DRAFT"
+            : intent === "witness"
+              ? "WITNESS_REPLY"
+              : intent === "question"
+                ? "QUESTION_REPLY"
+                : "MAKER_DIFF",
+        retryOf: null,
+        progress: uncertain
+          ? {
+              phase: "AWAITING_RECONCILIATION",
+              detail: PHASE_DETAIL.AWAITING_RECONCILIATION,
+              updatedAt: new Date().toISOString(),
+            }
+          : null,
       });
       rememberTranscript(next, "system", uncertain ? `${message} The native run was not repeated.` : message);
       return refreshNextAction(next);
@@ -677,7 +896,7 @@ export class ExperienceService {
       uncertain ? 503 : classification.status,
       uncertain ? false : classification.retryable,
       saved.project.operations.at(-1)?.id ?? null,
-      providerFailure?.details ?? null,
+      providerFailure ?? null,
     );
   }
 
@@ -690,113 +909,79 @@ export class ExperienceService {
   }
 }
 
-function classifyNativeError(error: unknown): {
-  code: string;
-  status: number;
-  retryable: boolean;
-  unknown: boolean;
-  message: string;
-} {
-  const declared = typeof (error as { code?: unknown })?.code === "string" ? (error as { code: string }).code : null;
-  if (declared === "ENGINE_AUTH") {
-    return { code: "ENGINE_AUTH", status: 503, retryable: false, unknown: false, message: "OpenCode rejected the configured credentials." };
-  }
-  if (error instanceof ProviderRequestError) {
-    return {
-      code: error.details.category,
-      status: error.details.technical.statusCode && error.details.technical.statusCode >= 400
-        ? error.details.technical.statusCode
-        : 502,
-      retryable: error.details.retryable,
-      unknown: false,
-      message: error.details.whatHappened,
-    };
-  }
-  if (declared === "ENGINE_INCOMPATIBLE" || declared === "MODEL_UNAVAILABLE" || declared === "MODEL_CHANGED") {
-    return { code: declared, status: 503, retryable: false, unknown: false, message: error instanceof Error ? error.message : "OpenCode is not ready for this build." };
-  }
-  if (declared === "ENGINE_UNAVAILABLE") {
-    return { code: "ENGINE_UNAVAILABLE", status: 503, retryable: true, unknown: false, message: "OpenCode is unavailable. No native work was started." };
-  }
-  if (error instanceof NativeBudgetError) {
-    return { code: "BUDGET_EXCEEDED", status: 409, retryable: false, unknown: false, message: error.message };
-  }
-  if (error instanceof NativeSessionError) {
-    return { code: error.code, status: 502, retryable: false, unknown: false, message: error.message };
-  }
-  if (error instanceof NativeTimeoutError) {
-    return { code: "NATIVE_UNKNOWN", status: 503, retryable: false, unknown: true, message: "The native run timed out. Reconcile the native session before any new run." };
-  }
-  if (error instanceof NetworkPolicyError) {
-    return { code: "NATIVE_UNKNOWN", status: 503, retryable: false, unknown: true, message: error.message };
-  }
-  const message = error instanceof Error ? error.message : "The native spirit could not be reached.";
-  if (/\b429\b|rate limit|quota|provider limit|too many requests/i.test(message)) {
-    return { code: "PROVIDER_LIMITED", status: 429, retryable: true, unknown: false, message: "The provider is limiting requests. No automatic retry was attempted." };
-  }
-  if (/\b401\b|\b403\b|unauthori[sz]ed|forbidden|authentication/i.test(message)) {
-    return { code: "ENGINE_AUTH", status: 503, retryable: false, unknown: false, message: "OpenCode rejected the configured credentials." };
-  }
-  if (/\b404\b|version|incompatible/i.test(message)) {
-    return { code: "ENGINE_INCOMPATIBLE", status: 503, retryable: false, unknown: false, message: "OpenCode is not compatible with this build." };
-  }
-  if (/permission|approval required/i.test(message)) {
-    return { code: "PERMISSION_PENDING", status: 409, retryable: false, unknown: false, message: "A native permission is pending. Resolve it in OpenCode, then reconcile." };
-  }
-  if (/timed out|timeout|ECONN|fetch|network|socket|unavailable/i.test(message)) {
-    return { code: "NATIVE_UNKNOWN", status: 503, retryable: false, unknown: true, message: "Disconnected or timed out. Reconcile the native session before any new run." };
-  }
-  return { code: "NATIVE_FAILED", status: 502, retryable: true, unknown: false, message };
+/**
+ * Keeps a resolved permission request visible: the operation stays in its
+ * pending state until the coordinator or a reconcile observes the session.
+ */
+function markPermissionStillPending(project: Project, operationId: string): Project {
+  const next = structuredClone(project);
+  const operation = next.operations.find((item) => item.id === operationId);
+  if (!operation) throw new WorkflowConflict("That operation is not in this project.");
+  const now = new Date().toISOString();
+  operation.lastObservedAt = now;
+  operation.statusReason = "permission-pending";
+  operation.result = "A native permission request is still pending. Resolve it in OpenCode, then reconcile. The run was not repeated.";
+  operation.progress = {
+    phase: "WAITING_PERMISSION",
+    detail: PHASE_DETAIL.WAITING_PERMISSION,
+    updatedAt: now,
+  };
+  return refreshNextAction(next);
 }
 
-function providerErrorFor(
-  error: unknown,
-  provider: string,
-  sessionReference: string | null,
-  savedWorkChanged: "no" | "possibly",
-): ProviderRequestError | null {
-  const code = typeof (error as { code?: unknown })?.code === "string" ? (error as { code: string }).code : "";
-  if ([
-    "ENGINE_AUTH",
-    "ENGINE_INCOMPATIBLE",
-    "ENGINE_UNAVAILABLE",
-    "MODEL_CHANGED",
-    "BUDGET_EXCEEDED",
-    "NATIVE_TIMEOUT",
-    "EMPTY_RESPONSE",
-  ].includes(code) || error instanceof NetworkPolicyError) return null;
-  if (!isProviderFailureCandidate(error)) return null;
-  return classifyProviderError(error, { provider, sessionReference, savedWorkChanged });
+/**
+ * Records a guide-side reconcile outcome: retrieval, validation, and failure
+ * of a late response, each kept exactly once.
+ */
+function markRecoveredGuide(
+  project: Project,
+  operationId: string,
+  outcome: {
+    status: "SUCCEEDED" | "FAILED" | "COMPLETED_UNAPPLIED" | "ABANDONED";
+    result: string;
+    statusReason: string | null;
+    phase: OperationPhase | null;
+    messageId?: string | null;
+  },
+): Project {
+  const next = structuredClone(project);
+  const operation = next.operations.find((item) => item.id === operationId);
+  if (!operation) throw new WorkflowConflict("That operation is not in this project.");
+  if (operation.appliedAt) return refreshNextAction(next);
+  const now = new Date().toISOString();
+  operation.status = outcome.status;
+  operation.nativeMessageId = outcome.messageId ?? operation.nativeMessageId;
+  operation.statusReason = outcome.statusReason;
+  operation.result = outcome.result;
+  operation.lastObservedAt = now;
+  operation.progress = null;
+  operation.finishedAt = outcome.status === "COMPLETED_UNAPPLIED" || outcome.status === "ABANDONED"
+    ? operation.finishedAt
+    : (operation.finishedAt ?? now);
+  if (outcome.phase) {
+    operation.progress = {
+      phase: outcome.phase,
+      detail: PHASE_DETAIL[outcome.phase],
+      updatedAt: now,
+    };
+  }
+  rememberTranscript(
+    next,
+    operation.kind === "witness" ? "witness" : operation.intent === "clarify" ? "oracle" : "architect",
+    outcome.result.slice(0, 4_000),
+  );
+  return refreshNextAction(next);
+}
+
+function readExpectedOutput(operation: Project["operations"][number]): Project["operations"][number]["expectedOutput"] {
+  return operation.expectedOutput
+    ?? (operation.intent === "clarify" ? "ORACLE_REPLY" : operation.intent === "draft" ? "SECTION_DRAFT" : operation.intent === "witness" ? "WITNESS_REPLY" : "QUESTION_REPLY");
+}
+
+function spiritName(intent: "clarify" | "draft" | "witness"): string {
+  return intent === "clarify" ? "Oracle" : intent === "draft" ? "Architect" : "Witness";
 }
 
 function sessionFor(project: Project, role: SpiritRole): string | null {
   return project.nativeSessions.find((item) => item.role === role)?.sessionId ?? null;
-}
-
-function operation(
-  kind: Project["operations"][number]["kind"],
-  payload: object,
-  spoken: { sessionId: string; messageId: string | null },
-  status: Project["operations"][number]["status"],
-  result: string,
-  model: ModelRef,
-): Project["operations"][number] {
-  const now = new Date().toISOString();
-  return {
-    id: randomUUID(),
-    kind,
-    payloadHash: payloadHash(payload),
-    nativeSessionId: spoken.sessionId,
-    nativeMessageId: spoken.messageId,
-    status,
-    result,
-    model,
-    agent: null,
-    startedAt: now,
-    finishedAt: status === "SUCCEEDED" || status === "FAILED" ? now : null,
-    statusReason: null,
-    lastObservedAt: now,
-    appliedAt: status === "SUCCEEDED" ? now : null,
-    providerError: null,
-  };
 }

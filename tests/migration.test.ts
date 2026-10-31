@@ -57,6 +57,13 @@ function populatedProject() {
     lastObservedAt: "2026-10-31T10:04:00.000Z",
     appliedAt: "2026-10-31T10:04:00.000Z",
     providerError: null,
+    intent: "maker-run",
+    sectionId: null,
+    startingRevision: 0,
+    idempotencyKey: "legacy-action-1",
+    expectedOutput: "MAKER_DIFF",
+    retryOf: null,
+    progress: null,
   });
   current.evidence.push({
     id: "ev-1",
@@ -84,7 +91,7 @@ function legacyProjectV1() {
     sections: current.sections.map(({ candidateRevisions: _candidateRevisions, ...section }) => section),
     approvals: current.approvals,
     actions: current.actions.map(({ createdAt: _createdAt, ...action }) => action),
-    operations: current.operations.map(({ model: _model, agent: _agent, startedAt: _startedAt, finishedAt: _finishedAt, statusReason: _statusReason, lastObservedAt: _lastObservedAt, appliedAt: _appliedAt, ...operation }) => operation),
+    operations: current.operations.map(({ model: _model, agent: _agent, startedAt: _startedAt, finishedAt: _finishedAt, statusReason: _statusReason, lastObservedAt: _lastObservedAt, appliedAt: _appliedAt, intent: _intent, sectionId: _sectionId, startingRevision: _startingRevision, idempotencyKey: _idempotencyKey, expectedOutput: _expectedOutput, retryOf: _retryOf, progress: _progress, ...operation }) => operation),
     evidence: current.evidence.map(({ model: _model, ...evidence }) => evidence),
     nextAction: current.nextAction,
     product: current.product,
@@ -119,7 +126,7 @@ function legacyProjectV2() {
     sections: current.sections.map(({ candidateRevisions: _candidateRevisions, ...section }) => section),
     approvals: current.approvals,
     actions: current.actions,
-    operations: current.operations.map(({ statusReason: _statusReason, lastObservedAt: _lastObservedAt, appliedAt: _appliedAt, ...operation }) => operation),
+    operations: current.operations.map(({ statusReason: _statusReason, lastObservedAt: _lastObservedAt, appliedAt: _appliedAt, intent: _intent, sectionId: _sectionId, startingRevision: _startingRevision, idempotencyKey: _idempotencyKey, expectedOutput: _expectedOutput, retryOf: _retryOf, progress: _progress, ...operation }) => operation),
     evidence: current.evidence,
     nextAction: current.nextAction,
     product: current.product,
@@ -136,7 +143,7 @@ function legacyProjectV3() {
   return {
     ...current,
     schemaVersion: 3,
-    operations: current.operations.map(({ providerError: _providerError, ...operation }) => operation),
+    operations: current.operations.map(({ providerError: _providerError, progress: _progress, ...operation }) => operation),
     modelPreferences: {
       access: {
         requireFreeOrLocal: true,
@@ -149,9 +156,9 @@ function legacyProjectV3() {
   };
 }
 
-test("v1 fixed-model projects migrate to v4 without losing workflow history", () => {
+test("v1 fixed-model projects migrate to v5 without losing workflow history", () => {
   const migrated = migrateProject(legacyProjectV1()).project;
-  assert.equal(migrated.schemaVersion, 4);
+  assert.equal(migrated.schemaVersion, 5);
   assert.equal(migrated.createdAt, MIGRATION_TIMESTAMP);
   assert.equal(migrated.engine.model, null);
   assert.equal(migrated.engine.source, "migrated-legacy");
@@ -174,7 +181,7 @@ test("v1 fixed-model projects migrate to v4 without losing workflow history", ()
 test("v2 projects preserve proposals, approvals, evidence, operations, and selected model", () => {
   const legacy = legacyProjectV2();
   const migrated = migrateProject(legacy).project;
-  assert.equal(migrated.schemaVersion, 4);
+  assert.equal(migrated.schemaVersion, 5);
   assert.deepEqual(migrated.product, legacy.product);
   assert.deepEqual(migrated.approvals, legacy.approvals);
   assert.equal(migrated.sections[0].content, legacy.sections[0].content);
@@ -193,9 +200,16 @@ test("v2 UNKNOWN operations migrate to ABANDONED without losing native reference
   assert.equal(operation.statusReason, "legacy-unknown-outcome");
   assert.equal(operation.nativeSessionId, "ses_old");
   assert.equal(operation.result, "old result");
+  // Old unknown operations stay recoverable through migration: the recovery
+  // phase is deterministic and points at reconciliation instead of repeating.
+  assert.deepEqual(operation.progress, {
+    phase: "AWAITING_RECONCILIATION",
+    detail: "Migrated from a legacy record; the native session can still be reconciled.",
+    updatedAt: MIGRATION_TIMESTAMP,
+  });
 });
 
-test("v3 projects migrate to v4 with their access policy, limits, and selected model preserved", () => {
+test("v3 projects migrate to v5 with their access policy, limits, and selected model preserved", () => {
   const legacy = legacyProjectV3();
   legacy.engine = {
     model: { providerID: "acme", id: "paid-model", variant: "high" },
@@ -207,7 +221,7 @@ test("v3 projects migrate to v4 with their access policy, limits, and selected m
   const migrated = migrateProject(legacy);
   assert.equal(migrated.fromVersion, 3);
   assert.equal(migrated.migrated, true);
-  assert.equal(migrated.project.schemaVersion, 4);
+  assert.equal(migrated.project.schemaVersion, 5);
   assert.deepEqual(migrated.project.engine.model, legacy.engine.model);
   assert.equal(migrated.project.modelPreferences.access.mode, "ALL_ACCESSIBLE");
   assert.equal(migrated.project.modelPreferences.access.dataPolicy, "NO_TRAINING_REQUIRED");
@@ -225,6 +239,40 @@ test("v3 projects migrate to v4 with their access policy, limits, and selected m
   assert.equal(freeMigration.modelPreferences.budget.maxCostUsd, null);
 });
 
+test("v4 projects migrate to v5 with recovery metadata and keep prior run history", () => {
+  const legacy = populatedProject();
+  legacy.operations[0].status = "ABANDONED";
+  legacy.operations[0].appliedAt = null;
+  const v4 = {
+    ...legacy,
+    schemaVersion: 4,
+    operations: legacy.operations.map(({ progress: _progress, ...operation }) => operation),
+  };
+  const migrated = migrateProject(v4);
+  assert.equal(migrated.fromVersion, 4);
+  assert.equal(migrated.migrated, true);
+  assert.equal(migrated.project.schemaVersion, 5);
+
+  // v4 rows that already carry progress are preserved.
+  const operation = migrated.project.operations[0];
+  assert.equal(operation.intent, "maker-run");
+  assert.equal(operation.idempotencyKey, "legacy-action-1");
+
+  const withProgress = populatedProject();
+  withProgress.operations[0].status = "ABANDONED";
+  withProgress.operations[0].progress = {
+    phase: "WAITING_PERMISSION",
+    detail: null,
+    updatedAt: "2026-10-31T12:00:00.000Z",
+  };
+  const preserved = migrateProject(withProgress).project.operations[0];
+  assert.deepEqual(preserved.progress, {
+    phase: "WAITING_PERMISSION",
+    detail: null,
+    updatedAt: "2026-10-31T12:00:00.000Z",
+  });
+});
+
 test("migration is deterministic and idempotent", () => {
   const legacy = legacyProjectV2();
   const first = migrateProject(legacy);
@@ -233,26 +281,26 @@ test("migration is deterministic and idempotent", () => {
 
   const repeated = migrateProject(first.project);
   assert.equal(repeated.migrated, false);
-  assert.equal(repeated.fromVersion, 4);
+  assert.equal(repeated.fromVersion, 5);
   assert.deepEqual(repeated.project, first.project);
 });
 
-test("loading and saving a migrated project persists schema v4", async () => {
+test("loading and saving a migrated project persists schema v5", async () => {
   const directory = await mkdtemp(join(tmpdir(), "ub-migration-"));
   const path = join(directory, "project.json");
   await writeFile(path, JSON.stringify(legacyProjectV1()), "utf8");
   const store = new AtomicProjectStore(path);
   const loaded = await store.load();
-  assert.equal(loaded.state.schemaVersion, 4);
+  assert.equal(loaded.state.schemaVersion, 5);
   const revised = reviseSection(loaded.state, "control", "migrated scope");
   await store.save(loaded.state.revision, revised);
   const persisted = JSON.parse(await readFile(path, "utf8"));
-  assert.equal(persisted.schemaVersion, 4);
+  assert.equal(persisted.schemaVersion, 5);
   assert.equal(persisted.engine.legacyModel, LEGACY_FIXED_MODEL_KEY);
-  assert.equal(projectSchema.parse(persisted).schemaVersion, 4);
+  assert.equal(projectSchema.parse(persisted).schemaVersion, 5);
 });
 
-test("new v4 projects serialize all additive foundations and default to all accessible models", () => {
+test("new v5 projects serialize all additive foundations and default to all accessible models", () => {
   const project = createProject("/workspace", "local", { now: "2026-11-01T00:00:00.000Z" });
   project.source = { kind: "import", label: "Fixture import", externalId: "fixture-1", importedAt: "2026-11-01T00:00:01.000Z" };
   project.oracleIntake = {
@@ -284,7 +332,7 @@ test("new v4 projects serialize all additive foundations and default to all acce
   const serialized = JSON.stringify(project);
   const roundTripped = projectSchema.parse(JSON.parse(serialized));
   assert.deepEqual(roundTripped, project);
-  assert.equal(roundTripped.schemaVersion, 4);
+  assert.equal(roundTripped.schemaVersion, 5);
   assert.equal(roundTripped.source.kind, "import");
   assert.equal(roundTripped.oracleIntake.status, "COLLECTING");
   assert.equal(roundTripped.memory.facts[0].id, "memory-1");
@@ -294,7 +342,7 @@ test("new v4 projects serialize all additive foundations and default to all acce
   assert.equal(roundTripped.modelPreferences.budget.maxCostUsd, 1);
 });
 
-test("provider errors round-trip on v4 operations without losing their safe references", () => {
+test("provider errors round-trip on v5 operations without losing their safe references", () => {
   const project = populatedProject();
   project.operations[0].providerError = providerErrorSchema.parse({
     category: "PROVIDER_RATE_LIMIT",
@@ -317,7 +365,7 @@ test("provider errors round-trip on v4 operations without losing their safe refe
   assert.deepEqual(roundTripped.operations[0].providerError, project.operations[0].providerError);
   const repeated = migrateProject(roundTripped);
   assert.equal(repeated.migrated, false);
-  assert.equal(repeated.fromVersion, 4);
+  assert.equal(repeated.fromVersion, 5);
 });
 
 test("operation states expose the complete Phase 0 state model", () => {

@@ -2,7 +2,7 @@
 
 **Status:** Implemented and locally verified.
 **Owner:** Engineering/integration.
-**Last verified:** 2026-11-01.
+**Last verified:** 2026-11-01 against the Phase 2 observability/recovery surface.
 
 This document describes the supported OpenCode surface, not every endpoint OpenCode exposes. OpenCode remains the owner of inference, the agent loop, tools, permissions, and native sessions.
 
@@ -56,6 +56,20 @@ All calls are made by the application server, never directly by the browser.
 | Session revert | `POST /api/session/:sessionID/revert/stage`, `DELETE /api/session/:sessionID/revert`, `POST /api/session/:sessionID/revert/commit` |
 | Prompt/wait/generate | `POST /api/session/:sessionID/prompt`, `POST /api/experimental/session/:sessionID/wait`, `POST /api/session/:sessionID/generate` |
 | Diff | `GET /api/session/:sessionID/diff` |
+
+### Run observability and recovery surface (Upgrade Phase 2)
+
+Live run progress and late-result recovery use the same bounded transport:
+
+| Purpose | Endpoint(s) / mechanism |
+|---|---|
+| Run progress phases | Directed guide callbacks plus safe polling: `GET /api/session/:sessionID` (outcome/idle), `GET /api/session/:sessionID/message` (assistant presence), `GET /api/permission/request` (pending permission) |
+| Late reply retrieval | `GET /api/session/:sessionID/message` (latest assistant message), validated against the same reply schemas as a live completion |
+| Late diff retrieval | `GET /api/session/:sessionID/diff`, re-read after recovery and validated before application |
+| Permission still pending | `GET /api/permission/request?location.directory=…` |
+| Not used yet | `GET /api/event` (SSE) — inspected in `@opencode/client` 2.0.32; safe polling was chosen because the app's response-size-capped, policy-checked transport is built for bounded responses (see `docs/DECISIONS.md` U2-01) |
+
+Progress content is limited to fixed safe phase summaries; prompts, model output, and raw JSON are never recorded as progress or displayed as partial output.
 
 Session actions are restricted to native sessions referenced by the active project (`project.nativeSessions` and operation records). The API does not enumerate or control arbitrary OpenCode sessions.
 

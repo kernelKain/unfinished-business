@@ -7,8 +7,10 @@ import { z } from "zod";
  * demo fixture. Hashing, persistence, and project creation stay in
  * `src/server/workflow/model.ts` because they use Node's crypto module.
  *
- * Schema v4 keeps every v3 workflow record and activates the model-access,
- * spending-limit, and provider-failure foundations introduced in v3.
+ * Schema v5 keeps every v4 workflow record and activates run observability
+ * and recovery metadata: intended action, target section, starting revision,
+ * idempotency key, expected output type, retry lineage, and live progress
+ * phases for persisted asynchronous operations.
  */
 
 export const LEGACY_FIXED_MODEL_KEY = "opencode/deepseek-v4.1-flash-free";
@@ -30,6 +32,45 @@ export const operationStatusSchema = z.enum([
   "CANCELLED",
   "ABANDONED",
 ]);
+
+export const operationIntentSchema = z.enum([
+  "clarify",
+  "draft",
+  "question",
+  "witness",
+  "maker-run",
+]);
+
+export const expectedOutputSchema = z.enum([
+  "ORACLE_REPLY",
+  "SECTION_DRAFT",
+  "WITNESS_REPLY",
+  "QUESTION_REPLY",
+  "MAKER_DIFF",
+]);
+
+/**
+ * Observable run phases. They are recorded while a run is in flight and are
+ * cleared once the operation reaches a terminal status. Phase labels are safe
+ * summaries; they never contain prompts, raw model text, or streamUTF JSON.
+ */
+export const operationPhaseSchema = z.enum([
+  "CONNECTING",
+  "SESSION_CREATED",
+  "WAITING_FOR_MODEL",
+  "RECEIVING_OUTPUT",
+  "VALIDATING_RESULT",
+  "WAITING_PERMISSION",
+  "APPLYING_RESULT",
+  "RUNNING_CHECKS",
+  "AWAITING_RECONCILIATION",
+]);
+
+export const operationProgressSchema = z.object({
+  phase: operationPhaseSchema,
+  detail: z.string().max(500).nullable().default(null),
+  updatedAt: z.string(),
+});
 
 export const providerErrorCategorySchema = z.enum([
   "PROVIDER_DATA_POLICY",
@@ -70,6 +111,10 @@ export const providerErrorSchema = z.object({
 });
 
 export type ProviderErrorDetails = z.infer<typeof providerErrorSchema>;
+export type OperationIntent = z.infer<typeof operationIntentSchema>;
+export type ExpectedOutput = z.infer<typeof expectedOutputSchema>;
+export type OperationPhase = z.infer<typeof operationPhaseSchema>;
+export type OperationProgress = z.infer<typeof operationProgressSchema>;
 
 export const modelRefSchema = z.object({
   providerID: z.string().min(1),
@@ -150,6 +195,28 @@ const legacyOperationCoreSchema = operationCoreSchema.omit({ status: true }).ext
 });
 
 export const operationSchema = operationCoreSchema.extend({
+  model: modelRefSchema.nullable().default(null),
+  agent: z.string().nullable().default(null),
+  startedAt: z.string().nullable().default(null),
+  finishedAt: z.string().nullable().default(null),
+  statusReason: z.string().nullable().default(null),
+  lastObservedAt: z.string().nullable().default(null),
+  appliedAt: z.string().nullable().default(null),
+  providerError: providerErrorSchema.nullable().default(null),
+  intent: operationIntentSchema.nullable().default(null),
+  sectionId: z.string().nullable().default(null),
+  startingRevision: z.number().int().nonnegative().nullable().default(null),
+  idempotencyKey: z.string().max(128).nullable().default(null),
+  expectedOutput: expectedOutputSchema.nullable().default(null),
+  retryOf: z.string().nullable().default(null),
+  progress: operationProgressSchema.nullable().default(null),
+});
+
+/**
+ * The schema v4 operation record. New operations carry recovery metadata, so
+ * v4 reads remain accepted and are explicitly backfilled during migration.
+ */
+export const operationV4Schema = operationCoreSchema.extend({
   model: modelRefSchema.nullable().default(null),
   agent: z.string().nullable().default(null),
   startedAt: z.string().nullable().default(null),
@@ -382,7 +449,8 @@ export const projectV3Schema = projectCoreSchema.extend({
   }),
 });
 
-export const projectSchema = projectCoreSchema.extend({
+/** The v4 project record. v4 rows are migrated explicitly to v5 on read. */
+export const projectV4Schema = projectCoreSchema.extend({
   schemaVersion: z.literal(4),
   mode: projectModeSchema,
   demoWorkspace: z.boolean(),
@@ -411,10 +479,44 @@ export const projectSchema = projectCoreSchema.extend({
   }),
 });
 
+const v5CommonDefaults = {
+  source: projectSourceSchema.default({ kind: "workspace", label: null, externalId: null, importedAt: null }),
+  oracleIntake: oracleIntakeSchema.default({
+    status: "NOT_STARTED",
+    summary: null,
+    questions: [],
+    constraints: [],
+    successCriteria: [],
+    updatedAt: null,
+  }),
+  memory: projectMemorySchema.default({ facts: [], decisions: [], constraints: [], risks: [] }),
+  modelPreferences: modelPreferencesSchema.default({
+    access: {
+      mode: "ALL_ACCESSIBLE",
+      allowedProviders: [],
+      allowedModels: [],
+      dataPolicy: "PROVIDER_DEFAULT",
+      paidOrUnknownAcceptedAt: null,
+    },
+    budget: { maxCostUsd: null, maxTotalTokens: null, maxRunDurationMs: null },
+  }),
+};
+
+export const projectSchema = projectCoreSchema.extend({
+  schemaVersion: z.literal(5),
+  mode: projectModeSchema,
+  demoWorkspace: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  engine: engineSelectionSchema,
+  ...v5CommonDefaults,
+});
+
 export type Project = z.infer<typeof projectSchema>;
 export type PlanSection = z.infer<typeof sectionSchema>;
 export type CandidateSectionRevision = z.infer<typeof candidateSectionRevisionSchema>;
 export type Operation = z.infer<typeof operationSchema>;
+export type OperationV4 = z.infer<typeof operationV4Schema>;
 export type Evidence = z.infer<typeof evidenceSchema>;
 export type Capability = z.infer<typeof capabilitySchema>;
 export type SpiritRole = "oracle" | "architect" | "maker" | "witness";

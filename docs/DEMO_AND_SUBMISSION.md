@@ -2,7 +2,7 @@
 
 **Status:** Deterministic guided demo and release evidence complete. A real recorded video, published article, and submission remain pending explicit authorization.
 **Owner:** Demo/submission.
-**Last verified:** 2026-11-01 (18 visual/accessibility tests; 139 unit/integration tests).
+**Last verified:** 2026-11-01 (18 visual/accessibility tests; 150 unit/integration tests).
 
 ## Two different demos
 
@@ -32,7 +32,7 @@ No real campus, sponsor, user, metric, deployment, account, or competition resul
 | Item | Value |
 |---|---|
 | Fixture module | `src/shared/demo.ts` |
-| Fixture version | `campus-umbrella-relay@1` |
+| Fixture version | `campus-umbrella-relay@2` |
 | Data mode | `demo` |
 | Source label | `Prerecorded demo fixture — not a live OpenCode session` |
 | Production contract | `src/shared/workflow.ts` (`projectSchema`, operation/evidence/capability schemas) |

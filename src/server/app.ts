@@ -739,7 +739,8 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
     try {
       const input = messageSchema.parse(await context.req.json());
       const result = await workflow.experience.sendMessage(input.actionId, input.expectedRevision, input.intent, input.text);
-      return context.json(result);
+      const queued = "accepted" in result ? Boolean(result.accepted) : false;
+      return context.json(result, queued ? 202 : 200);
     } catch (error) {
       return workflowError(context, error, "Invalid message.", log);
     }
@@ -803,6 +804,33 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
       return context.json(result);
     } catch (error) {
       return workflowError(context, error, "Invalid reconciliation.", log);
+    }
+  });
+
+  app.post("/api/runs/:id/retry", async (context) => {
+    if (!workflow.experience) return unavailable(context);
+    const id = operationIdSchema.safeParse(context.req.param("id"));
+    if (!id.success) return invalidRequest(context, "Unknown operation identifier.");
+    try {
+      const input = actionSchema.parse(await context.req.json());
+      const result = await workflow.experience.retryRun(input.actionId, input.expectedRevision, id.data);
+      const accepted = "accepted" in result ? Boolean(result.accepted) : false;
+      return context.json(result, accepted ? 202 : 200);
+    } catch (error) {
+      return workflowError(context, error, "Invalid retry.", log);
+    }
+  });
+
+  app.post("/api/runs/:id/abandon", async (context) => {
+    if (!workflow.experience) return unavailable(context);
+    const id = operationIdSchema.safeParse(context.req.param("id"));
+    if (!id.success) return invalidRequest(context, "Unknown operation identifier.");
+    try {
+      const input = actionSchema.parse(await context.req.json());
+      const result = await workflow.experience.abandonRun(input.actionId, input.expectedRevision, id.data);
+      return context.json(result);
+    } catch (error) {
+      return workflowError(context, error, "Invalid abandon request.", log);
     }
   });
 

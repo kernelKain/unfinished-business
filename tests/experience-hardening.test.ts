@@ -200,6 +200,7 @@ test("reconciliation records the native outcome without starting a second run", 
       };
     },
     async inspect() { return "succeeded"; },
+    async sessionDiff() { return [{ status: "modified", file: "project.test.mjs", additions: 1, deletions: 0 }]; },
   };
   const { app, service } = await makerReady(guide);
   const project = await service.get();

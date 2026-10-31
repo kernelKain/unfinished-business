@@ -1,8 +1,8 @@
 # Architecture — Unfinished Business
 
-**Status:** Upgrade Phase 1 implemented on top of the verified Phase 0 baseline.
+**Status:** Phase 2 (run observability and recovery) implemented on top of the verified Phase 1 baseline.
 **Owner:** Engineering.
-**Last verified:** 2026-11-01 against `139` unit/integration tests plus the existing `18` visual/accessibility tests.
+**Last verified:** 2026-11-01 against `150` unit/integration tests plus the existing `18` visual/accessibility tests.
 
 ## 1. System shape
 
@@ -131,7 +131,7 @@ The browser session token is issued only over loopback in local mode or after Ba
 
 ## 7. State, evidence, and recovery
 
-Schema v4 is the single current shape. It preserves the v3 workflow record and activates:
+Schema v5 is the single current shape. It preserves the v4 workflow record and adds run-observability metadata to every operation:
 
 - project source metadata (`workspace`, `import`, `template`, or `demo`);
 - structured Oracle intake state, questions, constraints, and success criteria;
@@ -139,7 +139,9 @@ Schema v4 is the single current shape. It preserves the v3 workflow record and a
 - candidate section revisions that remain separate from the approved/current section;
 - model access mode (`ALL_ACCESSIBLE` or `FREE_OR_LOCAL_ONLY`), privacy preference, first paid/unknown-price acceptance timestamp, and optional budget limits;
 - operation observation/application metadata and late-result-safe states;
-- a nullable structured provider error on operations: category, human explanation, saved-work status, repair action, retryability, and redacted technical references.
+- a nullable structured provider error on operations: category, human explanation, saved-work status, repair action, retryability, and redacted technical references;
+- recovery metadata on operations: intended action (`intent`), target `sectionId`, `startingRevision`, `idempotencyKey`, `expectedOutput` type, retry lineage (`retryOf`), and a persisted `progress` phase;
+- operation progress phases `CONNECTING`, `SESSION_CREATED`, `WAITING_FOR_MODEL`, `RECEIVING_OUTPUT`, `VALIDATING_RESULT`, `WAITING_PERMISSION`, `APPLYING_RESULT`, `RUNNING_CHECKS`, `AWAITING_RECONCILIATION`; the current phase is cleared when the run reaches a terminal status.
 
 New projects default to `ALL_ACCESSIBLE` with no spending limit. A paid or unknown-price remote model additionally requires an explicit confirmation timestamp before it can be selected or used. `FREE_OR_LOCAL_ONLY` blocks paid/unknown remote models and is the migrated default for v1/v2/v3 projects, preserving their previous behavior.
 
@@ -148,9 +150,10 @@ Migration accepts:
 - v1 fixed-model snapshots;
 - guided-interface v2 snapshots with engine selection but no mode/timestamps;
 - hardening-line v2 snapshots with mode/timestamps but no engine selection;
-- v3 snapshots with `requireFreeOrLocal`, a nonnegative cost budget, and no provider error.
+- v3 snapshots with `requireFreeOrLocal`, a nonnegative cost budget, and no provider error;
+- v4 snapshots without the new operation metadata.
 
-Migration is deterministic and idempotent. Missing legacy timestamps use the documented epoch sentinel `1970-01-01T00:00:00.000Z`; migration never reads the wall clock or generates IDs. Legacy `UNKNOWN` operations become `ABANDONED` with their result and native references intact. A v4 document round-trips through JSON and schema validation without changing.
+Migration is deterministic and idempotent. Missing legacy timestamps use the documented epoch sentinel `1970-01-01T00:00:00.000Z`; migration never reads the wall clock or generates IDs. Legacy `UNKNOWN` operations become `ABANDONED` with their result and native references intact, and every migrated non-terminal operation receives a deterministic `AWAITING_RECONCILIATION` progress marker with the sentinel timestamp so old unknown runs remain reconcilable. A v5 document round-trips through JSON and schema validation without changing.
 
 Operational rules:
 
@@ -160,8 +163,14 @@ Operational rules:
 - revisions invalidate only transitive dependent sections/approvals;
 - Maker requires every current section approved plus a separate scope grant;
 - operation states are `QUEUED`, `RUNNING`, `WAITING_PERMISSION`, `COMPLETED_UNAPPLIED`, `SUCCEEDED`, `FAILED`, `CANCELLED`, and `ABANDONED`;
-- `COMPLETED_UNAPPLIED` means a late native result exists but has not been accepted into project state;
-- startup marks in-flight work `ABANDONED`; reconciliation reads native state and never replays automatically;
+- `COMPLETED_UNAPPLIED` means a native result was observed or stored but has not (yet) been validated and applied exactly once;
+- Oracle, Architect, Witness, and Maker runs are persisted asynchronous operations: the HTTP request returns `202 Accepted` with the queued operation and the run continues in the background (the synchronous `question` adapter is the documented exception because it changes no saved state);
+- the run coordinator records progress phases through safe polling (`session.get`, `message.list`, `permission.request.list`) plus directed callbacks from the native guide; prompts, raw model text, and unvalidated JSON are never persisted as progress;
+- a timeout, disconnect, or restart leaves the operation `ABANDONED` with an `AWAITING_RECONCILIATION` marker and its native session reference; it blocks new runs until reconciled but never permanently blocks the project;
+- reconciliation observes the native outcome, retrieves the actual late reply or diff through fresh reads, validates it with the same schemas as live completions, and applies it at most once (`appliedAt` plus the idempotent action record); an idle session alone is never success;
+- `POST /api/runs/:id/retry` starts a new Maker operation with `retryOf` lineage after a confirmed `FAILED` outcome; uncertain runs must be reconciled first;
+- `POST /api/runs/:id/abandon` records a user decision on an outstanding operation when no in-process runner is active;
+- startup marks in-flight work `ABANDONED` with a recovery marker; reconciliation reads native state and never replays automatically;
 - evidence records an observed native result/fingerprint; a missing result is an empty state.
 
 `AtomicProjectStore` acquires a cross-process lock, writes a private temp file, fsyncs, renames, keeps `.previous` and rolling `backups/`, quarantines corrupt current files, and prunes bounded retention. A corrupt current with no valid previous returns `STATE_CORRUPT`; it never silently resets.

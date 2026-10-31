@@ -1,4 +1,5 @@
 import type { ModelRef } from "../workflow/model.ts";
+import type { OperationPhase, OperationProgress } from "../../shared/workflow.ts";
 import {
   assertEngineReady,
   createNativeClient,
@@ -26,6 +27,21 @@ export interface PerformedResult extends SpokenResult {
   timedOut?: boolean;
 }
 
+/** Diff summary lines about one file, validated before they are stored or shown. */
+export interface NativeFileDiff {
+  status: string;
+  file: string;
+  additions: number;
+  deletions: number;
+}
+
+export interface NativeMessageSnapshot {
+  messageId: string;
+  text: string;
+}
+
+export type ProgressReporter = (phase: OperationPhase, detail?: string | null) => void;
+
 export interface SessionContext {
   conversationId: string;
   sessionId: string | null;
@@ -39,14 +55,41 @@ export interface SessionContext {
     maxRunDurationMs: number | null;
   };
   onSession?: (sessionId: string) => void;
+  onProgress?: ProgressReporter;
 }
 
-export interface SpiritGuide {
+/**
+ * Extra observation methods used for live progress and for reconciling a
+ * late native result. Implementations may omit a method when the connected
+ * server does not support it; reconcile then stays honest instead of guessing.
+ */
+export interface NativeObserver {
+  /** Latest validated assistant text for a session, or null when unreadable. */
+  lastAssistantText?(sessionId: string): Promise<NativeMessageSnapshot | null>;
+  /** Validated file-level diff after a native edit, or null when unreadable. */
+  sessionDiff?(sessionId: string, workspace: string): Promise<NativeFileDiff[] | null>;
+  /** Whether a native permission request is waiting, or null when unknown. */
+  hasPendingPermission?(sessionId: string, workspace: string): Promise<boolean | null>;
+}
+
+export interface SpiritGuide extends NativeObserver {
   speak(input: SessionContext & { role: "oracle" | "architect" | "witness" }): Promise<SpokenResult>;
   perform(input: SessionContext & { role: "maker" }): Promise<PerformedResult>;
   inspect(sessionId: string, context: { conversationId: string; role: "oracle" | "architect" | "maker" | "witness" }): Promise<"running" | "succeeded" | "failed" | "unknown">;
   interrupt?(sessionId: string): Promise<boolean>;
 }
+
+export const PHASE_DETAIL: Record<OperationPhase, string> = {
+  CONNECTING: "Connecting to OpenCode and checking readiness.",
+  SESSION_CREATED: "OpenCode session is ready.",
+  WAITING_FOR_MODEL: "The prompt was sent. Waiting for the model route.",
+  RECEIVING_OUTPUT: "Receiving the native output.",
+  VALIDATING_RESULT: "Validating the native result before it is applied.",
+  WAITING_PERMISSION: "A native permission request is pending. Resolve it in OpenCode.",
+  APPLYING_RESULT: "Applying the validated result to the saved project.",
+  RUNNING_CHECKS: "Running the bounded Node check.",
+  AWAITING_RECONCILIATION: "Reconcile the native session to recover or discard this run.",
+};
 
 export interface GuideBudgets {
   guideTimeoutMs: number;
@@ -252,14 +295,17 @@ export class OpenCodeSpiritGuide implements SpiritGuide {
   }
 
   async speak(input: SessionContext & { role: "oracle" | "architect" | "witness" }): Promise<SpokenResult> {
+    input.onProgress?.("CONNECTING");
     await this.ready();
     return traceChatOperation(input.role, input.conversationId, input.model, async (span) => {
       const sessionId = await this.openSession(input.role, input, readOnlyPermissions);
       try {
         // One request, one possible side effect. A short reply is parsed or
         // rejected; it is never silently re-prompted.
+        input.onProgress?.("WAITING_FOR_MODEL");
         const generated = await timed("Native spirit", this.timeoutFor("guide", input.budget),
           this.client().session.generate({ sessionID: sessionId, prompt: input.prompt }));
+        input.onProgress?.("VALIDATING_RESULT");
         const text = generated.text?.trim() ?? "";
         if (!text) throw new NativeSessionError("EMPTY_RESPONSE", "Native session returned no assistant text.");
         const info = await this.client().session.get({ sessionID: sessionId });
@@ -273,13 +319,16 @@ export class OpenCodeSpiritGuide implements SpiritGuide {
   }
 
   async perform(input: SessionContext & { role: "maker" }): Promise<PerformedResult> {
+    input.onProgress?.("CONNECTING");
     await this.ready();
     return traceChatOperation("maker", input.conversationId, input.model, async (span) => {
       const sessionId = await this.openSession("maker", input, makerPermissions);
       try {
+        input.onProgress?.("WAITING_FOR_MODEL");
         const prompted = await this.client().session.prompt({ sessionID: sessionId, text: input.prompt });
         let timedOut = false;
         let timer: NodeJS.Timeout | undefined;
+        input.onProgress?.("RECEIVING_OUTPUT", "The native session is working. Waiting for it to become idle.");
         try {
           await Promise.race([
             this.client().session.wait({ sessionID: sessionId }),
@@ -294,6 +343,7 @@ export class OpenCodeSpiritGuide implements SpiritGuide {
         } finally {
           if (timer) clearTimeout(timer);
         }
+        input.onProgress?.("VALIDATING_RESULT");
         const info = await this.client().session.get({ sessionID: sessionId });
         if (info.outcome === "succeeded" || info.outcome === "failed" || info.outcome === "interrupted") timedOut = false;
         this.assertBudget(input.model, info, input.budget);
@@ -353,5 +403,57 @@ export class OpenCodeSpiritGuide implements SpiritGuide {
         return "unknown";
       }
     });
+  }
+
+  /**
+   * Reads the latest assistant message through safe polling. The model's
+   * message content is never surfaced unchanged; it is only used for
+   * validation, so no partial or unvalidated text is stored as a section.
+   */
+  async lastAssistantText(sessionId: string): Promise<NativeMessageSnapshot | null> {
+    try {
+      const messages = await this.client().message.list({ sessionID: sessionId, limit: 5, order: "desc", type: "assistant" });
+      for (const message of messages.data) {
+        if (message.type !== "assistant") continue;
+        const textPart = message.content.find((part) => part.type === "text");
+        if (textPart && textPart.type === "text" && textPart.text.trim()) {
+          return { messageId: message.id, text: textPart.text };
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Validates diff entries before they leave the native boundary. */
+  async sessionDiff(sessionId: string, workspace = ""): Promise<NativeFileDiff[] | null> {
+    void workspace;
+    return traceToolOperation("maker", sessionId, null, "opencode.session.diff", async (toolSpan) => {
+      try {
+        const result = await this.client().session.diff({ sessionID: sessionId });
+        setOpenCodeResult(toolSpan, { sessionId, model: null });
+        toolSpan.setAttribute("opencode.diff.file_count", result.length);
+        return result
+          .map((file) => ({
+            status: String(file.status),
+            file: String(file.file),
+            additions: Number(file.additions) || 0,
+            deletions: Number(file.deletions) || 0,
+          }))
+          .filter((file) => file.file.length > 0);
+      } catch {
+        return null;
+      }
+    });
+  }
+
+  async hasPendingPermission(sessionId: string, workspace: string): Promise<boolean | null> {
+    try {
+      const requests = await this.client().permission.request.list({ location: { directory: workspace } });
+      return requests.data.some((request) => request.sessionID === sessionId);
+    } catch {
+      return null;
+    }
   }
 }

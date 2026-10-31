@@ -108,28 +108,48 @@ export class WorkflowService {
   /**
    * Called once at process startup. Any operation that was queued or running when
    * the process stopped is uncertain and must not be retried automatically.
+   * Unlike background completions, startup recovery has to race with nothing,
+   * but it still retries optimistic-conflict failures a bounded number of times.
    */
   async recoverAfterRestart(): Promise<{ recovered: number } | null> {
     return this.withLock(async () => {
-      const loaded = await this.store.load();
-      const next = structuredClone(loaded.state);
-      let recovered = 0;
-      for (const operation of next.operations) {
-        if (["QUEUED", "RUNNING", "WAITING_PERMISSION"].includes(operation.status)) {
-          operation.status = "ABANDONED";
-          operation.statusReason = "application-restarted";
-          operation.lastObservedAt = this.now().toISOString();
-          operation.result = "The application restarted while this native operation was in flight. It was not repeated; reconcile the native session.";
-          operation.finishedAt = this.now().toISOString();
-          recovered += 1;
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const loaded = await this.store.load();
+        try {
+          return await this.recoverOperation(loaded.state);
+        } catch (error) {
+          if (!(error instanceof RevisionConflict) || attempt === 4) throw error;
         }
       }
-      if (recovered === 0) return null;
-      rememberTranscript(next, "system", `${recovered} interrupted native operation(s) were marked abandoned after restart and will not be repeated automatically.`);
-      refreshNextAction(next);
-      await this.store.save(loaded.state.revision, next);
-      return { recovered };
+      return null;
     });
+  }
+
+  private async recoverOperation(state: Project): Promise<{ recovered: number } | null> {
+    const next = structuredClone(state);
+    let recovered = 0;
+    for (const operation of next.operations) {
+      const needsRecoveryMarker = ["QUEUED", "RUNNING", "WAITING_PERMISSION"].includes(operation.status)
+        || (["COMPLETED_UNAPPLIED", "ABANDONED"].includes(operation.status)
+          && operation.progress?.phase !== "AWAITING_RECONCILIATION");
+      if (needsRecoveryMarker) {
+        operation.status = "ABANDONED";
+        operation.statusReason = "application-restarted";
+        operation.lastObservedAt = this.now().toISOString();
+        operation.result = "The application restarted while this native operation was in flight. It was not repeated; reconcile the native session or mark it abandoned.";
+        operation.progress = {
+          phase: "AWAITING_RECONCILIATION",
+          detail: "The native session can be reconciled after the restart; a late result is applied exactly once.",
+          updatedAt: this.now().toISOString(),
+        };
+        recovered += 1;
+      }
+    }
+    if (recovered === 0) return null;
+    rememberTranscript(next, "system", `${recovered} interrupted native operation(s) were marked abandoned after restart and will not be repeated automatically.`);
+    refreshNextAction(next);
+    await this.store.save(state.revision, next);
+    return { recovered };
   }
 
   /**

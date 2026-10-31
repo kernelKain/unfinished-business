@@ -5,6 +5,7 @@ import type { ConnectionStatus } from "../../shared/opencode.ts";
 import type { ProviderErrorDetails } from "../../shared/workflow.ts";
 import { modeDescriptor } from "../../shared/modes.ts";
 import {
+  abandonRun,
   ApiError,
   approveProduct,
   approveSection,
@@ -16,6 +17,7 @@ import {
   loadProject,
   reconcileRun,
   reviseSection,
+  retryRun,
   runMaker,
   sendMessage,
   type WorkshopProject,
@@ -276,8 +278,11 @@ export function WorkshopPage() {
             ) : null}
             {activeRun ? (
               <p className="banner" role="status">
-                <strong>{activeRun.kind === "maker" ? "Maker" : "OpenCode"}</strong> is working in the background
-                {activeRun.model ? ` with ${activeRun.model.providerID}/${activeRun.model.id}` : ""}. The saved project updates when it finishes.
+                <strong>{runRoleName(activeRun)}</strong> is working in the background
+                {activeRun.model ? ` with ${activeRun.model.providerID}/${activeRun.model.id}` : ""}
+                {activeRun.progress?.phase
+                  ? ` — observed: ${activeRun.progress.phase.replaceAll("_", " ").toLowerCase()}`
+                  : ""}. The saved project updates when it finishes.
                 <button className="action secondary" type="button" disabled={busy} onClick={() => void act(() => cancelRun(project, activeRun.id))}>Cancel run</button>
               </p>
             ) : null}
@@ -343,6 +348,10 @@ export function WorkshopPage() {
               capabilities={project.capabilities}
               busy={busy}
               onReconcile={(operationId) => void act(() => reconcileRun(project, operationId))}
+              onCancel={(operationId) => void act(() => cancelRun(project, operationId))}
+              onRetry={(operationId) => void act(() => retryRun(project, operationId))}
+              onAbandon={(operationId) => void act(() => abandonRun(project, operationId))}
+              onOpenOpenCode={() => openOpenCodePanel()}
               note="This view never invents a result. Unknown runs and failed checks stay visible."
             />
             <section className="panel transcript-panel">
@@ -678,6 +687,23 @@ function WitnessPanel(props: {
 function Seal({ label, reduceMotion }: { label: string; reduceMotion: boolean | null }) {
   if (reduceMotion) return <span className="seal">{label}</span>;
   return <motion.span className="seal" initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.35 }}>{label}</motion.span>;
+}
+
+function runRoleName(operation: WorkshopProject["operations"][number]): string {
+  if (operation.kind === "maker") return "Maker";
+  if (operation.kind === "witness") return "Witness";
+  if (operation.intent === "clarify") return "Oracle";
+  if (operation.intent === "draft") return "Architect";
+  return "OpenCode";
+}
+
+/** Focuses the advanced OpenCode panel so the native session can be inspected. */
+function openOpenCodePanel(): void {
+  const panel = document.getElementById("opencode-panel");
+  if (!panel) return;
+  if (panel instanceof HTMLDetailsElement) panel.open = true;
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  panel.focus?.();
 }
 
 function spiritStateFor(

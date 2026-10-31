@@ -27,6 +27,7 @@ import {
   projectV1Schema,
   projectV2Schema,
   projectV3Schema,
+  projectV4Schema,
   sectionSchema,
   sectionStatusSchema,
   transcriptEntrySchema,
@@ -36,6 +37,7 @@ import {
   type Evidence,
   type ModelRef,
   type Operation,
+  type OperationProgress,
   type PlanSection,
   type Project,
   type ProjectMode,
@@ -70,6 +72,7 @@ export {
   projectV1Schema,
   projectV2Schema,
   projectV3Schema,
+  projectV4Schema,
   sectionSchema,
   sectionStatusSchema,
   transcriptEntrySchema,
@@ -85,7 +88,7 @@ export {
   type SpiritRole,
 };
 
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 export const MIGRATION_TIMESTAMP = "1970-01-01T00:00:00.000Z";
 
 export class UnsupportedSchemaVersionError extends Error {
@@ -145,7 +148,7 @@ export function createProject(
   }));
   const now = options?.now ?? new Date().toISOString();
   return refreshNextAction(projectSchema.parse({
-    schemaVersion: 4,
+    schemaVersion: 5,
     id: randomUUID(),
     revision: 0,
     mode,
@@ -215,13 +218,16 @@ export interface MigrationResult {
 }
 
 /**
- * Reads every supported prior shape as schema v4.
+ * Reads every supported prior shape as schema v5.
  *
  * The guided-interface line wrote v2 with engine selection but no mode or
  * timestamps. The hardening line wrote v2 with mode/timestamps but no engine.
  * Both v2 variants are accepted through explicit deterministic defaults. A v1
- * fixed-model project preserves that legacy identity for discovery. No
- * migration step reads the wall clock, generates an ID, or deletes history.
+ * fixed-model project preserves that legacy identity for discovery. Schema v5
+ * adds run-observability metadata: operations with no recorded progress keep
+ * a deterministic AWAITING_RECONCILIATION marker when their status could still
+ * be recovered, so old unknown operations remain reconcilable. No migration
+ * step reads the wall clock, generates an ID, or deletes history.
  */
 export function migrateProject(raw: unknown): MigrationResult {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
@@ -250,7 +256,7 @@ export function migrateProject(raw: unknown): MigrationResult {
     const product = legacy.product;
     const project = projectSchema.parse({
       ...legacy,
-      schemaVersion: 4,
+      schemaVersion: 5,
       mode,
       demoWorkspace: "demoWorkspace" in legacy ? legacy.demoWorkspace ?? true : true,
       createdAt,
@@ -268,6 +274,10 @@ export function migrateProject(raw: unknown): MigrationResult {
         lastObservedAt: null,
         appliedAt: null,
         providerError: null,
+        progress: awaitRecoveryProgress(
+          operation.status === "UNKNOWN" ? "ABANDONED" : operation.status,
+          "Migrated from a legacy record; the native session can still be reconciled.",
+        ),
       })),
       evidence: legacy.evidence.map((evidence) => ({
         ...evidence,
@@ -308,8 +318,15 @@ export function migrateProject(raw: unknown): MigrationResult {
     const legacy = projectV3Schema.parse(source);
     const project = projectSchema.parse({
       ...legacy,
-      schemaVersion: 4,
-      operations: legacy.operations.map((operation) => ({ ...operation, providerError: null })),
+      schemaVersion: 5,
+      operations: legacy.operations.map((operation) => ({
+        ...operation,
+        providerError: null,
+        progress: operation.progress ?? awaitRecoveryProgress(
+          operation.status,
+          "Migrated from schema v3; the native session can still be reconciled.",
+        ),
+      })),
       modelPreferences: {
         access: {
           mode: legacy.modelPreferences.access.requireFreeOrLocal ? "FREE_OR_LOCAL_ONLY" : "ALL_ACCESSIBLE",
@@ -330,6 +347,22 @@ export function migrateProject(raw: unknown): MigrationResult {
     return { project, fromVersion: 3, migrated: true };
   }
 
+  if (version === 4) {
+    const legacy = projectV4Schema.parse(source);
+    const project = projectSchema.parse({
+      ...legacy,
+      schemaVersion: 5,
+      operations: legacy.operations.map((operation) => ({
+        ...operation,
+        progress: operation.progress ?? awaitRecoveryProgress(
+          operation.status,
+          "Migrated from schema v4; the native session can still be reconciled.",
+        ),
+      })),
+    });
+    return { project, fromVersion: 4, migrated: true };
+  }
+
   const missingDefaults = !("source" in source)
     || !("oracleIntake" in source)
     || !("memory" in source)
@@ -339,9 +372,26 @@ export function migrateProject(raw: unknown): MigrationResult {
     || !Array.isArray(source.operations)
     || source.operations.some((operation) => !operation || typeof operation !== "object"
       || !("statusReason" in operation) || !("lastObservedAt" in operation) || !("appliedAt" in operation)
-      || !("providerError" in operation));
+      || !("providerError" in operation)
+      || !("progress" in operation) || !("intent" in operation) || !("retryOf" in operation));
   const project = projectSchema.parse(source);
   return { project, fromVersion: version, migrated: missingDefaults };
+}
+
+/**
+ * Deterministic recovery marker for operations whose true progress was not
+ * recorded by an older build. Terminal operations need no marker because
+ * their outcome is already known.
+ */
+function awaitRecoveryProgress(status: string, detail: string): OperationProgress | null {
+  if (!["QUEUED", "RUNNING", "WAITING_PERMISSION", "COMPLETED_UNAPPLIED", "ABANDONED"].includes(status)) {
+    return null;
+  }
+  return {
+    phase: "AWAITING_RECONCILIATION",
+    detail,
+    updatedAt: MIGRATION_TIMESTAMP,
+  };
 }
 
 export function refreshNextAction(project: Project): Project {
@@ -352,13 +402,13 @@ export function refreshNextAction(project: Project): Project {
     ["QUEUED", "RUNNING", "WAITING_PERMISSION", "COMPLETED_UNAPPLIED", "ABANDONED"].includes(operation.status),
   );
   if (unresolved) {
-    project.stage = unresolved.kind === "maker" ? "MAKER" : unresolved.kind === "witness" ? "WITNESS" : "ARCHITECT";
+    project.stage = stageForOperation(unresolved.kind, unresolved.intent);
     project.nextAction = unresolved.status === "WAITING_PERMISSION"
       ? "A native permission is pending. Resolve it in OpenCode, then reconcile. Work will not be repeated automatically."
       : unresolved.status === "RUNNING"
         ? "A native run is still running. Wait or reconcile. It will not be started again automatically."
         : unresolved.status === "COMPLETED_UNAPPLIED"
-          ? "A native result arrived after the active request ended. Review and apply or discard it before any new run."
+          ? "A native result arrived after the active request ended. Reconcile to review, apply, or discard it before any new run."
           : "A native run was abandoned without a confirmed outcome. Reconcile it before any new run.";
     return project;
   }
@@ -391,4 +441,15 @@ export function refreshNextAction(project: Project): Project {
     ? "Review the Witness drafts"
     : "Ask the Witness to review the evidence";
   return project;
+}
+
+/**
+ * An unresolved guide operation pins the stage of the spirit that owns it so
+ * the interface shows the interrupted workflow, not a stale default stage.
+ */
+function stageForOperation(kind: string, intent: string | null): Project["stage"] {
+  if (kind === "maker") return "MAKER";
+  if (kind === "witness") return "WITNESS";
+  if (kind === "guide" && intent === "clarify") return "ORACLE";
+  return "ARCHITECT";
 }

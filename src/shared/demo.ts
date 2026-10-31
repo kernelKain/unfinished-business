@@ -9,7 +9,7 @@ import type { Evidence, Operation, Project } from "./workflow.ts";
  * than silently drifting from the live workshop.
  */
 
-export const DEMO_FIXTURE_VERSION = "campus-umbrella-relay@1";
+export const DEMO_FIXTURE_VERSION = "campus-umbrella-relay@2";
 export const DEMO_DATA_MODE = "demo" as const;
 export const DEMO_SOURCE_LABEL = "Prerecorded demo fixture — not a live OpenCode session";
 
@@ -263,6 +263,13 @@ const demoOperations: Operation[] = [
     lastObservedAt: "2026-10-31T08:00:02.000Z",
     appliedAt: "2026-10-31T08:00:02.000Z",
     providerError: null,
+    intent: "clarify",
+    sectionId: null,
+    startingRevision: 0,
+    idempotencyKey: "demo-action-oracle",
+    expectedOutput: "ORACLE_REPLY",
+    retryOf: null,
+    progress: null,
   },
   {
     id: "op-demo-architect",
@@ -280,6 +287,13 @@ const demoOperations: Operation[] = [
     lastObservedAt: "2026-10-31T08:01:03.000Z",
     appliedAt: "2026-10-31T08:01:03.000Z",
     providerError: null,
+    intent: "draft",
+    sectionId: "control",
+    startingRevision: 2,
+    idempotencyKey: "demo-action-architect",
+    expectedOutput: "SECTION_DRAFT",
+    retryOf: null,
+    progress: null,
   },
   {
     id: "op-demo-scope",
@@ -297,6 +311,13 @@ const demoOperations: Operation[] = [
     lastObservedAt: "2026-10-31T08:02:01.000Z",
     appliedAt: "2026-10-31T08:02:01.000Z",
     providerError: null,
+    intent: null,
+    sectionId: null,
+    startingRevision: null,
+    idempotencyKey: "demo-action-scope",
+    expectedOutput: null,
+    retryOf: null,
+    progress: null,
   },
   {
     id: "op-demo-maker",
@@ -314,6 +335,13 @@ const demoOperations: Operation[] = [
     lastObservedAt: "2026-10-31T08:03:09.000Z",
     appliedAt: "2026-10-31T08:03:09.000Z",
     providerError: null,
+    intent: "maker-run",
+    sectionId: null,
+    startingRevision: 4,
+    idempotencyKey: "demo-action-maker",
+    expectedOutput: "MAKER_DIFF",
+    retryOf: null,
+    progress: null,
   },
   {
     id: "op-demo-check",
@@ -331,6 +359,13 @@ const demoOperations: Operation[] = [
     lastObservedAt: "2026-10-31T08:04:04.000Z",
     appliedAt: "2026-10-31T08:04:04.000Z",
     providerError: null,
+    intent: null,
+    sectionId: null,
+    startingRevision: null,
+    idempotencyKey: null,
+    expectedOutput: null,
+    retryOf: null,
+    progress: null,
   },
   {
     id: "op-demo-witness",
@@ -348,6 +383,13 @@ const demoOperations: Operation[] = [
     lastObservedAt: "2026-10-31T08:05:05.000Z",
     appliedAt: "2026-10-31T08:05:05.000Z",
     providerError: null,
+    intent: "witness",
+    sectionId: null,
+    startingRevision: 6,
+    idempotencyKey: "demo-action-witness",
+    expectedOutput: "WITNESS_REPLY",
+    retryOf: null,
+    progress: null,
   },
 ];
 
@@ -406,7 +448,7 @@ const projectSections = sectionIds.map((id, index) => ({
 }));
 
 const demoProject: Project = {
-  schemaVersion: 4,
+  schemaVersion: 5,
   id: "demo-campus-umbrella-relay",
   revision: 14,
   mode: "hosted-demo",

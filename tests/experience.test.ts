@@ -182,24 +182,24 @@ test("a provider privacy rejection returns a structured, redacted repair path", 
     headers,
     body: JSON.stringify({ actionId: "provider-policy", expectedRevision: 0, intent: "clarify", text: "Students lose umbrellas." }),
   });
-  assert.equal(response.status, 403);
-  const body = await response.json();
-  assert.equal(body.code, "PROVIDER_DATA_POLICY");
-  assert.equal(body.providerError.category, "PROVIDER_DATA_POLICY");
-  assert.equal(body.providerError.action, "review-privacy");
-  assert.equal(body.providerError.savedWorkChanged, "no");
-  assert.match(body.providerError.technical.diagnosticReference, /^provider-/);
-  assert.match(body.providerError.repair, /privacy|provider/i);
-  assert.doesNotMatch(JSON.stringify(body), /sk-live-secret-1234567890/);
-
-  const operation = (await store.load()).state.operations.at(-1);
-  assert.equal(operation?.status, "FAILED");
-  assert.equal(operation?.providerError?.category, "PROVIDER_DATA_POLICY");
-  assert.equal(operation?.providerError?.technical.statusCode, 403);
+  assert.equal(response.status, 202);
+  assert.equal(JSON.stringify(await response.json()).includes("sk-live-secret-1234567890"), false);
+  const operation = await waitFor(async () => {
+    const state = (await store.load()).state;
+    const candidate = state.operations.at(-1);
+    return candidate?.status === "FAILED" ? candidate : null;
+  });
+  assert.equal(operation.providerError?.category, "PROVIDER_DATA_POLICY");
+  assert.equal(operation.providerError?.action, "review-privacy");
+  assert.equal(operation.providerError?.savedWorkChanged, "no");
+  assert.match(operation.providerError?.technical.diagnosticReference ?? "", /^provider-/);
+  assert.match(operation.providerError?.repair ?? "", /privacy|provider/i);
+  assert.doesNotMatch(JSON.stringify(operation), /sk-live-secret-1234567890/);
+  assert.equal(operation.providerError?.technical.statusCode, 403);
 });
 
 test("oracle proposal cannot approve the product by itself", async () => {
-  const { app } = await workshop(guide([
+  const { app, store } = await workshop(guide([
     JSON.stringify({ clarification: "A campus lost-and-found.", proposal: "Track found items.", openQuestions: ["Who may claim an item?"] }),
   ]));
   const response = await app.request("/api/messages", {
@@ -207,8 +207,14 @@ test("oracle proposal cannot approve the product by itself", async () => {
     headers,
     body: JSON.stringify({ actionId: "idea", expectedRevision: 0, intent: "clarify", text: "Students lose umbrellas." }),
   });
-  assert.equal(response.status, 200);
-  const body = await response.json();
+  assert.equal(response.status, 202);
+  const queued = await response.json();
+  assert.equal(queued.accepted, true);
+  const project = await waitFor(async () => {
+    const state = (await store.load()).state;
+    return state.product.status === "PROPOSED" ? state : null;
+  });
+  const body = { project };
   assert.equal(body.project.product.status, "PROPOSED");
   assert.equal(body.project.oracleIntake.status, "READY");
   assert.equal(body.project.oracleIntake.summary, "Track found items.");
@@ -231,8 +237,13 @@ test("a malformed architect reply leaves the section unchanged", async () => {
     headers,
     body: JSON.stringify({ actionId: "draft", expectedRevision: project.revision, intent: "draft", text: "Draft the control section." }),
   });
-  assert.equal(response.status, 400);
+  assert.equal(response.status, 202);
+  await waitFor(async () => {
+    const state = (await store.load()).state;
+    return state.operations.at(-1)?.status === "FAILED" ? state : null;
+  });
   const after = (await store.load()).state;
+  assert.equal(after.operations.at(-1)?.statusReason, "malformed-response");
   assert.equal(after.sections[0].hash, before);
   assert.equal(after.sections[0].status, "NOT_STARTED");
 });
@@ -249,11 +260,14 @@ test("a prose architect reply is stored as an unapproved draft", async () => {
     headers,
     body: JSON.stringify({ actionId: "prose", expectedRevision: project.revision, intent: "draft", text: "Draft the control section." }),
   });
-  assert.equal(response.status, 200);
-  const body = await response.json();
+  assert.equal(response.status, 202);
+  const body = { project: await waitFor(async () => {
+    const state = (await store.load()).state;
+    return state.sections[0].status === "DRAFT" ? state : null;
+  }) };
   assert.equal(body.project.sections[0].status, "DRAFT");
   assert.match(body.project.sections[0].content, /pooled umbrellas/);
-  assert.equal(body.project.sections[0].status === "APPROVED", false);
+  assert.notEqual(body.project.sections[0].status, "APPROVED");
 });
 
 test("the same action does not call the spirit twice", async () => {
@@ -262,10 +276,14 @@ test("the same action does not call the spirit twice", async () => {
     JSON.stringify({ clarification: "Clear.", proposal: "A useful board.", openQuestions: [] }),
   ], { calls }));
   const body = { actionId: "once", expectedRevision: 0, intent: "clarify", text: "A short idea." };
-  assert.equal((await app.request("/api/messages", { method: "POST", headers, body: JSON.stringify(body) })).status, 200);
+  assert.equal((await app.request("/api/messages", { method: "POST", headers, body: JSON.stringify(body) })).status, 202);
   const repeat = await app.request("/api/messages", { method: "POST", headers, body: JSON.stringify(body) });
   assert.equal(repeat.status, 200);
   assert.equal((await repeat.json()).duplicate, true);
+  await waitFor(async () => {
+    const state = await (await app.request("/api/project", { headers })).json() as { product: { status: string } };
+    return state.product.status === "PROPOSED" ? state : null;
+  });
   assert.equal(calls.speak, 1);
 });
 
@@ -364,9 +382,11 @@ test("approved sections compile, Maker runs asynchronously, and Witness reads a 
     headers,
     body: JSON.stringify({ actionId: "witness", expectedRevision: made.revision, intent: "witness", text: "Review the maker diff." }),
   });
-  assert.equal(review.status, 200);
-  const witnessed = await review.json();
-  assert.equal(witnessed.project.witnessDrafts.length, 3);
+  assert.equal(review.status, 202);
+  const witnessed = { project: await waitFor(async () => {
+    const current = (await store.load()).state;
+    return current.witnessDrafts.length === 3 ? current : null;
+  }) };
   const exported = await (await app.request("/api/export", { headers })).json();
   assert.match(exported.plan, /Approved control/);
   assert.equal(exported.drafts[0].title, "Findings");

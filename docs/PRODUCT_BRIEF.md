@@ -1,6 +1,6 @@
 # Product brief — Unfinished Business
 
-**Status:** Approved product; Upgrade Phase 1 verified locally.
+**Status:** Approved product; Upgrade Phase 2 (run observability and recovery) verified locally.
 **Owner:** Product/interface.
 **Last verified:** 2026-11-01.
 
