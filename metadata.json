@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.12.3-nightly.202610310614.54b6a5cac",
+  "checkpoint_id": "01M69RNTHMT8FT2456Q5Q7KK90",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "README.md",
+    "docs/prompts/README.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 257870,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 6274944,
+    "output_tokens": 35575,
+    "api_call_count": 55,
+    "subagent_tokens_complete": true
+  },
+  "redaction": {
+    "replacements": 191,
+    "layers": {
+      "betterleaks": 82,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 23,
+      "credentialed_uri": 0,
+      "entropy": 122,
+      "key_context": 0,
+      "provider_token": 2,
+      "shell_stdin": 0
+    }
+  }
+}
