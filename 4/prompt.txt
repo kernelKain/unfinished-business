@@ -1,0 +1,69 @@
+# Phase 2 prompt — Add OpenCode onboarding, discovery, and supported harness controls
+
+Implement only Phase 2 of the Unfinished Business roadmap. Remove the fixed-model assumption and create a safe first-run OpenCode connection experience. OpenCode remains the only coding harness.
+
+## Prerequisite
+
+Verify the asynchronous run lifecycle from Phase 1 is complete, tested, and documented. Do not build configuration UI on top of a blocking or lossy run model.
+
+## Outcome
+
+A user can connect a compatible OpenCode server, understand and repair authentication, inspect available providers/models/capabilities, choose supported model and reasoning options, and start a bounded run without placing provider secrets in Unfinished Business.
+
+## Inspect and verify first
+
+- Inspect the installed OpenCode executable and `@opencode/client` version plus actual server endpoints/types.
+- Use official OpenCode documentation for current connection, provider, model, agent, permission, tool, command, skill, MCP, usage, and session behavior.
+- Record version-dependent gaps rather than inventing compatibility.
+- Inspect current environment variables, fixed-model validation, tests, Render startup, and saved project records.
+
+## Work to perform
+
+- Add a connection state model: not configured, checking, connected, authentication required, incompatible version, unavailable, and degraded.
+- Build a first-run wizard for server URL, application-side Basic authentication where required, connectivity test, provider readiness, model choice, and harmless final verification.
+- Keep provider API keys in OpenCode's credential flow/data directory. Never copy them into browser storage, project JSON, logs, events, Sentry, or exported artifacts.
+- Replace the hard-coded DeepSeek model with discovered configuration and a safe migration for existing projects.
+- Fetch and normalize provider/model facts: identifiers, display names, cost/free/local status when known, context/input/output limits, modalities, tool support, reasoning support, variants, and availability.
+- Allow only variants reported for the selected model. Do not fabricate a universal reasoning scale.
+- Show usage, tokens, context, and cost only when the OpenCode/provider response supports them. Link to provider usage for quota facts that are not available programmatically.
+- Surface OpenCode agents, permissions, pending permission requests, tools, commands, skills, MCP servers, formatters/LSP status, and session actions only where the installed version supports them.
+- Map Oracle, Architect, Maker, and Witness to explicit application roles/custom agents while retaining OpenCode as the execution engine.
+- Support session list/resume, interrupt, fork, compact, and revert only after testing their semantics and authorization boundaries. Defer unsupported controls visibly.
+- Add health diagnostics and actionable repair guidance for password mismatch, provider not connected, model unavailable, unsupported server version, CORS/origin issue, and local model resource limits.
+- Keep the UI product-focused: advanced controls belong in an expandable OpenCode panel, not the main journey.
+
+## Deployment-mode rules
+
+- Local mode may connect to loopback by default.
+- A remote OpenCode URL requires HTTPS outside loopback and must pass the later security policy; do not silently permit arbitrary URLs.
+- The shared hosted demo must not ask visitors for provider keys.
+- A private hosted deployment may use OpenCode credentials from its own persistent data and secret store.
+
+## Tests
+
+Cover model/provider normalization, capability-driven rendering, migration from the fixed model, missing/changed model, unsupported variants, authentication failures, incompatible versions, local provider status, secret redaction, and connection recovery. Mock the OpenCode boundary for automated tests and add an opt-in live compatibility diagnostic.
+
+## Documentation requirements
+
+Update:
+
+- `docs/OPENCODE_INTEGRATION.md` with exact supported version/API surface, credentials ownership, discovery, roles, permissions, sessions, and limitations;
+- `docs/LOCAL_SETUP.md` with OpenCode install/start/connect/provider/model steps and troubleshooting;
+- `docs/HOSTED_DEPLOYMENT.md` with private-hosted credential handling and public-demo restrictions;
+- `docs/ARCHITECTURE.md` with the configuration and trust boundaries;
+- `docs/UX_AND_VISUAL_SYSTEM.md` with onboarding and advanced-control states;
+- `docs/DECISIONS.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/CHANGELOG.md`, `.env.example`, and `README.md` as applicable.
+
+Remove obsolete fixed-model statements from active docs while preserving historical records. Never put real credentials in examples.
+
+## Acceptance
+
+- A clean user can identify exactly how to start and connect OpenCode.
+- The app reports precise authentication/model/version failures.
+- Supported models and variants come from OpenCode rather than a constant.
+- No provider key is stored or transmitted by Unfinished Business.
+- Maker uses the chosen supported model and records it in run evidence.
+- Existing saved state migrates safely.
+- Typecheck, tests, build, and relevant onboarding E2E checks pass.
+
+Finish with the required phase handoff and stop. Do not start Phase 3.
