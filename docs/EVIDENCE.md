@@ -1,9 +1,9 @@
 # Evidence index and requirements matrix
 
-**Status:** Upgrade Phase 4 complete and verified.
+**Status:** Upgrade Phase 5 complete and verified.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
-**Baseline revision:** `4f0222f` (`feat(oracle): add project intake and guided discovery`). Phase 3's 161 tests passed before Phase 4 edits.
+**Baseline revision:** `6a96985` (`feat(architect): add reviewable generated revisions`). Phase 4's 179 tests passed before Phase 5 edits.
 **Environment:** Linux, Node `22.22.1`, npm `9.2.0`, pinned OpenCode `2.0.32`, system Chromium. No provider credentials were used for inference in any phase.
 
 Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observed failure; **UNAVAILABLE** = prerequisite absent; **DEFERRED** = explicitly out of this release; **BLOCKED** = required prerequisite missing.
@@ -35,7 +35,12 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 | Run recovery | Idle session without a confirmed outcome is never success | VERIFIED | `tests/observable-runs.test.ts` unknown-outcome test; `inspect` maps idle-without-outcome to `unknown` | — |
 | Run recovery | Confirm-failure retry creates a lineage-tracked operation and cannot duplicate the native run | VERIFIED | `tests/observable-runs.test.ts` retry test (`retryOf`, unresolved/active/final-state gates) | Manual resume of a lost native session is limited to reconciliation |
 | Run recovery | Mark abandoned is operator-only and refuses already-finished or active runs | VERIFIED | `tests/observable-runs.test.ts` mark-abandoned tests; `POST /api/runs/:id/abandon` | ABANDONED rows can still be reconciled later when they carry a session |
-| Run controls | Elapsed time and Continue waiting / Reconcile now / Open in OpenCode / Cancel / Retry / Mark abandoned controls visible in the Run Inspector | VERIFIED | `src/web/components/RunInspector.tsx` recovery panel; `tests/web.test.ts` renders; demo rendering kept snapshot-identical | Visual suite passes unchanged (18 tests) |
+| Run controls | Elapsed time and Continue waiting / Reconcile now / Open in OpenCode / Cancel / Retry / Mark abandoned controls visible in Activity & results | VERIFIED | `src/web/components/RunInspector.tsx` recovery panel; `tests/web.test.ts` renders; workshop visual suite | Activity & results is absent until an operation or check exists |
+| Focused workshop | One primary task, compact model/connection header, collapsible project outline, contextual activity drawer, no permanent technical rail | VERIFIED | `src/web/workshop/WorkshopPage.tsx`, `src/web/styles.css`; `tests/visual/landing.spec.ts` wide/narrow captures | Automated visual checks do not replace a full screen-reader audit |
+| Activity & results | Progress, Changes, and Checks are separate; native IDs, capability mappings, raw evidence, and provider payloads are under Technical details | VERIFIED | `RunInspector.tsx`; `tests/web.test.ts` server-render sections; `run-inspector.png` | The technical section is read-only |
+| Project memory | Decisions, user answers, assumptions, constraints, and unresolved questions are visible; add/correct is explicit and corrections supersede prior entries without changing approvals or drafts | VERIFIED | `src/web/components/ProjectMemory.tsx`, `POST /api/memory`, `tests/memory.test.ts` | Raw transcript is not the memory surface; it stays in Advanced diagnostics |
+| OpenCode controls | Model & connection, contextual permission request, and Advanced diagnostics are split; sessions/usage load only when advanced diagnostics are opened | VERIFIED | `src/web/opencode-panel.tsx`; `tests/web.test.ts` checks permission alert and closed advanced details | Permission polling is best-effort and may lag one refresh interval |
+| Accessibility | Drawers are keyboard operable; stage changes move focus to the main task; busy/permission state is announced; mobile layout has no overflow | VERIFIED | `tests/visual/landing.spec.ts` outline keyboard test, narrow workshop, focus/live-region code; reduced-motion styling | Automated checks do not replace a screen-reader audit |
 | Migration | v1, both supported v2 shapes, v3, v4, v5, and v6 migrate deterministically and idempotently to v7 without losing workflow records, selected model, provider errors, recovery markers, legacy Oracle state, or candidate history | VERIFIED | `tests/migration.test.ts`, `tests/store-hardening.test.ts` | Future schema versions are refused/preserved |
 | Upgrade fixtures | Privacy/training-policy rejection, authentication, rate limit, generic failure, slow response, late success, late Maker diff, pending permission, and reconciliation are reusable | VERIFIED | `tests/fixtures/provider-scenarios.ts`, `tests/phase-zero-fixtures.test.ts` | Synthetic fixtures; no live provider output |
 | Maker reliability | Reconcile native state without a second run | VERIFIED | `tests/experience-hardening.test.ts` | Reconciliation reads native state; it cannot reconstruct unrecorded effects |
@@ -46,7 +51,7 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 | Model access | New projects allow every model OpenCode reports as available; free/local-only remains intentional | VERIFIED | `tests/model-access.test.ts`, `tests/connection.test.ts`; `/api/model-preferences`; access-mode diagnostics | No live paid call attempted |
 | Model access | Paid/unknown-price remote models require explicit first-use confirmation before selection and request | VERIFIED | `tests/model-access.test.ts`, `tests/observable-runs.test.ts`; persisted `paidOrUnknownAcceptedAt`; runtime `MODEL_COST_CONFIRMATION_REQUIRED` | Cost guard is only as good as OpenCode's reported pricing/cost |
 | Budgets | Optional project/deployment spending limit with unlimited state and stricter-limit precedence | VERIFIED | `tests/budgets.test.ts`, `tests/model-access.test.ts`, `tests/security.test.ts`; guide budget enforcement | Unknown-price providers may report cost only after a request |
-| Provider errors | Eight safe categories, saved-work status, repair/retry action, redacted technical reference | VERIFIED | `tests/provider-errors.test.ts`, `tests/experience.test.ts`; provider error card and Run Inspector line | Category inference is heuristic; no live provider error reproduced |
+| Provider errors | Eight safe categories, saved-work status, repair/retry action, redacted technical reference | VERIFIED | `tests/provider-errors.test.ts`, `tests/experience.test.ts`; provider error card and Activity & results line | Category inference is heuristic; no live provider error reproduced |
 | Provider privacy | Training/data-policy rejection gets a specific explanation and review-privacy repair | VERIFIED | `tests/provider-errors.test.ts` synthetic privacy fixture; provider error integration test | App cannot attest every provider's contract |
 | Navigation | Four stages, current section, and exact-version approval gate | VERIFIED | `tests/workflow.test.ts`, `tests/experience.test.ts`, `tests/http-workflow.test.ts`; visual suite | — |
 | Navigation | Approval does not grant native tool permission; denial remains denial | VERIFIED | `tests/native-permissions.test.ts`; guide permission arrays | App is a workflow authority, not an OS sandbox |
@@ -64,8 +69,8 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 | Security | Atomic state, lock, backups, quarantine, disk failure | VERIFIED | `tests/store-hardening.test.ts`, `tests/recovery.test.ts` | Single-writer, single-project |
 | Recovery | Previous snapshot offered; corrupt bytes preserved; no silent reset | VERIFIED | `tests/recovery.test.ts`, `tests/store-hardening.test.ts` | Both-corrupt state requires operator restore |
 | Serialization | Schema v7 JSON round-trip preserves source, field-level intake, answer/assumption provenance, structured proposal, candidate base/summary/decision metadata, access/budget policy, provider errors, operations, approvals, evidence, and recovery metadata | VERIFIED | `tests/migration.test.ts`, `tests/provider-errors.test.ts`, `tests/demo.test.ts` (projectSchema round-trip of the updated fixture) | Model cost/privacy facts remain provider-owned |
-| Accessibility | Keyboard/focus/dialog/tabs/zoom/overflow/reduced motion/contrast | VERIFIED | `tests/visual/landing.spec.ts`, `tests/visual/demo.spec.ts` (18 tests) | Automated checks do not replace a screen-reader audit |
-| Performance | Bundle/asset budgets | VERIFIED | `npm run budget`: initial JS 195.0 KiB gzip, all JS 277.9 KiB, CSS 16.2 KiB, hero 570.9 KiB, largest 86.7 KiB | CSS budget deliberately raised to 18 KiB for revision-review and Markdown surfaces; Vite reports a >500 KiB minified initial chunk warning |
+| Accessibility | Keyboard/focus/dialog/tabs/drawers/zoom/overflow/reduced motion/contrast | VERIFIED | `tests/visual/landing.spec.ts`, `tests/visual/demo.spec.ts` (19 tests) | Automated checks do not replace a screen-reader audit |
+| Performance | Bundle/asset budgets | VERIFIED | `npm run budget`: initial JS 195.6 KiB gzip, all JS 280.7 KiB, CSS 17.1 KiB, hero 570.9 KiB, largest 86.7 KiB | All-JS budget deliberately raised from 280 to 290 KiB for the focused-workshop and Project memory surfaces; Vite reports a >500 KiB minified initial chunk warning |
 | Documentation | Canonical routes/schema/env/modes/UI terms and history pointers | VERIFIED | This documentation set; link scan | Ongoing maintenance |
 | Documentation | Runtime prompts separated from implementation prompts | VERIFIED | `src/server/prompts/loader.ts`, `tests/prompts.test.ts`, `docs/prompts/README.md` | Loader reads a fixed map |
 | Dependency audit | No high/critical production advisory | VERIFIED at high threshold | `npm audit --omit=dev --audit-level=high` exit 0 | 6 moderate `glob`/`minimatch` advisories remain in the Sentry bundler path; `npm audit` exits 1 |
@@ -81,10 +86,10 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 |---|---|
 | `npm ci` | PASS — exact lockfile install |
 | `npm run typecheck` | PASS |
-| `npm test` | PASS — 179 tests, 0 failures |
+| `npm test` | PASS — 184 tests, 0 failures |
 | `npm run build` | PASS — `dist/web` produced; one large-chunk warning |
-| `npm run budget` | PASS — all five budgets; all JS 277.9 KiB gzip, CSS 16.2 KiB |
-| `npm run test:visual` | PASS — 18 tests; intentional narrow Oracle discovery baseline updated; no horizontal overflow |
+| `npm run budget` | PASS — all five budgets; all JS 280.7 KiB gzip, CSS 17.1 KiB |
+| `npm run test:visual` | PASS — 19 tests; intentional focused-workshop, Activity & results, and character snapshots updated; no horizontal overflow |
 | `npm audit --omit=dev --audit-level=high` | PASS (exit 0); 6 moderate advisories reported |
 | `npm audit` | FAIL (exit 1) — same 6 moderate advisories; no high/critical |
 | `node scripts/preflight.mjs` | BLOCKED for optional partner/runtime proof: Entire and global OpenCode CLI absent; DNS, Git read, loopback, and Node checks pass; no Phase 3 verification depends on it |
@@ -106,8 +111,10 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 
 ### Tests and reports
 
-- `tests/` — 179 unit/integration/component tests.
-- `tests/visual/` — 18 Playwright visual/accessibility tests with committed snapshots.
+- `tests/` — 184 unit/integration/component tests.
+- `tests/visual/` — 19 Playwright visual/accessibility tests with committed snapshots.
+- `tests/memory.test.ts` — project-memory add/correct/supersede transitions and the authenticated `/api/memory` route.
+- `tests/web.test.ts` — workshop surfaces, Activity & results structure, Project memory content, and collapsed Advanced diagnostics.
 - `tests/observable-runs.test.ts` — Phase 2 matrix: late Oracle reply, section 06 Architect timeout recovery, late Maker diff with exact-once application, duplicate reconciliation, permission waiting, cancellation, restart reconnect, retry lineage, mark-abandoned, prompt-progress visibility.
 - `tests/oracle-discovery.test.ts` — source onboarding/security, multi-turn intake, prompt retention, memory, assumption gate, proposal provenance, and corrections.
 - `tests/revisions.test.ts` — section contracts, candidate creation/supersede, accept/reject, stale approvals, base-version conflict, and unified/side-by-side diffs.
@@ -122,9 +129,9 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 ### Screenshots and demo assets
 
 - `tests/visual/snapshots/landing-wide.png`, `landing-narrow.png` — landing/theme.
-- `tests/visual/snapshots/workshop-wide.png`, `workshop-narrow.png`, `onboarding-wide.png` — workshop and first-run connection.
+- `tests/visual/snapshots/workshop-wide.png`, `workshop-narrow.png`, `onboarding-wide.png` — focused workshop layout and first-run connection.
 - `tests/visual/snapshots/demo-guided-wide.png`, `demo-guided-narrow.png`, `demo-presentation-wide.png` — guided demo.
-- `tests/visual/snapshots/run-inspector.png`, `recovery-unknown.png` — evidence and abandoned-run recovery (snapshot filename retained for history).
+- `tests/visual/snapshots/run-inspector.png`, `recovery-unknown.png` — Activity & results and abandoned-run recovery (snapshot filename retained for history).
 - `tests/visual/snapshots/spirit-*.png` — four-spirit states.
 - `assets/source/hero-ghostlight-workshop.webp` — hero master (not shipped); public variants under `public/assets/hero/`.
 

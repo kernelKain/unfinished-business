@@ -2,7 +2,7 @@
 
 **Status:** Deterministic guided demo and release evidence complete. A real recorded video, published article, and submission remain pending explicit authorization.
 **Owner:** Demo/submission.
-**Last verified:** 2026-11-01 (18 visual/accessibility tests; 161 unit/integration tests).
+**Last verified:** 2026-11-01 (19 visual/accessibility tests; 184 unit/integration tests).
 
 ## Two different demos
 
@@ -81,7 +81,7 @@ It cannot call `/api/*`, cannot change a live project snapshot, cannot start or 
 | “This is a submitted hackathon entry” | **Prohibited.** The Witness readiness statement says it is not a submission. |
 | “Reset is safe for live state” | Allowed with the exact scope: reset changes only the demo fixture. |
 
-Every simulated operation, evidence row, diff, and finding carries a visible `Demo data` chip or a fixture source label. The Run Inspector receives the same operation/evidence/capability shapes as the live workshop.
+Every simulated operation, evidence row, diff, and finding carries a visible `Demo data` chip or a fixture source label. Activity & results receives the same operation/evidence/capability shapes as the live workshop.
 
 ## Phase 9 evidence boundary
 
@@ -96,7 +96,7 @@ Approved:
 
 - “The guided example is a deterministic fixture.”
 - “OpenCode supplies the agent loop, model access, native tools, permissions, and sessions.”
-- “The example shows the same Run Inspector contract used by the live workshop.”
+- “The example shows the same Activity & results contract used by the live workshop.”
 - “The fixture check passes; the live native session is not run.”
 - “Reset affects only the demo fixture.”
 - “Run live with OpenCode for a real native session.”
@@ -138,7 +138,7 @@ Canonical Playwright captures:
 | `tests/visual/snapshots/demo-guided-wide.png` | Wide guided example: intro, honesty panel, playback controls |
 | `tests/visual/snapshots/demo-guided-narrow.png` | 390px guided example without horizontal overflow |
 | `tests/visual/snapshots/demo-presentation-wide.png` | 90-second presentation mode |
-| `tests/visual/snapshots/run-inspector.png` | Run Inspector at the check beat, including fixture PASS and live `NOT_RUN` |
+| `tests/visual/snapshots/run-inspector.png` | Activity & results at the check beat, including fixture PASS and live `NOT_RUN` (filename retained for history) |
 | `tests/visual/snapshots/recovery-unknown.png` | Unknown native run and reconcile action |
 | `tests/visual/snapshots/landing-wide.png` | Landing page with the three distinct demo/live actions |
 | `tests/visual/snapshots/landing-narrow.png` | Narrow landing page |

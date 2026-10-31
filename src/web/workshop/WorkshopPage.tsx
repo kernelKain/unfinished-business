@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowRight, Eye, Hammer, PlugZap, ScrollText, Settings2, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, ArrowRight, BookOpen, Eye, Hammer, ScrollText, Settings2, ShieldAlert, Sparkles } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import type { ConnectionStatus } from "../../shared/opencode.ts";
 import type { ProviderErrorDetails } from "../../shared/workflow.ts";
@@ -16,19 +16,24 @@ import {
   findSelectedModel,
   grantScope,
   loadConnection,
-  loadExport,
+  loadPermissions,
   loadProject,
   reconcileRun,
   rejectSectionRevision,
+  replyPermission,
   requestSectionRevision,
   retryRun,
   runMaker,
+  saveMemory,
   selectProjectSource,
   sendMessage,
+  type MemoryEditKind,
+  type PendingPermission,
   type WorkshopProject,
 } from "../api.ts";
 import { Brand } from "../components/Brand.tsx";
 import { Markdown } from "../components/Markdown.tsx";
+import { ProjectMemory } from "../components/ProjectMemory.tsx";
 import { ProviderErrorCard } from "../components/ProviderErrorCard.tsx";
 import { RevisionReview } from "../components/RevisionReview.tsx";
 import { RunInspector } from "../components/RunInspector.tsx";
@@ -52,9 +57,12 @@ export function WorkshopPage() {
   const [error, setError] = useState<string | null>(null);
   const [providerError, setProviderError] = useState<ProviderErrorDetails | null>(null);
   const [dismissedProviderOperationId, setDismissedProviderOperationId] = useState<string | null>(null);
-  const [exportNote, setExportNote] = useState<string | null>(null);
   const [setupOpen, setSetupOpen] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [permissions, setPermissions] = useState<PendingPermission[]>([]);
+  const [liveMessage, setLiveMessage] = useState("Workshop ready.");
+  const documentRef = useRef<HTMLElement | null>(null);
+  const previousStage = useRef<string | null>(null);
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -88,11 +96,57 @@ export function WorkshopPage() {
   }, [activeRun?.id]);
 
   useEffect(() => {
+    if (!connection || connection.deploymentMode === "hosted-demo") return;
+    if (connection.state !== "connected" && connection.state !== "degraded") return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const result = await loadPermissions();
+        if (!cancelled) setPermissions(result.permissions);
+      } catch {
+        // Permission polling is best-effort; the run inspector still shows a pending state.
+      }
+    };
+    void load();
+    const timer = window.setInterval(load, 5_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [connection?.state, connection?.deploymentMode, activeRun?.id]);
+
+  useEffect(() => {
+    if (!project) return;
+    if (previousStage.current && previousStage.current !== project.stage) {
+      documentRef.current?.focus();
+      setLiveMessage(`${project.stage} stage ready.`);
+    }
+    previousStage.current = project.stage;
+  }, [project?.stage]);
+
+  useEffect(() => {
+    if (busy) setLiveMessage("Working on your request.");
+    else if (activeRun) setLiveMessage(`${runRoleName(activeRun)} is running in OpenCode.`);
+    else if (permissions.length) setLiveMessage("OpenCode is waiting for permission.");
+    else setLiveMessage("Workshop ready.");
+  }, [busy, activeRun?.id, permissions.length]);
+
+  async function refreshPermissions() {
+    if (connection?.deploymentMode === "hosted-demo") return;
+    try {
+      const result = await loadPermissions();
+      setPermissions(result.permissions);
+    } catch {
+      // Leave the last visible permission state rather than inventing an empty one.
+    }
+  }
+
+  useEffect(() => {
     if (!project || selectedSectionId) return;
     if (project.currentSectionId) setSelectedSectionId(project.currentSectionId);
   }, [project, selectedSectionId]);
 
-  async function act(work: () => Promise<{ project: WorkshopProject }>) {
+  async function act(work: () => Promise<{ project: WorkshopProject }>): Promise<boolean> {
     setBusy(true);
     setSlow(false);
     setError(null);
@@ -101,6 +155,7 @@ export function WorkshopPage() {
     try {
       const result = await work();
       setProject(result.project);
+      return true;
     } catch (caught) {
       const loaded = await loadProject().catch(() => null);
       if (loaded) setProject(loaded);
@@ -111,6 +166,7 @@ export function WorkshopPage() {
           ? `${caught.message} ${caught.retryable ? "You can try a new request. The current section was not overwritten." : "Nothing was repeated."}`
           : "The workshop lost its connection. Reload before trying again.");
       }
+      return false;
     } finally {
       window.clearTimeout(timer);
       setBusy(false);
@@ -121,7 +177,7 @@ export function WorkshopPage() {
   if (!project || !connection) {
     return (
       <div className="workshop-shell">
-        <WorkshopHeader connection={connection} onSetup={() => setSetupOpen(true)} />
+        <WorkshopHeader connection={connection} model={null} onSetup={() => setSetupOpen(true)} onControls={() => setSetupOpen(true)} />
         <main className="workshop-loading">
           <div className="loading-spirit" aria-hidden="true"><SpiritCharacter id="oracle" state="listening" decorative /></div>
           <p className="eyebrow">Waking the workshop</p>
@@ -161,7 +217,7 @@ export function WorkshopPage() {
   if (!hostedDemo && project.source.status !== "CONFIRMED") {
     return (
       <div className="workshop-shell">
-        <WorkshopHeader connection={connection} onSetup={() => setSetupOpen(true)} />
+        <WorkshopHeader connection={connection} model={null} onSetup={() => setSetupOpen(true)} onControls={() => setSetupOpen(true)} />
         <main className="workshop workshop-onboarding">
           <ProjectSourceOnboarding project={project} busy={busy} act={act} />
           {error ? <p className="banner bad" role="alert">{error}</p> : null}
@@ -173,7 +229,7 @@ export function WorkshopPage() {
   if (showOnboarding) {
     return (
       <div className="workshop-shell">
-        <WorkshopHeader connection={connection} onSetup={() => setSetupOpen(true)} />
+        <WorkshopHeader connection={connection} model={null} onSetup={() => setSetupOpen(true)} onControls={() => setSetupOpen(true)} />
         <main className="workshop workshop-onboarding">
           <Onboarding
             connection={connection}
@@ -198,234 +254,257 @@ export function WorkshopPage() {
     );
   }
 
+  const hasActivity = project.operations.length > 0 || project.evidence.length > 0;
+  const memoryCount = [
+    ...project.memory.decisions,
+    ...(project.memory.answers ?? []),
+    ...(project.memory.assumptions ?? []),
+    ...project.memory.constraints,
+  ].filter((entry) => entry.status !== "SUPERSEDED").length + project.oracleIntake.unresolvedQuestions.length;
+  const activityOpen = Boolean(activeRun || abandoned);
+  const latestOperation = project.operations.at(-1) ?? null;
+
   return (
     <div className="workshop-shell">
-      <a className="skip" href="#document">Skip to the working document</a>
-      <WorkshopHeader connection={connection} onSetup={() => setSetupOpen(true)} />
+      <a className="skip" href="#document">Skip to the main task</a>
+      <WorkshopHeader
+        connection={connection}
+        model={selectedModel}
+        onSetup={() => setSetupOpen(true)}
+        onControls={openOpenCodePanel}
+      />
 
       <main className="workshop">
-        <header className="workshop-titlebar">
+        <header className="workshop-titlebar compact-titlebar">
           <div className="workshop-title-copy">
             <p className="eyebrow">Ghostlight Hacker Workshop</p>
             <p className="workshop-stage-name">{profile.name} · stage {stageIndex(project.stage) + 1} of 4</p>
             <p className="meta">Revision {project.revision} · {approved} of {project.sections.length} sections approved</p>
           </div>
-          <div className="workshop-character" aria-hidden="true">
-            <SpiritCharacter id={profile.id} state={characterState} decorative />
+          <div className="workshop-title-actions">
+            <div className="workshop-character" aria-hidden="true">
+              <SpiritCharacter id={profile.id} state={characterState} decorative />
+            </div>
           </div>
         </header>
 
         <SpiritStageTabs stage={project.stage} />
 
-        <div className="frame">
-          <aside className="side">
-            <section className="panel outline-panel" aria-labelledby="outline-title">
-              <div className="panel-head">
-                <h2 id="outline-title">Plan outline</h2>
-                <span className="meta">{approved}/{project.sections.length}</span>
-              </div>
-              <div className="progress-track" aria-hidden="true"><span style={{ width: `${(approved / project.sections.length) * 100}%` }} /></div>
-              <ol className="section-list">
-                {project.sections.map((item) => (
-                  <SectionCard
-                    key={item.id}
-                    section={item}
-                    current={item.id === project.currentSectionId}
-                    selected={item.id === section?.id}
-                    onSelect={() => setSelectedSectionId(item.id)}
-                  />
-                ))}
-              </ol>
-            </section>
-            <section className="panel engine-panel">
-              <div className="panel-head">
-                <h2>Engine</h2>
-                <StatusChip status={connection.state} label={connectionLabel(connection.state)} />
-              </div>
-              <p className="meta">
-                {connection.serverVersion ? `OpenCode ${connection.serverVersion}` : "OpenCode 2.x"}
-                {connection.baseUrl ? ` · ${connection.baseUrl}` : ""}
-              </p>
-              <p className="meta">
-                {selectedModel
-                  ? `${selectedModel.name} · ${selectedModel.providerID}/${selectedModel.id}${project.engine.model?.variant ? `#${project.engine.model.variant}` : ""}`
-                  : "No supported model selected"}
-              </p>
-              {selectedModel ? <p className="meta">{modelFacts(selectedModel)}</p> : null}
-              {hostedDemo ? (
-                <a className="text-link button-link" href="/demo">Open the guided example</a>
-              ) : (
-                <button className="text-link button-link" type="button" onClick={() => setSetupOpen(true)}>
-                  <PlugZap size={15} aria-hidden="true" /> OpenCode setup
-                </button>
-              )}
-            </section>
-          </aside>
+        <details className="workshop-drawer outline-drawer">
+          <summary>
+            <span><BookOpen size={17} aria-hidden="true" /> Project outline</span>
+            <span className="meta">{approved}/{project.sections.length} approved</span>
+          </summary>
+          <div className="workshop-drawer-body">
+            <div className="progress-track" aria-hidden="true"><span style={{ width: `${(approved / project.sections.length) * 100}%` }} /></div>
+            <ol className="section-list">
+              {project.sections.map((item) => (
+                <SectionCard
+                  key={item.id}
+                  section={item}
+                  current={item.id === project.currentSectionId}
+                  selected={item.id === section?.id}
+                  onSelect={() => setSelectedSectionId(item.id)}
+                />
+              ))}
+            </ol>
+          </div>
+        </details>
 
-          <article className="document" id="document" aria-busy={busy}>
-            <div className="document-heading">
+        <article
+          className="document focused-document"
+          id="document"
+          ref={documentRef}
+          tabIndex={-1}
+          aria-busy={busy}
+          aria-labelledby="main-task-title"
+        >
+          <div className="document-heading">
+            <div>
+              <p className="eyebrow">{project.stage}</p>
+              <h1 id="main-task-title">{header}</h1>
+            </div>
+            <div className={`document-spirit state-${characterState}`} aria-hidden="true">
+              <SpiritCharacter id={profile.id} state={characterState} decorative />
+            </div>
+          </div>
+          <div className="document-status">
+            <span className="status-line">Stopped here: {project.nextAction}</span>
+            {project.product.status === "APPROVED" && section?.status === "APPROVED" ? (
+              <Seal label="Approved" reduceMotion={reduceMotion} />
+            ) : null}
+          </div>
+
+          {permissions.length ? (
+            <div className="permission-banner" role="alert" aria-labelledby="permission-banner-title">
+              <ShieldAlert size={20} aria-hidden="true" />
               <div>
-                <p className="eyebrow">{project.stage}</p>
-                <h1>{header}</h1>
+                <strong id="permission-banner-title">OpenCode is waiting for your permission.</strong>
+                <p>{permissions[0].action} · {permissions[0].resources.join(", ")}</p>
               </div>
-              <div className={`document-spirit state-${characterState}`} aria-hidden="true">
-                <SpiritCharacter id={profile.id} state={characterState} decorative />
+              <button className="action" type="button" onClick={openPermissionControls}>Review permission</button>
+            </div>
+          ) : null}
+
+          {!connected ? (
+            <div className="error-panel" role="status">
+              <AlertTriangle size={18} aria-hidden="true" />
+              <div>
+                <strong>OpenCode is {connection.state.replaceAll("_", " ")}.</strong>
+                <p>{connection.diagnostics[0]?.message ?? "The engine did not answer. Nothing was inferred."} The app will not substitute another model.</p>
+                <button className="action secondary" type="button" onClick={() => setSetupOpen(true)}>Open setup</button>
               </div>
             </div>
-            <div className="document-status">
-              <span className="status-line">Stopped here: {project.nextAction}</span>
-              {project.product.status === "APPROVED" && section?.status === "APPROVED" ? (
-                <Seal label="Approved" reduceMotion={reduceMotion} />
-              ) : null}
+          ) : connection.state === "degraded" ? (
+            <div className="warning-panel" role="status">
+              <AlertTriangle size={18} aria-hidden="true" />
+              <div>
+                <strong>OpenCode is connected with warnings.</strong>
+                <p>{connection.diagnostics[0]?.message ?? "Review the OpenCode panel before a run."}</p>
+                <button className="action secondary" type="button" onClick={() => setSetupOpen(true)}>Review</button>
+              </div>
             </div>
-
-            {!connected ? (
-              <div className="error-panel" role="status">
-                <AlertTriangle size={18} aria-hidden="true" />
-                <div>
-                  <strong>OpenCode is {connection.state.replaceAll("_", " ")}.</strong>
-                  <p>{connection.diagnostics[0]?.message ?? "The engine did not answer. Nothing was inferred."} The app will not substitute another model.</p>
-                  <button className="action secondary" type="button" onClick={() => setSetupOpen(true)}>Open setup</button>
-                </div>
+          ) : null}
+          {!selectedModel ? (
+            <div className="warning-panel" role="status">
+              <AlertTriangle size={18} aria-hidden="true" />
+              <div>
+                <strong>The selected model is not in the current OpenCode catalog.</strong>
+                <p>Choose a reported model before a Maker run. The app does not assume a model or a paid fallback.</p>
+                <button className="action secondary" type="button" onClick={() => setSetupOpen(true)}>Choose model</button>
               </div>
-            ) : connection.state === "degraded" ? (
-              <div className="warning-panel" role="status">
-                <AlertTriangle size={18} aria-hidden="true" />
-                <div>
-                  <strong>OpenCode is connected with warnings.</strong>
-                  <p>{connection.diagnostics[0]?.message ?? "Review the OpenCode panel before a run."}</p>
-                  <button className="action secondary" type="button" onClick={() => setSetupOpen(true)}>Review</button>
-                </div>
+            </div>
+          ) : null}
+          {activeRun ? (
+            <p className="banner" role="status">
+              <strong>{runRoleName(activeRun)}</strong> is working in the background
+              {activeRun.model ? ` with ${activeRun.model.providerID}/${activeRun.model.id}` : ""}
+              {activeRun.progress?.phase
+                ? ` — observed: ${activeRun.progress.phase.replaceAll("_", " ").toLowerCase()}`
+                : ""}. The saved project updates when it finishes.
+              <button className="action secondary" type="button" disabled={busy} onClick={() => void act(() => cancelRun(project, activeRun.id))}>Cancel run</button>
+            </p>
+          ) : null}
+          {abandoned ? (
+            <div className="warning-panel" role="status">
+              <AlertTriangle size={18} aria-hidden="true" />
+              <div>
+                <strong>A native run was abandoned without a confirmed outcome and was not repeated.</strong>
+                <p>Open Activity &amp; results to reconcile the native session before trying again.</p>
               </div>
-            ) : null}
-            {!selectedModel ? (
-              <div className="warning-panel" role="status">
-                <AlertTriangle size={18} aria-hidden="true" />
-                <div>
-                  <strong>The selected model is not in the current OpenCode catalog.</strong>
-                  <p>Choose a reported model before a Maker run. The app does not assume a model or a paid fallback.</p>
-                  <button className="action secondary" type="button" onClick={() => setSetupOpen(true)}>Choose model</button>
-                </div>
-              </div>
-            ) : null}
-            {activeRun ? (
-              <p className="banner" role="status">
-                <strong>{runRoleName(activeRun)}</strong> is working in the background
-                {activeRun.model ? ` with ${activeRun.model.providerID}/${activeRun.model.id}` : ""}
-                {activeRun.progress?.phase
-                  ? ` — observed: ${activeRun.progress.phase.replaceAll("_", " ").toLowerCase()}`
-                  : ""}. The saved project updates when it finishes.
-                <button className="action secondary" type="button" disabled={busy} onClick={() => void act(() => cancelRun(project, activeRun.id))}>Cancel run</button>
-              </p>
-            ) : null}
-            {abandoned ? (
-              <div className="warning-panel" role="status">
-                <AlertTriangle size={18} aria-hidden="true" />
-                <div>
-                  <strong>A native run was abandoned without a confirmed outcome and was not repeated.</strong>
-                  <p>Use the Run Inspector to reconcile the native session before trying again.</p>
-                </div>
-              </div>
-            ) : null}
-            {slow ? <p className="banner" role="status">This is taking longer than usual. The saved section is unchanged until a response arrives.</p> : null}
-            {visibleProviderError ? (
-              <ProviderErrorCard
-                error={visibleProviderError}
-                onChangeModel={() => {
-                  dismissProviderError();
-                  setSetupOpen(true);
-                }}
-                onDismiss={dismissProviderError}
-              />
-            ) : null}
-            {error ? <p className="banner bad" role="alert">{error}</p> : null}
-
-            {hostedDemo ? (
-              <HostedDemoPanel />
-            ) : (
-              <>
-                {project.stage === "ORACLE" ? (
-                  <OraclePanel project={project} text={text} setText={setText} busy={busy} act={act} />
-                ) : null}
-                {project.stage === "ARCHITECT" && section ? (
-                  <ArchitectPanel
-                    project={project}
-                    section={section}
-                    isCurrent={section.id === project.currentSectionId}
-                    change={change}
-                    setChange={setChange}
-                    text={text}
-                    setText={setText}
-                    busy={busy}
-                    act={act}
-                    reduceMotion={reduceMotion}
-                    onRequestChange={(request) => void act(async () => {
-                      const result = await requestSectionRevision(project, section.id, request);
-                      setChange("");
-                      return result;
-                    })}
-                    onAcceptCandidate={(candidateId) => void act(() => acceptSectionRevision(project, section.id, candidateId))}
-                    onRejectCandidate={(candidateId) => void act(() => rejectSectionRevision(project, section.id, candidateId))}
-                    onRequestAnother={() => {
-                      setChange("");
-                      document.getElementById("architect-change")?.focus();
-                    }}
-                  />
-                ) : null}
-                {project.stage === "ARCHITECT" && !section ? (
-                  <ScopePanel project={project} scope={scope} setScope={setScope} busy={busy} act={act} />
-                ) : null}
-                {project.stage === "MAKER" ? (
-                  <MakerPanel project={project} busy={busy} activeRun={activeRun} act={act} onChooseModel={() => setSetupOpen(true)} />
-                ) : null}
-                {project.stage === "WITNESS" ? (
-                  <WitnessPanel project={project} text={text} setText={setText} busy={busy} act={act} exportNote={exportNote} setExportNote={setExportNote} />
-                ) : null}
-              </>
-            )}
-          </article>
-
-          <aside className="side inspector-side">
-            <RunInspector
-              operations={project.operations}
-              evidence={project.evidence}
-              capabilities={project.capabilities}
-              busy={busy}
-              onReconcile={(operationId) => void act(() => reconcileRun(project, operationId))}
-              onCancel={(operationId) => void act(() => cancelRun(project, operationId))}
-              onRetry={(operationId) => void act(() => retryRun(project, operationId))}
-              onAbandon={(operationId) => void act(() => abandonRun(project, operationId))}
-              onOpenOpenCode={() => openOpenCodePanel()}
-              note="This view never invents a result. Unknown runs and failed checks stay visible."
+            </div>
+          ) : null}
+          {slow ? <p className="banner" role="status">This is taking longer than usual. The saved section is unchanged until a response arrives.</p> : null}
+          {visibleProviderError ? (
+            <ProviderErrorCard
+              error={visibleProviderError}
+              onChangeModel={() => {
+                dismissProviderError();
+                setSetupOpen(true);
+              }}
+              onDismiss={dismissProviderError}
             />
-            <section className="panel transcript-panel">
-              <div className="panel-head">
-                <h2>Session notes</h2>
-                <span className="meta">{project.transcript.length}</span>
-              </div>
-              {project.transcript.length === 0 ? (
-                <EmptyState title="No notes yet">The first spirit exchange will appear here.</EmptyState>
-              ) : (
-                <ol className="transcript-list">
-                  {project.transcript.slice(-4).reverse().map((entry) => (
-                    <li key={entry.id}>
-                      <span className="meta">{entry.spirit}</span>
-                      <p>{entry.text.slice(0, 220)}</p>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </section>
-          </aside>
-        </div>
+          ) : null}
+          {error ? <p className="banner bad" role="alert">{error}</p> : null}
+
+          {hostedDemo ? (
+            <HostedDemoPanel />
+          ) : (
+            <>
+              {project.stage === "ORACLE" ? (
+                <OraclePanel project={project} text={text} setText={setText} busy={busy} act={act} />
+              ) : null}
+              {project.stage === "ARCHITECT" && section ? (
+                <ArchitectPanel
+                  project={project}
+                  section={section}
+                  isCurrent={section.id === project.currentSectionId}
+                  change={change}
+                  setChange={setChange}
+                  text={text}
+                  setText={setText}
+                  busy={busy}
+                  act={act}
+                  reduceMotion={reduceMotion}
+                  onRequestChange={(request) => void act(async () => {
+                    const result = await requestSectionRevision(project, section.id, request);
+                    setChange("");
+                    return result;
+                  })}
+                  onAcceptCandidate={(candidateId) => void act(() => acceptSectionRevision(project, section.id, candidateId))}
+                  onRejectCandidate={(candidateId) => void act(() => rejectSectionRevision(project, section.id, candidateId))}
+                  onRequestAnother={() => {
+                    setChange("");
+                    document.getElementById("architect-change")?.focus();
+                  }}
+                />
+              ) : null}
+              {project.stage === "ARCHITECT" && !section ? (
+                <ScopePanel project={project} scope={scope} setScope={setScope} busy={busy} act={act} />
+              ) : null}
+              {project.stage === "MAKER" ? (
+                <MakerPanel project={project} busy={busy} activeRun={activeRun} act={act} onChooseModel={() => setSetupOpen(true)} />
+              ) : null}
+              {project.stage === "WITNESS" ? (
+                <WitnessPanel project={project} text={text} setText={setText} busy={busy} act={act} />
+              ) : null}
+            </>
+          )}
+        </article>
+
+        {hasActivity ? (
+          <details className="workshop-drawer activity-drawer" open={activityOpen}>
+            <summary>
+              <span><Sparkles size={17} aria-hidden="true" /> Activity &amp; results</span>
+              <span className="meta">
+                {latestOperation
+                  ? `${runRoleName(latestOperation)} · ${latestOperation.status.replaceAll("_", " ").toLowerCase()}`
+                  : `${project.evidence.length} check${project.evidence.length === 1 ? "" : "s"}`}
+              </span>
+            </summary>
+            <div className="workshop-drawer-body">
+              <RunInspector
+                operations={project.operations}
+                evidence={project.evidence}
+                capabilities={project.capabilities}
+                busy={busy}
+                onReconcile={(operationId) => void act(() => reconcileRun(project, operationId))}
+                onCancel={(operationId) => void act(() => cancelRun(project, operationId))}
+                onRetry={(operationId) => void act(() => retryRun(project, operationId))}
+                onAbandon={(operationId) => void act(() => abandonRun(project, operationId))}
+                onOpenOpenCode={() => openOpenCodePanel()}
+                note="This view never invents a result. Unknown runs and failed checks stay visible."
+              />
+            </div>
+          </details>
+        ) : null}
+
+        <details className="workshop-drawer memory-drawer" open={memoryCount > 0}>
+          <summary>
+            <span><BookOpen size={17} aria-hidden="true" /> Project memory</span>
+            <span className="meta">{memoryCount} recorded</span>
+          </summary>
+          <div className="workshop-drawer-body">
+            <ProjectMemory
+              project={project}
+              busy={busy}
+              onSave={(input: { kind: MemoryEditKind; text: string; supersedesId: string | null }) =>
+                act(() => saveMemory(project, input.kind, input.text, input.supersedesId))}
+            />
+          </div>
+        </details>
+
         <OpenCodePanel
           connection={connection}
           project={project}
+          permissions={permissions}
           onConnection={setConnection}
           onProject={setProject}
           onOpenSetup={() => setSetupOpen(true)}
+          onPermissionsChanged={refreshPermissions}
         />
       </main>
+      <p className="visually-hidden" role="status" aria-live="polite">{liveMessage}</p>
     </div>
   );
 }
@@ -433,7 +512,7 @@ export function WorkshopPage() {
 function ProjectSourceOnboarding(props: {
   project: WorkshopProject;
   busy: boolean;
-  act: (work: () => Promise<{ project: WorkshopProject }>) => Promise<void>;
+  act: (work: () => Promise<{ project: WorkshopProject }>) => Promise<boolean>;
 }) {
   const [kind, setKind] = useState<"NEW_PROJECT" | "LOCAL_REPOSITORY" | "REMOTE_REPOSITORY" | "SAVED_PROJECT">("NEW_PROJECT");
   const [value, setValue] = useState("");
@@ -545,7 +624,17 @@ function HostedDemoPanel() {
   );
 }
 
-function WorkshopHeader({ connection, onSetup }: { connection: ConnectionStatus | null; onSetup: () => void }) {
+function WorkshopHeader({
+  connection,
+  model,
+  onSetup,
+  onControls,
+}: {
+  connection: ConnectionStatus | null;
+  model: ReturnType<typeof findSelectedModel> | null;
+  onSetup: () => void;
+  onControls: () => void;
+}) {
   const state = connection?.state;
   const live = state === "connected";
   const warn = state === "degraded" || state === "checking";
@@ -556,9 +645,16 @@ function WorkshopHeader({ connection, onSetup }: { connection: ConnectionStatus 
         <div className="workshop-header-actions">
           <a href="/">Overview</a>
           <a href="/demo">Demo</a>
+          <span className="header-model-inline" title={model ? `${model.providerID}/${model.id}` : "No model selected"}>
+            {model ? model.name : "No model selected"}
+          </span>
           <button className="engine-pill" type="button" onClick={onSetup} aria-label="Open OpenCode connection setup">
             <span className={live ? "engine-dot is-live" : warn ? "engine-dot is-warn" : "engine-dot"} aria-hidden="true" />
             {connection ? connectionLabel(state) : "Checking OpenCode"}
+          </button>
+          <button className="text-button header-controls" type="button" onClick={onControls}>
+            <Settings2 size={15} aria-hidden="true" />
+            <span className="header-controls-label">Model &amp; connection</span>
           </button>
         </div>
       </div>
@@ -577,16 +673,12 @@ function connectionLabel(state: ConnectionStatus["state"] | undefined): string {
   return "OpenCode unreachable";
 }
 
-function modelFacts(model: NonNullable<ReturnType<typeof findSelectedModel>>): string {
-  return `${model.pricing === "free" ? "free" : model.pricing === "paid" ? "paid" : "price unknown"} · ${model.tools ? "tools" : "no tools"} · ${model.limits.context ? `${Math.round(model.limits.context / 1000)}k context` : "context unknown"}${model.local === true ? " · local" : model.local === false ? " · remote" : " · locality unknown"}`;
-}
-
 function OraclePanel(props: {
   project: WorkshopProject;
   text: string;
   setText: (value: string) => void;
   busy: boolean;
-  act: (work: () => Promise<{ project: WorkshopProject }>) => Promise<void>;
+  act: (work: () => Promise<{ project: WorkshopProject }>) => Promise<boolean>;
 }) {
   const proposal = props.project.product.proposal;
   const structured = props.project.product.structuredProposal;
@@ -677,7 +769,7 @@ function ArchitectPanel(props: {
   setText: (value: string) => void;
   busy: boolean;
   reduceMotion: boolean | null;
-  act: (work: () => Promise<{ project: WorkshopProject }>) => Promise<void>;
+  act: (work: () => Promise<{ project: WorkshopProject }>) => Promise<boolean>;
   onRequestChange: (request: string) => void;
   onAcceptCandidate: (candidateId: string) => void;
   onRejectCandidate: (candidateId: string) => void;
@@ -727,19 +819,19 @@ function ArchitectPanel(props: {
         />
       ) : null}
       <div className="actions">
+        {props.section.status === "DRAFT" && props.isCurrent && !pending ? (
+          <button className="action" type="button" disabled={props.busy} onClick={() => void props.act(() => approveSection(props.project, props.section.version, props.section.hash, props.section.id))}>
+            Approve this draft
+          </button>
+        ) : null}
         <button
-          className="action"
+          className={props.section.status === "DRAFT" && props.isCurrent && !pending ? "action secondary" : "action"}
           type="button"
           disabled={props.busy || !props.isCurrent || Boolean(pending)}
           onClick={() => void props.act(() => sendMessage(props.project, "draft", props.text.trim() || `Draft ${props.section.title}`, false, props.section.id))}
         >
           {props.section.content ? "Draft a fresh candidate" : "Draft section"}
         </button>
-        {props.section.status === "DRAFT" && props.isCurrent ? (
-          <button className="action secondary" type="button" disabled={props.busy} onClick={() => void props.act(() => approveSection(props.project, props.section.version, props.section.hash, props.section.id))}>
-            Approve this draft
-          </button>
-        ) : null}
         {!props.isCurrent ? <span className="meta">Only the current section can be drafted or approved. You can still request a change on this section.</span> : null}
       </div>
       {contract ? (
@@ -824,7 +916,7 @@ function ScopePanel(props: {
   scope: string;
   setScope: (value: string) => void;
   busy: boolean;
-  act: (work: () => Promise<{ project: WorkshopProject }>) => Promise<void>;
+  act: (work: () => Promise<{ project: WorkshopProject }>) => Promise<boolean>;
 }) {
   return (
     <section className="stage-panel" aria-labelledby="scope-panel-title">
@@ -848,7 +940,7 @@ function MakerPanel(props: {
   project: WorkshopProject;
   busy: boolean;
   activeRun: WorkshopProject["operations"][number] | null;
-  act: (work: () => Promise<{ project: WorkshopProject }>) => Promise<void>;
+  act: (work: () => Promise<{ project: WorkshopProject }>) => Promise<boolean>;
   onChooseModel: () => void;
 }) {
   const recommended = props.project.capabilities.find((item) => item.id === "node-check");
@@ -900,9 +992,7 @@ function WitnessPanel(props: {
   text: string;
   setText: (value: string) => void;
   busy: boolean;
-  act: (work: () => Promise<{ project: WorkshopProject }>) => Promise<void>;
-  exportNote: string | null;
-  setExportNote: (value: string | null) => void;
+  act: (work: () => Promise<{ project: WorkshopProject }>) => Promise<boolean>;
 }) {
   return (
     <section className="stage-panel" aria-labelledby="witness-panel-title">
@@ -919,11 +1009,7 @@ function WitnessPanel(props: {
         <button className="action" type="button" disabled={props.busy || props.text.trim().length < 1} onClick={() => void props.act(() => sendMessage(props.project, "witness", props.text))}>
           Review evidence
         </button>
-        <button className="action secondary" type="button" disabled={props.busy} onClick={() => void loadExport().then((exported) => props.setExportNote(exported.limitation + (exported.plan ? " Compiled plan is ready." : " Plan is not fully approved."))).catch((caught: unknown) => props.setExportNote(caught instanceof Error ? caught.message : "Export failed."))}>
-          Check export
-        </button>
       </div>
-      {props.exportNote ? <p className="banner" role="status">{props.exportNote}</p> : null}
       {props.project.witnessDrafts.length === 0 ? (
         <EmptyState title="No review notes yet">Witness has not reviewed this evidence. An empty review is not approval.</EmptyState>
       ) : null}
@@ -951,13 +1037,22 @@ function runRoleName(operation: WorkshopProject["operations"][number]): string {
   return "OpenCode";
 }
 
-/** Focuses the advanced OpenCode panel so the native session can be inspected. */
+/** Opens the model and connection controls without loading advanced diagnostics. */
 function openOpenCodePanel(): void {
   const panel = document.getElementById("opencode-panel");
   if (!panel) return;
-  if (panel instanceof HTMLDetailsElement) panel.open = true;
+  const model = document.getElementById("opencode-model-connection");
+  if (model instanceof HTMLDetailsElement) model.open = true;
   panel.scrollIntoView({ behavior: "smooth", block: "start" });
-  panel.focus?.();
+  panel.focus();
+}
+
+/** Jumps to the contextual permission request, which stays outside collapsed diagnostics. */
+function openPermissionControls(): void {
+  const permission = document.getElementById("opencode-permission");
+  if (!permission) return;
+  permission.scrollIntoView({ behavior: "smooth", block: "center" });
+  permission.querySelector<HTMLElement>("button, h2")?.focus();
 }
 
 function spiritStateFor(

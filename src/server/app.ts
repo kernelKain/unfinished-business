@@ -33,6 +33,7 @@ import { WorkflowService } from "./workflow/service.ts";
 import {
   acceptSectionCandidate,
   approveSection,
+  recordMemoryEntry,
   rejectSectionCandidate,
   WorkflowConflict,
 } from "./workflow/transitions.ts";
@@ -52,6 +53,11 @@ const candidateIdSchema = z.string().min(1).max(128);
 const approvalRequestSchema = actionSchema.extend({
   version: z.number().int().positive(),
   hash: z.string().regex(/^[a-f0-9]{64}$/),
+});
+const memoryEditSchema = actionSchema.extend({
+  kind: z.enum(["decision", "answer", "assumption", "constraint"]),
+  text: z.string().min(1).max(2_000),
+  supersedesId: z.string().min(1).max(128).nullable().optional(),
 });
 const messageSchema = actionSchema.extend({
   intent: z.enum(["clarify", "draft", "question", "witness"]),
@@ -735,6 +741,25 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
   if (workflow.experience || isDemo) {
     app.get("/api/export", async (context) => context.json(isDemo ? demoExport : await workflow.experience!.exportApproved()));
   }
+
+  app.post("/api/memory", async (context) => {
+    try {
+      const input = memoryEditSchema.parse(await context.req.json());
+      const result = await workflow.service.execute(
+        input.actionId,
+        { kind: input.kind, text: input.text, supersedesId: input.supersedesId ?? null },
+        input.expectedRevision,
+        (project) => recordMemoryEntry(project, {
+          kind: input.kind,
+          text: input.text,
+          supersedesId: input.supersedesId ?? null,
+        }),
+      );
+      return context.json(publicProjectResult(result));
+    } catch (error) {
+      return workflowError(context, error, "Invalid project-memory update.", log);
+    }
+  });
 
   app.post("/api/sections/:id/revisions", async (context) => {
     const id = sectionIdSchema.safeParse(context.req.param("id"));

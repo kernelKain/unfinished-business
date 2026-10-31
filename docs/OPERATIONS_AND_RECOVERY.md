@@ -2,7 +2,7 @@
 
 **Status:** Implemented release candidate.
 **Owner:** Operations/engineering.
-**Last verified:** 2026-11-01; schema v7 migration, source onboarding/import safety, Oracle memory, candidate revisions, run observability/recovery, provider-budget enforcement, corruption, restart, and hosted-demo isolation covered by tests.
+**Last verified:** 2026-11-01; schema v7 migration, source onboarding/import safety, Oracle memory and editable Project memory, candidate revisions, run observability/recovery, focused workshop controls, provider-budget enforcement, corruption, restart, and hosted-demo isolation covered by tests.
 
 The application is a single-process Node service with one writer and one active project. It is not a multi-tenant service.
 
@@ -67,7 +67,7 @@ Recovery rules:
 - Current invalid, previous valid → copy the current bytes to `project.json.corrupt-*`, use the previous snapshot, and log the recovery. The corrupt original remains.
 - Both invalid → refuse to reset. State routes return `STATE_CORRUPT`; health stays minimal.
 - Newer schema version → refuse and preserve. Do not downgrade.
-- Schema v1, either supported v2 shape, schema v3, schema v4, schema v5, or schema v6 → deterministically migrate on read; the next successful write persists canonical schema v7. Candidate revisions retain their content, base version/hash, summary, requested change, decision time, and status across migration.
+- Schema v1, either supported v2 shape, schema v3, schema v4, schema v5, or schema v6 → deterministically migrate on read; the next successful write persists canonical schema v7. Candidate revisions retain their content, base version/hash, summary, requested change, decision time, and status across migration. Phase 5 added no schema version: Project memory corrections use the existing memory entry `status` and `supersedesId` fields.
 
 Migration policy:
 
@@ -80,6 +80,13 @@ Migration policy:
 - backfill every non-terminal migrated operation with a deterministic `AWAITING_RECONCILIATION` progress marker stamped with the fixed epoch sentinel, so old unknown runs remain reconcilable;
 - use the fixed epoch sentinel for timestamps absent from old files, never the migration wall clock;
 - make repeated migration idempotent; refuse and preserve future schema versions.
+
+Project-memory editing:
+
+- `POST /api/memory` requires the session token and an `actionId`/`expectedRevision`.
+- A correction names an existing entry, marks it `SUPERSEDED`, and appends a new active entry linked by `supersedesId`.
+- Memory edits never change a section draft, approval, Maker scope, operation, or native session.
+- The UI's Project memory drawer reads the same buckets; raw transcript excerpts stay in Advanced diagnostics.
 
 Manual recovery:
 
@@ -126,7 +133,7 @@ Oracle, Architect, Witness, and Maker runs are persisted asynchronous operations
 
 `COMPLETED_UNAPPLIED` means a native result was observed but its actual reply/diff has not yet been retrieved and validated, or validation produced content that is recorded but not yet applied. Reconciling again retrieves and validates the result and applies it **exactly once** (`appliedAt` guard plus the idempotent action record).
 
-Reconciliation (`POST /api/runs/:id/reconcile`, or **Reconcile now** in the Run Inspector):
+Reconciliation (`POST /api/runs/:id/reconcile`, or **Reconcile now** in Activity & results):
 
 1. keeps `RUNNING`/`WAITING_PERMISSION` honestly if the session is still running or a native permission is still pending;
 2. reads the native outcome through `session.get` — an idle session without a reported outcome is `unknown`, never success;
@@ -187,7 +194,7 @@ If the app restarts or the connection drops while a run is in flight:
 | Rate/concurrency limit | limiter/gate | 429 with retry hint | Wait briefly; do not bypass |
 | Sentry unavailable | transport failure | core workflow continues | No action required; telemetry optional |
 
-Provider failures are also stored on the operation (`providerError`) with a `provider-…` diagnostic reference. The UI card explains what happened, whether saved work changed, and the repair action. Technical details are redacted of authorization headers, API keys, passwords, cookies, and local paths. Dismissing the card does not erase the operation evidence; inspect it in the Run Inspector.
+Provider failures are also stored on the operation (`providerError`) with a `provider-…` diagnostic reference. The UI card explains what happened, whether saved work changed, and the repair action. Technical details are redacted of authorization headers, API keys, passwords, cookies, and local paths. Dismissing the card does not erase the operation evidence; inspect it in Activity & results under Technical details.
 
 ## Budgets
 

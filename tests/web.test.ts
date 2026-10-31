@@ -6,7 +6,11 @@ import { LandingPage } from "../src/web/landing/LandingPage.tsx";
 import { DemoPage } from "../src/web/demo/DemoPage.tsx";
 import { SpiritCharacter, type SpiritState } from "../src/web/components/SpiritCharacter.tsx";
 import { ProviderErrorCard } from "../src/web/components/ProviderErrorCard.tsx";
+import { ProjectMemory } from "../src/web/components/ProjectMemory.tsx";
 import { RunInspector } from "../src/web/components/RunInspector.tsx";
+import { OpenCodePanel } from "../src/web/opencode-panel.tsx";
+import { connectionStatusSchema } from "../src/shared/opencode.ts";
+import { createProject } from "../src/server/workflow/model.ts";
 import { providerErrorSchema } from "../src/shared/workflow.ts";
 import { demoFixture } from "../src/shared/demo.ts";
 import {
@@ -139,7 +143,7 @@ test("demo and evidence previews label fixtures and keep the missing live proof 
   assert.match(copy, /The live session remains NOT_RUN/);
   assert.match(copy, /Representative diff and deterministic check/);
   assert.match(copy, /Reset changes only this demo fixture/);
-  assert.match(copy, /The same Run Inspector, with demo data/);
+  assert.match(copy, /The same Activity & results view, with demo data/);
   for (const spirit of ["oracle", "architect", "maker", "witness"] as const) {
     for (const state of new Set(demoFixture.beats.filter((beat) => beat.spirit === spirit).map((beat) => beat.state))) {
       assert.match(demo, new RegExp(`data-testid="spirit-state-${spirit}-${state}"`));
@@ -168,6 +172,105 @@ test("empty Run Inspector states do not imply success", () => {
   assert.match(copy, /No check observed/);
   assert.match(copy, /Empty is the honest state/);
   assert.doesNotMatch(copy, /PASS/);
+});
+
+test("activity and results are organized into progress, changes, checks, and technical details", () => {
+  const inspector = renderToStaticMarkup(createElement(RunInspector, {
+    operations: demoOperations,
+    evidence: demoEvidence,
+    capabilities: demoCapabilities,
+  }));
+  const copy = text(inspector);
+  assert.match(copy, /Activity & results/);
+  assert.match(copy, /Progress/);
+  assert.match(copy, /Changes/);
+  assert.match(copy, /Checks/);
+  assert.match(copy, /Technical details/);
+  assert.match(copy, /Native references/);
+  assert.match(copy, /Capability mappings/);
+  assert.match(copy, /Raw evidence/);
+  assert.match(copy, /Provider payloads/);
+});
+
+test("project memory presents decisions, answers, assumptions, constraints, and editable memory", () => {
+  const project = createProject("/workspace", "local", { now: "2026-11-01T00:00:00.000Z" });
+  project.memory.decisions.push({
+    id: "memory-decision",
+    text: "Keep the bounded Node check.",
+    source: "user",
+    sourceId: null,
+    createdAt: "2026-11-01T00:00:00.000Z",
+    status: "ACTIVE",
+  });
+  project.memory.answers ??= [];
+  project.memory.answers.push({
+    id: "memory-answer",
+    text: "Students on campus.",
+    source: "user",
+    sourceId: null,
+    createdAt: "2026-11-01T00:00:00.000Z",
+    field: "intendedUser",
+    status: "ACTIVE",
+  });
+  project.oracleIntake.unresolvedQuestions.push({
+    id: "memory-question",
+    field: "budget",
+    prompt: "Is there a spending limit?",
+    whyItMatters: "It changes the provider and deployment choice.",
+    suggestedChoices: [],
+  });
+  const html = renderToStaticMarkup(createElement(ProjectMemory, {
+    project: project as Parameters<typeof ProjectMemory>[0]["project"],
+    busy: false,
+    onSave: async () => true,
+  }));
+  const copy = text(html);
+  assert.match(copy, /Decisions/);
+  assert.match(copy, /User answers/);
+  assert.match(copy, /Assumptions/);
+  assert.match(copy, /Constraints/);
+  assert.match(copy, /Unresolved questions/);
+  assert.match(copy, /Correct/);
+  assert.match(copy, /Save memory/);
+  assert.match(copy, /never changes an approval or section draft/);
+});
+
+test("OpenCode controls keep permissions visible and advanced diagnostics collapsed", () => {
+  const project = createProject("/workspace", "local", { now: "2026-11-01T00:00:00.000Z" });
+  const connection = connectionStatusSchema.parse({
+    state: "connected",
+    baseUrl: "http://127.0.0.1:4096",
+    deploymentMode: "local",
+    managed: false,
+    auth: { mode: "none", username: "", hasPassword: false },
+    serverVersion: "2.0.32",
+    compatible: true,
+    checkedAt: "2026-11-01T00:00:00.000Z",
+    diagnostics: [],
+    discovery: null,
+  });
+  const html = renderToStaticMarkup(createElement(OpenCodePanel, {
+    connection,
+    project: project as Parameters<typeof OpenCodePanel>[0]["project"],
+    permissions: [{
+      id: "permission-one",
+      sessionID: "ses_one",
+      action: "edit",
+      resources: ["src/example.ts"],
+      message: null,
+    }],
+    onConnection: () => undefined,
+    onProject: () => undefined,
+    onOpenSetup: () => undefined,
+    onPermissionsChanged: async () => undefined,
+  }));
+  const copy = text(html);
+  assert.match(copy, /Model & connection/);
+  assert.match(copy, /OpenCode is waiting for permission/);
+  assert.match(copy, /Allow once/);
+  assert.match(copy, /Advanced diagnostics/);
+  assert.match(html, /<details class="advanced" id="opencode-advanced">/);
+  assert.doesNotMatch(html, /<details class="advanced" id="opencode-advanced" open/);
 });
 
 test("provider error cards expose safe repair and technical details", () => {

@@ -22,9 +22,9 @@ This catalog distinguishes what the product **uses**, what it **recommends**, an
 
 | Tool | Role | Status | Evidence/limitation |
 |---|---|---|---|
-| Node test runner | Unit/integration/component tests | **Integrated** | 139 passing tests. |
-| Playwright 1.62 | Visual, keyboard, contrast, zoom, reduced-motion, overflow tests | **Integrated** | 18 passing tests with committed snapshots; uses system Chromium. |
-| `scripts/check-budget.mjs` | Production bundle/asset budget | **Integrated** | Passes: initial JS 195.0 KiB gzip, all JS 277.9 KiB, CSS 16.2 KiB (18 KiB budget), hero 570.9 KiB. |
+| Node test runner | Unit/integration/component tests | **Integrated** | 184 passing tests. |
+| Playwright 1.62 | Visual, keyboard, contrast, zoom, reduced-motion, overflow tests | **Integrated** | 19 passing tests with committed snapshots; uses system Chromium. |
+| `scripts/check-budget.mjs` | Production bundle/asset budget | **Integrated** | Passes: initial JS 195.6 KiB gzip, all JS 280.7 KiB (290 KiB budget), CSS 17.1 KiB (18 KiB budget), hero 570.9 KiB. |
 | `scripts/preflight.mjs` | Read-only environment diagnostic | **Integrated** | Checks toolchain, DNS, loopback, OpenCode CLI/help, Git reads, Entire status. Not an integration proof. |
 | `scripts/opencode-live-diagnostic.ts` | Opt-in compatibility probe | **Integrated; run in Phase 9** | Server 2.0.32, catalog, disposable session create/read/remove. No prompt/model call. |
 | Render | Optional demo or private hosting | **Documented; not deployed** | `render.demo.yaml` and `render.yaml` reviewed statically. No live URL asserted. |

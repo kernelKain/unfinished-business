@@ -13,10 +13,13 @@ Unfinished Business is an OpenCode-powered hackathon project builder. Four frien
 - The **real workshop** at `/workshop`, which connects to a local OpenCode server and records what actually happened.
 - A **first-run connection and discovery flow** that checks a supported OpenCode server, lists the models/providers/agents it actually reports, and lets the builder choose a model and reported reasoning variant. Provider API keys stay inside OpenCode.
 - A **read-only hosted demo** and a **private hosted** mode. Neither reaches into a visitor's local repository.
-- A versioned **schema v7** contract for explicit project sources, field-level Oracle intake answers, structured facts/decisions/assumptions, structured proposals, reviewable candidate section revisions, model preferences, provider errors, and recoverable operations. Explicit v1–v6 migrations keep older projects usable.
+- A versioned **schema v7** contract for explicit project sources, field-level Oracle intake answers, structured facts/decisions/assumptions with editable superseding corrections, structured proposals, reviewable candidate section revisions, model preferences, provider errors, and recoverable operations. Explicit v1–v6 migrations keep older projects usable.
 - **Reviewable Architect revisions**: every section has a content contract; a change request generates a candidate with a summary and complete Markdown draft. The user inspects a unified or side-by-side diff, then accepts, requests another revision, or discards. Only an accepted candidate replaces the current draft, and approval remains a separate exact-version action.
+- **Focused workshop**: one primary task at a time, a collapsible project outline, a contextual Activity & results drawer, an editable Project memory drawer, and a compact model/connection header. Empty technical panels no longer occupy permanent space.
+- **Activity & results**: the former Run Inspector is organized into Progress, Changes, and Checks. Native IDs, capability mappings, raw evidence, provider payloads, and the transcript stay under Technical details or Advanced diagnostics.
+- **Editable project memory**: decisions, user answers, assumptions, constraints, and unresolved questions are visible in one place. A correction supersedes the prior entry without changing an approval, section draft, Maker scope, or native run.
 - **Focused, multi-turn Oracle discovery**: every fresh project chooses new work, a validated local repository, a credential-free remote repository import, or saved work before discovery. Oracle asks at most three explained questions per turn and proposes only after essential intake is known or the user explicitly accepts stated assumptions.
-- **Observable, cancellable, recoverable runs**: every Oracle, Architect, Maker, and Witness run is a persisted asynchronous operation with live progress phases, elapsed time, and Continue waiting / Reconcile / Open in OpenCode / Cancel / Retry / Mark abandoned controls. A timed-out or restarted run never permanently blocks the project; reconciliation retrieves and validates the actual late response or diff and applies it exactly once.
+- **Observable, cancellable, recoverable runs**: every Oracle, Architect, Maker, and Witness run is a persisted asynchronous operation with live progress phases, elapsed time, and Continue waiting / Reconcile / Open in OpenCode / Cancel / Retry / Mark abandoned controls in Activity & results. A timed-out or restarted run never permanently blocks the project; reconciliation retrieves and validates the actual late response or diff and applies it exactly once.
 
 OpenCode supplies the agent loop, model access, native tools, permissions, execution, interruption, and native sessions. Unfinished Business adds the four-stage workshop, exact-version approvals, dependency invalidation, evidence views, the onboarding/discovery flow, and the Ghostlight interface. It does **not** ship a second coding harness or a general command executor.
 
@@ -91,13 +94,13 @@ npm run test:visual
 
 Current results (2026-11-01, Node 22.22.1, no live provider inference):
 
-- **179 unit/integration/component tests pass**.
-- **18 Playwright visual/accessibility tests pass** with committed snapshots, including guided demo wide/narrow/presentation captures.
-- Initial JS is **195.0 KiB gzip**; all JS **277.9 KiB**; CSS **16.2 KiB gzip**; all hero variants **570.9 KiB** total. The CSS budget was deliberately raised to 18 KiB for the revision-review and Markdown surfaces.
-- Keyboard focus order, dialog Escape, setup tab arrow keys, 200% text zoom, 390px overflow, reduced motion, and token contrast are checked.
+- **184 unit/integration/component tests pass**.
+- **19 Playwright visual/accessibility tests pass** with committed snapshots, including the focused workshop wide/narrow captures, guided demo wide/narrow/presentation captures, and the reorganized Activity & results view.
+- Initial JS is **195.6 KiB gzip**; all JS **280.7 KiB**; CSS **17.1 KiB gzip**; all hero variants **570.9 KiB** total. The all-JS budget was deliberately raised from 280 to 290 KiB and CSS remains within its 18 KiB budget for the focused-workshop, Project memory, and lazy-loaded diagnostics surfaces.
+- Keyboard focus order, dialog Escape, setup tab arrow keys, drawer operation, 200% text zoom, 390px overflow, reduced motion, and token contrast are checked.
 - Demo playback, reset isolation, fixture/schema drift, 90-second timing, tab inspection, no-network behavior, and hosted-demo mutation rejection are covered.
 - State migration deterministically upgrades schema v1, both supported v2 shapes, schema v3, schema v4, schema v5, and schema v6 to v7 without dropping proposals, approvals, transcripts, operations, evidence, selected model data, provider policy, limits, or candidate history.
-- Project-source paths, incomplete intake, explained question limits, explicit assumptions, proposal provenance, reload persistence, and correction history are covered.
+- Project-source paths, incomplete intake, explained question limits, explicit assumptions, proposal provenance, reload persistence, correction history, and project-memory corrections are covered.
 - Section contracts, candidate creation/supersede, accept/reject, stale approvals, base-version conflicts, safe Markdown rendering, and unified/side-by-side diffs are covered.
 - Model access policy, paid/unknown-price confirmation, optional spending limits, provider failure classification/redaction, and runtime confirmation gates are covered.
 - Local and hosted-demo smoke journeys pass; the hosted demo makes no inference call and rejects mutation.
@@ -108,7 +111,7 @@ Current results (2026-11-01, Node 22.22.1, no live provider inference):
 
 ## Status and limitations
 
-The prior release phases remain integrated. Upgrade Phase 4 turns Architect output into reviewable candidates: section contracts, explicit accept/reject, safe Markdown, responsive diffs, and separate approval. Schema v7 records candidate base/summary/decision metadata while preserving the Phase 3 source/intake/memory model and Phase 2 run recovery.
+The prior release phases remain integrated. Upgrade Phase 5 focuses the workshop: one main task, a collapsible outline, contextual Activity & results, editable Project memory, a compact model/connection header, and lazy Advanced diagnostics. The Activity view separates Progress, Changes, and Checks; technical references live under Technical details. Upgrade Phase 4 remains the reviewable-revision model: section contracts, explicit accept/reject, safe Markdown, responsive diffs, and separate approval. Schema v7 is unchanged.
 
 Known limitations:
 
@@ -117,6 +120,7 @@ Known limitations:
 - Generated section review supports a deliberately small, safe Markdown subset (headings, paragraphs, lists, emphasis, links, tables, and code), not full CommonMark or raw HTML. Contract validation checks structure and topic coverage, not prose quality.
 - Model availability, pricing, quota, training terms, and billing are controlled by OpenCode/provider. The spending limit only checks cost OpenCode reports after a session; unknown-price providers may bill before that value is visible.
 - The workspace privacy preference records intent; the app cannot attest every provider's training/retention contract. Provider rejections that mention training/data policy are explained as `PROVIDER_DATA_POLICY`.
+- Advanced diagnostics load only when opened. Permission polling is best-effort; a pending request remains visible in Activity & results and the contextual permission alert, but a provider-side change can lag by one refresh interval.
 - Backboard is not integrated and no partner category is claimed for installation alone. Sentry is configured but live release/source-map/trace verification requires authorized credentials and a deployment.
 - No public hosted URL, recorded video, published article, or submission is asserted by this repository.
 - A real recorded demonstration and final submission packaging remain separate acceptance work.

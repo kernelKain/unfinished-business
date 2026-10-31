@@ -1,6 +1,6 @@
 # Implementation plan and phase record
 
-**Status:** Upgrade Phase 4 complete and verified.
+**Status:** Upgrade Phase 5 complete and verified.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
@@ -22,6 +22,7 @@
 | Upgrade Phase 2 — Run observability and recovery | Persisted async Oracle/Architect/Witness/Maker runs, live progress phases, elapsed/cancel/retry/abandon/reconcile controls, exact-once late-result reconciliation, schema v5 migration | Complete and verified; commit recorded by `git log -1` after phase handoff |
 | Upgrade Phase 3 — Project intake and guided discovery | Four-way source onboarding, safe confirmation-gated imports, multi-turn Oracle intake, structured proposal/memory, schema v6 migration | Complete and verified; commit recorded by `git log -1` after phase handoff |
 | Upgrade Phase 4 — Reviewable generated revisions | Section content contracts, candidate revisions, explicit accept/reject, stale approvals, safe Markdown, unified/side-by-side diffs, schema v7 migration | Complete and verified; commit recorded by `git log -1` after phase handoff |
+| Upgrade Phase 5 — Focused workshop and reorganized OpenCode controls | One primary task, collapsible outline, contextual Activity & results, editable Project memory, compact model/connection header, lazy Advanced diagnostics, accessible drawers | Complete and verified; commit recorded by `git log -1` after phase handoff |
 
 The guided-interface line (`origin/main` at `b2d2654`) and the hardening line (`origin/phase-8-hardening` at `8c50439`) both descended from `2205774`. Phase 9 integrates them rather than choosing one and losing the other. The release candidate therefore keeps the landing page, onboarding, deterministic demo, security middleware, state migration, retention, and recovery in one build.
 
@@ -185,6 +186,42 @@ Architect output is a reviewable candidate rather than an immediate overwrite. E
 - [x] Final typecheck, 179 tests, build, budget, and diff/security review pass.
 
 Phase 4 acceptance passed on 2026-11-01. No live provider inference was used.
+
+## Upgrade Phase 5 — focused workshop and reorganized OpenCode controls
+
+### Outcome
+
+The workshop now presents one primary task at a time. The project outline, Project memory, and Activity & results are disclosure drawers; Activity & results is absent until an operation or check exists. The compact header carries the connection and selected model. OpenCode controls are split into Model & connection, a contextual permission request, and Advanced diagnostics; expensive session/usage data is loaded only when diagnostics are opened.
+
+**Phase commit:** `refactor(ui): create a focused workshop experience`.
+
+### Work units
+
+| Unit | Outcome | Evidence |
+|---|---|---|
+| U5-1 focused layout | Single centered main document, compact titlebar/header, collapsible project outline, no permanent right rail | `src/web/workshop/WorkshopPage.tsx`, `src/web/styles.css` |
+| U5-2 activity & results | Run Inspector renamed and reorganized into Progress, Changes, Checks; active/abandoned runs open it; no operation/evidence hides it | `src/web/components/RunInspector.tsx`, `tests/web.test.ts` |
+| U5-3 technical disclosure | Native IDs, capability mappings, raw evidence, provider payloads, and transcript moved out of the primary view | `RunInspector` Technical details; `OpenCodePanel` Advanced diagnostics |
+| U5-4 project memory | Decisions, user answers, assumptions, constraints, unresolved questions; add/correct flow; corrections supersede | `src/web/components/ProjectMemory.tsx`, `src/server/workflow/transitions.ts`, `src/server/app.ts`, `tests/memory.test.ts` |
+| U5-5 OpenCode controls | Model & connection, contextual permission alert, lazy Advanced diagnostics; sessions/agents/commands/skills/MCP/LSP/formatters/revert/export/transcript stay advanced | `src/web/opencode-panel.tsx`, `src/web/api.ts` |
+| U5-6 primary action | One primary action per stage; Approve becomes primary only for a current draft, otherwise Draft is primary | `src/web/workshop/WorkshopPage.tsx` |
+| U5-7 accessibility and responsiveness | Native summary keyboard operation, stage-change focus, busy/permission live announcements, mobile drawer layout, reduced-motion-compatible styling | `WorkshopPage.tsx`, `styles.css`, `tests/visual/landing.spec.ts` |
+| U5-8 budget and snapshots | Deliberate all-JS budget increase to 290 KiB; workshop, Activity & results, demo, and character snapshots refreshed | `scripts/check-budget.mjs`, `tests/visual/snapshots/` |
+| U5-9 documentation | README, architecture, decisions, UX, operations, evidence, release notes, changelog, implementation plan | canonical documentation set |
+
+### Acceptance status
+
+- [x] The main task is understandable without opening advanced controls.
+- [x] Empty technical panels no longer occupy permanent screen space; Activity & results is absent with no operation/evidence.
+- [x] Permission requests render as a contextual alert outside collapsed diagnostics and remain actionable in Model & connection/Advanced diagnostics.
+- [x] Project memory is useful and editable; corrections preserve superseded history and never change an approval or draft.
+- [x] One primary action is visible per stage; approval remains separate from revision acceptance.
+- [x] Drawers work with keyboard and screen-reader semantics; stage changes move focus to the main task and announce busy/permission state.
+- [x] Advanced diagnostics load only when opened; sessions, agents, commands, skills, MCP, LSP, formatters, low-level revert, export, and raw transcripts stay out of the normal flow.
+- [x] Schema v7 is unchanged; the memory edit route uses the existing status/supersedesId fields.
+- [x] Final typecheck, 184 tests, build, 290 KiB all-JS budget, 19 visual tests, and diff/security review pass.
+
+Phase 5 acceptance passed on 2026-11-01. No live provider inference was used.
 
 ## Phase 8 hardening units
 

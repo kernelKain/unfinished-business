@@ -411,6 +411,55 @@ export function grantMakerScope(project: Project, statement: string): Project {
   return projectSchema.parse(refreshNextAction(next));
 }
 
+export type MemoryEditKind = "decision" | "answer" | "assumption" | "constraint";
+
+/**
+ * Adds or corrects a project-memory entry. Corrections supersede the prior
+ * entry instead of erasing history, and a memory edit never changes an
+ * approval, section draft, Maker scope, or native run.
+ */
+export function recordMemoryEntry(
+  project: Project,
+  input: { kind: MemoryEditKind; text: string; supersedesId: string | null },
+): Project {
+  const next = clone(project);
+  const bucket = memoryBucket(next, input.kind);
+  const prior = input.supersedesId ? bucket.find((entry) => entry.id === input.supersedesId) ?? null : null;
+  if (input.supersedesId && !prior) {
+    throw new WorkflowConflict("That project-memory entry no longer exists.");
+  }
+  const now = new Date().toISOString();
+  if (prior) prior.status = "SUPERSEDED";
+  bucket.push({
+    id: randomUUID(),
+    text: input.text.slice(0, 4_000),
+    source: "user",
+    sourceId: null,
+    createdAt: now,
+    field: prior?.field ?? null,
+    status: "ACTIVE",
+    supersedesId: prior?.id ?? null,
+  });
+  rememberTranscript(
+    next,
+    "user",
+    `${prior ? "Corrected" : "Added"} project memory (${input.kind}): ${input.text.slice(0, 160)}`,
+  );
+  return projectSchema.parse(refreshNextAction(next));
+}
+
+function memoryBucket(project: Project, kind: MemoryEditKind) {
+  if (kind === "answer") {
+    project.memory.answers ??= [];
+    return project.memory.answers;
+  }
+  if (kind === "assumption") {
+    project.memory.assumptions ??= [];
+    return project.memory.assumptions;
+  }
+  return kind === "decision" ? project.memory.decisions : project.memory.constraints;
+}
+
 export function recordWitnessDrafts(
   project: Project,
   drafts: Array<{ title: string; content: string }>,

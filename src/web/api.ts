@@ -153,7 +153,16 @@ export interface WorkshopProject {
     observedOutcome: string | null;
   }>;
   witnessDrafts: Array<{ id: string; title: string; content: string }>;
-  evidence: Array<{ id: string; checkId: string; result: string; limitation: string | null; model: EngineModel | null }>;
+  evidence: Array<{
+    id: string;
+    checkId: string;
+    nativeResultReference: string;
+    testedFingerprint: string;
+    result: string;
+    observedAt: string;
+    limitation: string | null;
+    model: EngineModel | null;
+  }>;
   nativeSessions: Array<{ role: string; sessionId: string }>;
 }
 
@@ -174,6 +183,16 @@ export interface MakerStartResult extends Partial<ActionResult> {
   project: WorkshopProject;
   duplicate?: boolean;
   accepted?: boolean;
+}
+
+export type MemoryEditKind = "decision" | "answer" | "assumption" | "constraint";
+
+export interface PendingPermission {
+  id: string;
+  sessionID: string;
+  action: string;
+  resources: string[];
+  message: string | null;
 }
 
 export class ApiError extends Error {
@@ -364,6 +383,25 @@ export function grantScope(project: WorkshopProject, statement: string) {
   });
 }
 
+/** Adds or corrects project memory without changing any approval or section draft. */
+export function saveMemory(
+  project: WorkshopProject,
+  kind: MemoryEditKind,
+  text: string,
+  supersedesId: string | null = null,
+) {
+  return request<ActionResult>("/api/memory", {
+    method: "POST",
+    body: {
+      actionId: crypto.randomUUID(),
+      expectedRevision: project.revision,
+      kind,
+      text,
+      supersedesId,
+    },
+  });
+}
+
 export function approveSection(project: WorkshopProject, version: number, hash: string, sectionId: string) {
   return request<ActionResult>(`/api/sections/${sectionId}/approve`, {
     method: "POST",
@@ -494,7 +532,7 @@ export function commitRevert(sessionId: string) {
 }
 
 export function loadPermissions() {
-  return request<{ permissions: Array<{ id: string; sessionID: string; action: string; resources: string[]; message: string | null }> }>("/api/opencode/permissions");
+  return request<{ permissions: PendingPermission[] }>("/api/opencode/permissions");
 }
 
 export function replyPermission(input: { sessionID: string; requestID: string; decision: "once" | "always" | "reject"; message?: string }) {

@@ -1,6 +1,6 @@
 # Product brief — Unfinished Business
 
-**Status:** Approved product; Upgrade Phase 2 (run observability and recovery) verified locally.
+**Status:** Approved product; Upgrade Phase 5 (focused workshop and reorganized OpenCode controls) verified locally.
 **Owner:** Product/interface.
 **Last verified:** 2026-11-01.
 
@@ -50,6 +50,10 @@ Maker edits only the isolated demo workspace under `UB_DATA_DIR`. The product do
 | Architect | Plan | Draft one planning section against its dependencies | The user approves the exact current version and hash; revisions make old approval stale |
 | Maker | Build | Perform a bounded native edit through OpenCode | A separate Maker scope is required; OpenCode still owns tool permission |
 | Witness | Review | Inspect evidence in a fresh session and prepare review drafts | Notes are drafts, not a submitted article, video, or proof of success |
+
+### Workshop interface promise
+
+The workshop shows one primary task at a time. The project outline opens as a drawer, Activity & results appears only when there is an operation or check, and Project memory holds decisions, answers, assumptions, constraints, and unresolved questions. Model and permission controls are visible; native IDs, capability mappings, raw evidence, provider payloads, sessions, revert controls, export, and transcripts stay under Technical details or Advanced diagnostics. A correction to Project memory supersedes the prior entry and never changes an approval or draft.
 
 ## Three honest usage paths
 

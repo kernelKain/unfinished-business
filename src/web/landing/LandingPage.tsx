@@ -103,7 +103,7 @@ export function LandingPage() {
             <p className="eyebrow">OpenCode controls and evidence</p>
             <h2 id="controls-title">See what the engine did — and what it refused</h2>
             <p>
-              The Run Inspector is a read-only view over native session references and observed results.
+              Activity &amp; results is a read-only view over native session references and observed results.
               Workflow approval never overrides a native denial.
             </p>
           </div>

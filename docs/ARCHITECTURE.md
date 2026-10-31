@@ -1,8 +1,8 @@
 # Architecture — Unfinished Business
 
-**Status:** Upgrade Phase 3 (project-source onboarding and guided Oracle discovery) implemented on the verified Phase 2 baseline.
+**Status:** Upgrade Phase 5 (focused workshop and reorganized OpenCode controls) implemented on the verified Phase 4 baseline.
 **Owner:** Engineering.
-**Last verified:** 2026-11-01 against the Phase 3 verification matrix recorded in `docs/EVIDENCE.md`.
+**Last verified:** 2026-11-01 against the Phase 5 verification matrix recorded in `docs/EVIDENCE.md`.
 
 ## 1. System shape
 
@@ -29,6 +29,7 @@ Hono server (src/server/app.ts)
   ├─ /api/project/source*        select source; explicitly confirm managed remote import
   ├─ /api/events                 authenticated bounded SSE snapshots
   ├─ /api/messages, /api/approvals, /api/sections/*
+  ├─ /api/memory                 add or correct project memory; corrections supersede
   ├─ /api/runs*                  queue, inspect, cancel, reconcile
   └─ static dist/web             contained SPA fallback for HTML navigation
         │
@@ -54,15 +55,17 @@ Unfinished Business never implements a second agent loop, inference client, gene
 
 `src/web/App.tsx` reads `window.location.pathname`, listens for `popstate`, updates `document.title` and `document.documentElement.dataset.route`, and scrolls to the top on route change. Navigations are ordinary anchors, so they work without a client router.
 
-Measured production chunks after Phase 4 (2026-11-01):
+Measured production chunks after Phase 5 (2026-11-01):
 
-- initial `index-*.js`: 195.0 KiB gzip;
-- `WorkshopPage-*.js`: 66.8 KiB gzip (includes source onboarding, discovery, revision review, safe Markdown, and diffs);
+- initial `index-*.js`: 195.5 KiB gzip;
+- `WorkshopPage-*.js`: 69.1 KiB gzip (includes source onboarding, discovery, revision review, safe Markdown, project memory, and diffs);
 - `DemoPage-*.js`: 12.5 KiB gzip;
 - `SpiritStageTabs-*.js`: 3.6 KiB gzip;
-- CSS: 16.2 KiB gzip (budget deliberately raised to 18 KiB for the review surfaces).
+- CSS: 17.1 KiB gzip (18 KiB budget; all JS budget raised deliberately to 290 KiB).
 
-The workshop keeps four-stage navigation, plan outline, working document, and activity/evidence rail. Provider failures render as a dedicated card with what happened, saved-work state, repair action, retry/change-model controls, and technical disclosure. The Run Inspector retains a compact provider-error line even after the card is dismissed. The visual layer changes did not alter stage and approval semantics.
+The workshop presents one primary task at a time. A compact header carries the connection and selected model. The project outline is a collapsible drawer. Activity & results appears only when an operation or check exists, opens automatically for an active or abandoned run, and is organized into Progress, Changes, and Checks. Native IDs, capability mappings, raw evidence, and provider payloads live under Technical details. Project memory is a separate editable drawer; raw transcripts stay inside Advanced diagnostics. The previous permanent right rail and Session notes panel are gone.
+
+Provider failures render as a dedicated card with what happened, saved-work state, repair action, retry/change-model controls, and technical disclosure. Activity & results retains a compact provider-error line even after the card is dismissed. The visual layer changes did not alter stage and approval semantics.
 
 ## 3. Static serving and assets
 
@@ -103,7 +106,9 @@ Public hero assets are produced by `scripts/build-hero-assets.py` into `public/a
 | `src/server/prompts/loader.ts` | Loads complete runtime procedures from `docs/prompts/` |
 | `src/shared/` | Browser-safe workflow, OpenCode, mode, and demo contracts; section content contracts; safe Markdown parser; line diff |
 | `src/web/components/Markdown.tsx` | Safe React renderer for the Markdown subset (no raw HTML) |
+| `src/web/components/ProjectMemory.tsx` | Editable decisions, answers, assumptions, constraints, and unresolved questions; corrections supersede prior entries |
 | `src/web/components/RevisionReview.tsx`, `RevisionDiff.tsx` | Candidate summary, full revision preview, unified/side-by-side diff, accept/reject/request-another controls |
+| `src/web/components/RunInspector.tsx` | Activity & results: Progress, Changes, Checks, and collapsed technical details |
 
 ## 5. Deployment modes
 
@@ -139,7 +144,7 @@ Schema v7 is the single current shape. It preserves the v6 project-source and Or
 
 - project source metadata for new work, validated local repositories, confirmation-gated managed remote imports, saved work, and the deterministic demo;
 - field-level Oracle intake for intended user, problem, desired outcome, deadline/event, must-have and optional features, budget, privacy, platforms, repository condition, non-goals, and unresolved questions, with answer provenance and update timestamps;
-- structured project memory buckets for answers, facts, user decisions, assumptions, constraints, and risks; corrections supersede prior entries instead of erasing history;
+- structured project memory buckets for answers, facts, user decisions, assumptions, constraints, and risks; corrections supersede prior entries instead of erasing history. The same fields support the editable Project memory drawer, which appends a user entry through `POST /api/memory` and marks the corrected entry `SUPERSEDED`;
 - Oracle replies with `questions` or `proposal` mode, no more than three explained questions, known constraints, structured proposals, unresolved risks, and a recommended next action;
 - candidate section revisions that remain separate from the approved/current section, with their base version/hash, requested change, human summary, decision time, and `PENDING`/`ACCEPTED`/`REJECTED`/`SUPERSEDED` status;
 - a server-side content contract for each of the eight Architect sections: required topics, detail guidance, dependencies, risk and decision requirements, acceptance criteria, and required headings. Validation is structural (headings, paragraphs, list/table items, topic coverage, dependency acknowledgement) and never relies on word count alone;
@@ -179,6 +184,10 @@ Operational rules:
 - `POST /api/sections/:id/revisions/:candidateId/reject` marks the candidate `REJECTED` and changes no draft or approval;
 - accepting a revision is not approval: the section still requires a separate exact-version approval;
 - section versions, candidate decisions, and approval records are retained for audit;
+- `POST /api/memory` adds a decision, answer, assumption, or constraint without changing any section, approval, Maker scope, or native run; a correction names the prior entry, appends a new active entry, and keeps the prior entry as `SUPERSEDED`;
+- the workshop presents one primary task; the Project outline and Project memory drawers are collapsed unless opened or populated, and Activity & results is omitted when no operation or check exists;
+- the compact header shows the connection and selected model; permission requests render as a contextual alert outside collapsed diagnostics;
+- Advanced diagnostics are loaded only when the user opens them. They contain agents, commands, skills, MCP, LSP, formatters, usage, sessions, low-level revert, export, and the raw transcript;
 - Maker requires every current section approved plus a separate scope grant;
 - operation states are `QUEUED`, `RUNNING`, `WAITING_PERMISSION`, `COMPLETED_UNAPPLIED`, `SUCCEEDED`, `FAILED`, `CANCELLED`, and `ABANDONED`;
 - `COMPLETED_UNAPPLIED` means a native result was observed or stored but has not (yet) been validated and applied exactly once;

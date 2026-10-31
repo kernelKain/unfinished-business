@@ -117,7 +117,7 @@ export const faqs: readonly FaqItem[] = [
   },
   {
     question: "What does the demo actually prove?",
-    answer: "The deterministic walkthrough is a scripted fixture. It proves the interface states and wording, not live inference or a successful build. Real runs appear in the workshop's Run Inspector with native session references.",
+    answer: "The deterministic walkthrough is a scripted fixture. It proves the interface states and wording, not live inference or a successful build. Real runs appear in the workshop's Activity & results view with native session references.",
   },
   {
     question: "What is stored locally?",
@@ -168,7 +168,10 @@ export const demoEvidence: WorkshopProject["evidence"] = [
   {
     id: "ev-demo-check",
     checkId: "node-test-bounded",
+    nativeResultReference: "ses_demo_check_2b44e1",
+    testedFingerprint: "fixture-demo-evidence",
     result: "FAIL",
+    observedAt: "2026-10-31T12:00:00.000Z",
     limitation: "The generated relay does not pass node --test in this fixture. Do not claim a working build.",
     model: null,
   },

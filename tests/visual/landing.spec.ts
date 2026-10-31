@@ -140,16 +140,28 @@ test.describe("landing", () => {
 });
 
 test.describe("workshop", () => {
-  test("wide workshop preserves the four-stage navigation", async ({ page }) => {
+  test("wide workshop focuses the main task and hides empty technical panels", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto("/workshop");
     await expect(page.getByRole("heading", { name: /What's still haunting/ })).toBeVisible();
     const stages = page.getByRole("navigation", { name: "Four-stage workflow" }).getByRole("listitem");
     await expect(stages).toHaveCount(4);
     await expect(stages.nth(0)).toHaveAttribute("aria-current", "step");
-    await expect(page.getByTestId("run-inspector")).toBeVisible();
-    await expect(page.getByTestId("run-inspector")).toContainText("No native run yet");
+    await expect(page.getByText("Project outline").first()).toBeVisible();
+    await expect(page.getByText("Project memory").first()).toBeVisible();
+    await expect(page.getByTestId("run-inspector")).toHaveCount(0);
+    await expect(page.getByText("Activity & results")).toHaveCount(0);
     await expect(page).toHaveScreenshot("workshop-wide.png", { fullPage: true });
+  });
+
+  test("project outline is keyboard operable and one main task stays visible", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.goto("/workshop");
+    const outline = page.locator("summary").filter({ hasText: "Project outline" });
+    await outline.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".outline-drawer .section-list")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /What's still haunting/ })).toBeVisible();
   });
 
   test("first-run connection setup is reachable and keeps provider keys in OpenCode", async ({ page }) => {

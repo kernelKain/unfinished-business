@@ -4,6 +4,31 @@
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
+## 2026-11-01 — Upgrade Phase 5 focused workshop and OpenCode controls
+
+### Added
+
+- Focused workshop layout with one primary task, a compact model/connection header, and collapsible Project outline and Project memory drawers.
+- **Activity & results** (formerly Run Inspector) organized into Progress, Changes, and Checks, with native IDs, capability mappings, raw evidence, and provider payloads under Technical details.
+- Editable Project memory for decisions, user answers, assumptions, constraints, and unresolved questions; corrections supersede the previous entry and preserve history.
+- Authenticated `POST /api/memory` route for adding or correcting a project-memory entry without changing an approval, section draft, Maker scope, or native run.
+- Contextual permission alert outside collapsed controls and an `aria-live` status announcement for busy/permission/run state.
+
+### Changed
+
+- Removed the permanent right rail and Session notes panel; Activity & results is hidden until an operation or check exists.
+- Split OpenCode controls into **Model & connection**, **Contextual permission request**, and **Advanced diagnostics**; sessions, agents, commands, skills, MCP, LSP, formatters, low-level revert, export, and raw transcripts moved into advanced diagnostics and load on open.
+- Stage changes move focus to the main task; drawers are keyboard-operable native disclosures; mobile/tablet layouts avoid horizontal overflow.
+- Approval is primary only for a current draft; otherwise the stage's own action remains primary.
+- All-JS gzip budget deliberately raised from 280 to 290 KiB for the focused-workshop and Project memory surfaces; CSS remains within 18 KiB.
+- Visual snapshots refreshed for the workshop, Activity & results, demo, and character states.
+
+### Not in this entry
+
+- No schema change or migration; schema v7 remains current.
+- No new provider call, deployment, publication, or submission.
+- No second coding harness or new native execution authority.
+
 ## 2026-11-01 — Upgrade Phase 4 reviewable generated revisions
 
 ### Added

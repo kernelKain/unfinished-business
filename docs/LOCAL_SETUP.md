@@ -162,7 +162,7 @@ Then open `http://127.0.0.1:4200/`. The built app and API share the same server.
 - Maker's bounded edit targets `UB_DATA_DIR/demo-workspace`, not your repository checkout.
 - A confirmed public remote import lives under `UB_DATA_DIR/managed-imports/`; it is not a Maker target in Phase 3.
 - Project metadata, backups, and evidence references live under `UB_DATA_DIR`.
-- Native transcripts and sessions stay in OpenCode.
+- Native transcripts and sessions stay in OpenCode. The workshop shows a bounded transcript mirror only in Advanced diagnostics.
 - The browser has no filesystem or shell endpoint.
 - App approvals constrain the workflow; they cannot override an OpenCode tool denial.
 - The Node check is a bounded child process, not an OS sandbox.
@@ -200,7 +200,7 @@ The route is time-limited and account-dependent. Choose another model OpenCode r
 
 ### A provider request failed
 
-Use the provider error card: it states what happened, whether saved work changed, and the recommended repair. Reconnect a provider inside OpenCode for authentication errors, check quota/billing for quota errors, or choose another reported model. Technical details include a safe diagnostic reference; secret-shaped values and local paths are redacted. The same operation remains visible in the Run Inspector after the card is dismissed.
+Use the provider error card: it states what happened, whether saved work changed, and the recommended repair. Reconnect a provider inside OpenCode for authentication errors, check quota/billing for quota errors, or choose another reported model. Technical details include a safe diagnostic reference; secret-shaped values and local paths are redacted. The same operation remains visible in Activity & results technical details after the card is dismissed.
 
 ### `npm run dev` exits immediately
 

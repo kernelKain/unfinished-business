@@ -230,7 +230,7 @@ export function DemoPage() {
           <section className="demo-inspector-section" aria-labelledby="demo-inspector-title">
             <div className="section-heading">
               <p className="eyebrow">Fixture inspector</p>
-              <h2 id="demo-inspector-title">The same Run Inspector, with demo data</h2>
+              <h2 id="demo-inspector-title">The same Activity &amp; results view, with demo data</h2>
               <p>
                 The workshop renders this component from live operations. Here the rows are labeled fixture data,
                 and the missing live session stays visible.

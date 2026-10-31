@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Measures the production web output against the documented Phase 4 budget.
+// Measures the production web output against the documented Phase 5 budget.
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { gzipSync } from "node:zlib";
@@ -9,7 +9,7 @@ const dist = join(root, "dist", "web");
 const assets = join(dist, "assets");
 const budgets = {
   initialJsGzip: 220 * 1024,
-  totalJsGzip: 280 * 1024,
+  totalJsGzip: 290 * 1024,
   cssGzip: 18 * 1024,
   heroTotal: 640 * 1024,
   heroLargest: 190 * 1024,

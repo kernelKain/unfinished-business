@@ -1,6 +1,6 @@
 # UX and visual system — Ghostlight Hacker Workshop
 
-**Status:** Implemented release candidate; Upgrade Phase 1 added model policy, cost confirmation, privacy copy, and provider error cards.
+**Status:** Implemented release candidate; Upgrade Phase 5 focused the workshop, reorganized Activity & results, added editable Project memory, and moved technical controls into lazy Advanced diagnostics.
 **Owner:** Interface/UX.
 **Last verified:** 2026-11-01.
 **Source of truth:** `src/web/styles.css`, `src/web/spirits.ts`, `src/web/components/`, `src/web/content/landing.ts`, `src/web/demo/`.
@@ -156,8 +156,8 @@ Status chips include a dot and text; color is never the only signal. `.status-ch
 
 ### Guided demo
 
-- The demo is a guided example, not a separate interface. It reuses `RunInspector`, `SpiritCharacter`, `SpiritStageTabs`, `StatusChip`, and the production workflow shapes.
-- The layout is: intro/honesty panel → playback controls → four-spirit tabs → guided beat + spirit workspace → Run Inspector → representative diff/check → Witness findings → character gallery/recovery → clean exit.
+- The demo is a guided example, not a separate interface. It reuses `RunInspector` (rendered as Activity & results), `SpiritCharacter`, `SpiritStageTabs`, `StatusChip`, and the production workflow shapes.
+- The layout is: intro/honesty panel → playback controls → four-spirit tabs → guided beat + spirit workspace → Activity & results → representative diff/check → Witness findings → character gallery/recovery → clean exit.
 - Every fixture operation, evidence row, diff, and finding carries a `Demo data` chip or a `Prerecorded demo fixture` source label.
 - Playback controls are Play/Pause, Previous, Next, Replay, Reset, and 90s mode. Reset returns to beat 1, paused, and clears inspection; it never calls an API.
 - Tabs are available during playback. Inspecting a tab pauses auto-advance and shows “Playback paused so you can inspect …”. Resume with Play.
@@ -171,13 +171,41 @@ Status chips include a dot and text; color is never the only signal. `.status-ch
 - Stale sections use a dashed violet border plus text.
 - Current section uses an amber border; do not rely on the border alone.
 
-### Run Inspector
+### Focused workshop layout
 
-- Read-only presentation of native runs, evidence, and capability boundaries.
-- Empty states say “No native run yet” and “No check observed”; they never show green.
+- One centered main task at a time. The stage panel owns the primary action; approval is primary only when a current draft can be approved, otherwise drafting is primary.
+- A compact header shows the connection state and selected model. “Model & connection” opens the model panel without loading session diagnostics.
+- The project outline is a native `<details>` drawer with the approval progress and selectable section cards. It opens without hiding the main task.
+- Project memory is a native `<details>` drawer. It is open when memory exists and collapsed when empty.
+- Activity & results is a native `<details>` drawer that is absent until an operation or check exists. It opens automatically for an active or abandoned run.
+- Mobile keeps the same reading order; drawers become full-width disclosures. No horizontal overflow at 390px or 200% text zoom.
+- Stage changes move focus to the main task. A polite live region announces busy, permission, and run state without duplicating every timer tick.
+- Drawer summaries are keyboard-operable and have visible focus. No hover-only or color-only state.
+
+### Project memory
+
+- Groups: decisions, user answers, assumptions, constraints, and unresolved questions.
+- Each group shows the active entries and a `Correct` action. Corrections prefill the editor and name the superseded entry.
+- The editor can add a decision, answer, assumption, or constraint. Saving calls `POST /api/memory`; it never changes an approval, section draft, Maker scope, or native run.
+- A corrected entry is kept with `status: SUPERSEDED`; the new entry links back through `supersedesId`.
+- Raw transcript excerpts are not part of Project memory; they live in Advanced diagnostics.
+
+### Activity & results
+
+- Replaces the former Run Inspector. It is read-only.
+- **Progress** shows the latest run, status, phase, elapsed time, and the recovery controls (Continue waiting, Reconcile now, Open in OpenCode, Cancel, Retry after failure, Mark abandoned).
+- **Changes** shows only observed Maker results. A missing diff is not a successful build.
+- **Checks** shows observed evidence and limitations. Empty states say “No native run yet” and “No check observed”; they never show green.
+- **Technical details** is collapsed and contains native session/message IDs, capability mappings, raw evidence references/fingerprints, and provider error payloads.
 - Unknown runs show a reconcile action, not an automatic retry.
-- Evidence uses native IDs/references where available; fixture IDs are visibly labeled.
 - Permission footnote: “Workflow approval is not tool permission.”
+
+### OpenCode controls
+
+- **Model & connection**: connection summary, model policy, model/variant selection, cost confirmation, and privacy warning.
+- **Contextual permission request**: rendered outside collapsed details as a role-alert panel whenever a request is pending. It offers Allow once, Always, and Reject, and never auto-approves.
+- **Advanced diagnostics**: collapsed and loaded only when opened. It contains agents, discovered capabilities, commands, skills, MCP, formatters/LSP, usage, project sessions, low-level revert, export, and the raw transcript.
+- The normal workshop flow never shows session IDs, revert controls, export controls, or raw transcripts.
 
 ### Dialogs
 
@@ -191,7 +219,7 @@ Status chips include a dot and text; color is never the only signal. `.status-ch
 - `.provider-error-card` for structured provider failures. It shows an eyebrow category, what happened, saved-work status, recommended repair, a retry/change-model or review-settings action, and a `<details>` technical disclosure.
 - Technical disclosure is limited to provider, status code, provider code, project-owned session reference, diagnostic reference, and a redacted safe detail. Secrets, authorization headers, cookies, and local paths never render.
 - Role `status`, `alert`, or equivalent live semantics depending on urgency.
-- Include the recovery action and state that nothing was overwritten or repeated when true. Dismissing the card leaves the operation in the Run Inspector.
+- Include the recovery action and state that nothing was overwritten or repeated when true. Dismissing the card leaves the operation in Activity & results.
 
 ### Empty states
 
@@ -317,15 +345,15 @@ All four characters are hand-authored SVG in this repository. They are not gener
 
 | Metric | Budget | Measured (2026-11-01) | Status |
 |---|---|---|---|
-| Initial JS (gzip) | ≤ 220 KiB | 195.0 KiB | PASS |
-| All JS chunks (gzip) | ≤ 280 KiB | 277.9 KiB | PASS |
-| CSS (gzip) | ≤ 18 KiB | 16.2 KiB | PASS |
+| Initial JS (gzip) | ≤ 220 KiB | 195.6 KiB | PASS |
+| All JS chunks (gzip) | ≤ 290 KiB | 280.7 KiB | PASS |
+| CSS (gzip) | ≤ 18 KiB | 17.1 KiB | PASS |
 | All hero variants (total) | ≤ 640 KiB | 570.9 KiB | PASS |
 | Largest single hero file | ≤ 190 KiB | 86.7 KiB | PASS |
 
-The CSS budget was deliberately raised from 15 to 18 KiB in Upgrade Phase 4 to cover the safe Markdown typography, responsive side-by-side/unified diff, revision review, and audit-history surfaces. The increase is recorded here rather than silently accepted.
+The all-JS budget was deliberately raised from 280 to 290 KiB in Upgrade Phase 5 for the focused-workshop surfaces, editable Project memory, the reorganized Activity & results view, and split OpenCode controls. CSS remains within the 18 KiB budget raised in Phase 4 for the safe Markdown typography, diff review, and audit-history surfaces. Both increases are recorded here rather than silently accepted.
 
-The initial route is the landing page. Workshop and demo are lazy-loaded (66.8 KiB and 12.5 KiB gzip). The demo chunk includes the versioned fixture, playback reducer, and guided UI. The workshop chunk includes the connection/discovery wizard and advanced OpenCode panel. The hero transfers **34.7–58.2 KiB** as AVIF on a typical wide viewport and **30.9–49.1 KiB** as AVIF on mobile depending on pixel density; the total covers all breakpoints and formats, not one visit.
+The initial route is the landing page. Workshop and demo are lazy-loaded (69.1 KiB and 12.5 KiB gzip). The demo chunk includes the versioned fixture, playback reducer, and guided UI. The workshop chunk includes the connection/discovery wizard, project memory, Activity & results, and lazy Advanced diagnostics. The hero transfers **34.7–58.2 KiB** as AVIF on a typical wide viewport and **30.9–49.1 KiB** as AVIF on mobile depending on pixel density; the total covers all breakpoints and formats, not one visit.
 
 ### Rules
 
@@ -354,5 +382,5 @@ npm run test:visual
 - Private-hosted copy says the URL, password, and secrets are environment-managed; the browser cannot edit them.
 - API copy distinguishes invalid session token, invalid origin, rate limit, concurrent mutation, request too large, stale revision, unknown native outcome, pending permission, and corrupt/busy state.
 - Recommendation previews carry source and `verifiedAt` metadata. They describe only current capabilities and never imply an install, paid model, arbitrary shell, or approval.
-- Evidence and Run Inspector labels keep fixture results separate from live `NOT_RUN`/native results. No color or animation is the only status signal.
+- Evidence and Activity & results labels keep fixture results separate from live `NOT_RUN`/native results. No color or animation is the only status signal.
 - The final accessibility matrix covers keyboard focus, dialog Escape, setup-tab arrow keys, 200% text zoom, 390px/wide layouts, overflow, reduced motion, contrast, and relevant screen-reader/live-region semantics.

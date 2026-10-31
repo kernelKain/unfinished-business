@@ -2,7 +2,7 @@
 
 **Status:** Implemented and locally verified.
 **Owner:** Engineering/integration.
-**Last verified:** 2026-11-01 against the Phase 3 source-onboarding and Oracle-discovery surface.
+**Last verified:** 2026-11-01 against the Phase 5 focused-workshop and reorganized OpenCode-controls surface.
 
 This document describes the supported OpenCode surface, not every endpoint OpenCode exposes. OpenCode remains the owner of inference, the agent loop, tools, permissions, and native sessions.
 
@@ -142,9 +142,11 @@ Read-only roles receive session permissions denying `edit`, `shell`, and `extern
 
 ## Permissions
 
-Pending requests are read from OpenCode and filtered to project-owned sessions. The UI offers `Allow once`, `Always`, and `Reject`; it never auto-approves. `Always` asks OpenCode to save the proposed pattern, which may be broad. The application cannot override a configured `deny`. A Maker run that is waiting for permission is recorded as `WAITING_PERMISSION`, not success or failure.
+Pending requests are read from OpenCode and filtered to project-owned sessions. A pending request renders as a contextual alert outside collapsed controls, and the UI offers `Allow once`, `Always`, and `Reject`; it never auto-approves. `Always` asks OpenCode to save the proposed pattern, which may be broad. The application cannot override a configured `deny`. A Maker run that is waiting for permission is recorded as `WAITING_PERMISSION`, not success or failure. Permission polling is best-effort and may lag one refresh interval.
 
 ## Sessions, usage, and controls
+
+These controls live in **Advanced diagnostics**, which loads sessions and usage only when the user opens it.
 
 - **List/resume** is restricted to project-owned sessions.
 - **Interrupt** is exposed for the selected project session and an active Maker run. Cancellation requests a native interrupt; if interruption fails, the operation is not marked cancelled.
@@ -155,6 +157,7 @@ Pending requests are read from OpenCode and filtered to project-owned sessions. 
 - **Tool catalog** is deferred because OpenCode `2.0.32` does not expose a separate HTTP tool list.
 - **Formatter/LSP status** is configuration presence only, not a live health check.
 - **Arbitrary session enumeration** is deliberately not exposed.
+- The raw project transcript is shown in Advanced diagnostics, not in the primary workshop.
 
 ## Timeouts, budgets, and failure mapping
 

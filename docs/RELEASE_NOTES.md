@@ -1,9 +1,24 @@
 # Release notes — Unfinished Business release candidate
 
 **Date:** 2026-11-01
-**Status:** Upgrade Phase 4 implemented; deployment, publication, and submission remain outside this phase.
+**Status:** Upgrade Phase 5 implemented; deployment, publication, and submission remain outside this phase.
 
 ## What changed
+
+### Upgrade Phase 5 — focused workshop and reorganized OpenCode controls
+
+- The workshop now presents **one primary task at a time** in a centered working document. The project outline is a collapsible drawer; the permanent three-column rail and Session notes panel are gone.
+- The header is a compact model/connection summary. Permission requests appear as a contextual alert outside collapsed controls, so they cannot be missed.
+- **Run Inspector is now Activity & results**, organized into **Progress**, **Changes**, and **Checks**. It is omitted when no operation or check exists and opens automatically for an active or abandoned run.
+- Native session/message IDs, capability mappings, raw evidence, and provider payloads moved under **Technical details**. Raw transcripts moved to **Advanced diagnostics**.
+- **Project memory** replaces Session notes: decisions, user answers, assumptions, constraints, and unresolved questions are visible and editable. A correction appends a new entry and keeps the prior one as `SUPERSEDED`; it never changes an approval, draft, Maker scope, or native run. `POST /api/memory` provides the authenticated edit path.
+- OpenCode controls are split into **Model & connection**, a **contextual permission request**, and **Advanced diagnostics**. Sessions, agents, commands, skills, MCP, LSP, formatters, low-level revert, export, and transcripts stay in Advanced diagnostics and load only when opened.
+- The stage action is unambiguous: approval is primary only for a current draft; otherwise drafting or the stage's own action is primary.
+- Drawers are native disclosures with keyboard and focus behavior; stage changes move focus to the main task; busy and permission state are announced through a polite live region; mobile and tablet layouts avoid horizontal overflow.
+- Schema v7 is unchanged. The memory edit route uses the existing status/supersedesId fields, so no migration is required.
+- Verification passes: typecheck, **184 tests**, production build, all five bundle/asset budgets (all-JS budget deliberately raised from 280 to 290 KiB), and **19 visual/accessibility tests**.
+
+Known limits: permission polling is best-effort and can lag one refresh interval; Advanced diagnostics are unavailable while the engine is unreachable; automated accessibility checks do not replace a screen-reader audit.
 
 ### Upgrade Phase 4 — reviewable generated revisions
 
@@ -38,7 +53,7 @@ Known limits: remote import supports public unauthenticated HTTPS repositories o
 
 - Oracle, Architect, Maker, and Witness runs are now **persisted asynchronous operations**. The request returns `202 Accepted` immediately; the saved project updates as the run progresses. The synchronous `question` adapter is the only exception because it changes no saved state.
 - Every queued run records **live progress phases**: connecting, session created, waiting for the model, receiving output, validating result, waiting for permission, applying result, and running checks. Phases are safe summaries — prompts and raw model output are never shown or saved as progress.
-- The **Run Inspector** now shows elapsed time and per-run progress, and offers **Continue waiting, Reconcile now, Open in OpenCode, Cancel, Retry after failure, and Mark abandoned**.
+- The **Activity & results** view (formerly Run Inspector) now shows elapsed time and per-run progress, and offers **Continue waiting, Reconcile now, Open in OpenCode, Cancel, Retry after failure, and Mark abandoned**.
 - **Reconciliation is real**: it observes the native session, retrieves the actual late reply or file diff, validates it with the same rules as normal completion, and applies it **exactly once**. An idle session is never treated as success. An unretrievable result stays `COMPLETED_UNAPPLIED` and remains reconcileable.
 - A timed-out or disconnected run leaves an `ABANDONED` operation with a recovery marker instead of a dead end; the project can always be reconciled, cancelled, retried, or marked abandoned.
 - **Retry after a confirmed failure** starts a new Maker operation with explicit `retryOf` lineage; uncertain runs must be reconciled first, so retrying can never silently duplicate a native edit.
@@ -54,7 +69,8 @@ Known limits: remote import supports public unauthenticated HTTPS repositories o
 
 ## Verification
 
-- Typecheck, **179 tests**, production build, budget, and the **18 visual/accessibility tests** pass.
+- Typecheck, **184 tests**, production build, budget, and the **19 visual/accessibility tests** pass.
+- Phase 5 tests cover: focused workshop rendering, Activity & results structure, Project memory content and add/correct/supersede behavior, authenticated memory route, contextual permission alert, collapsed Advanced diagnostics, keyboard-operable outline, and wide/narrow layout snapshots.
 - Phase 4 tests cover: all eight section contracts, padded-word rejection, candidate creation/supersede, accept/reject, acceptance-versus-approval separation, transitive stale approvals, base-version conflicts, safe Markdown rendering/sanitization, and unified/side-by-side diff consistency.
 - No provider credentials or live/private model output were used; all provider and section fixtures are synthetic.
 
