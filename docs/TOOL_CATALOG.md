@@ -10,7 +10,7 @@ This catalog distinguishes what the product **uses** and what is only a **docume
 
 | Tool | Role | Status | Evidence/limitation |
 |---|---|---|---|
-| OpenCode 2.0.32 | Agent loop, model access, native tools, permissions, sessions, interruption | **Integrated foundation** | Exact client/server pin; production code uses the official client through the safe network layer. Live compatibility probe passed without inference. |
+| OpenCode 2.0.32 | Agent loop, model access, native tools, permissions, sessions, interruption | **Integrated foundation** | Exact client/server pin through the official cross-platform `@opencode/cli`; production code uses the official client through the safe network layer. Linux x64 locally verified; macOS arm64/x64 CI-gated. Live compatibility probe passed without inference. |
 | OpenCode model catalog | Any model the connected account reports as available | **Integrated; model-dependent** | New projects default to all accessible models. Free/local-only policy and optional spending limits are available. Paid/unknown-price routes require explicit confirmation; no silent substitution. |
 | Node.js 22.14+ | Runtime, build, and bounded Node check | **Required** | Tested on 22.22.1; `engines` minimum 22.14. |
 | React 19 + TypeScript + Vite 8 | Browser interface and build | **Integrated** | Production build and bundle budget pass. |
@@ -22,13 +22,15 @@ This catalog distinguishes what the product **uses** and what is only a **docume
 
 | Tool | Role | Status | Evidence/limitation |
 |---|---|---|---|
-| Node test runner | Unit/integration/component tests | **Integrated** | 186 passing tests. |
-| Playwright 1.62 | Visual, keyboard, contrast, zoom, reduced-motion, overflow, and canonical-sample tests | **Integrated** | 20 passing tests with committed snapshots; uses system Chromium. |
-| `scripts/check-budget.mjs` | Production bundle/asset budget | **Integrated** | Passes: initial JS 201.3 KiB gzip, all JS 279.9 KiB (290 KiB budget), CSS 17.0 KiB (18 KiB budget), hero 581.2 KiB. |
-| `scripts/preflight.mjs` | Read-only environment diagnostic | **Integrated** | Checks toolchain, DNS, loopback, OpenCode CLI/help, Git reads, Entire status. Not an integration proof. |
+| Node test runner | Unit/integration/component tests | **Integrated** | 200 passing tests. |
+| Playwright 1.62 | Visual, keyboard, contrast, zoom, reduced-motion, overflow, and canonical-sample tests | **Integrated** | 20 passing tests with committed snapshots; uses system Chromium on Linux or macOS. |
+| `scripts/check-budget.mjs` | Production bundle/asset budget | **Integrated** | Passes: initial JS 201.5 KiB gzip, all JS 280.1 KiB (290 KiB budget), CSS 17.0 KiB (18 KiB budget), hero 581.2 KiB. |
+| `scripts/preflight.mjs` | Read-only environment diagnostic | **Integrated** | Checks toolchain, supported platform, DNS, loopback, OpenCode CLI/help/client metadata, Git reads, Entire status. Not an integration proof. |
+| `scripts/opencode-platform-diagnostic.ts` | Platform and CLI resolution diagnostic | **Integrated** | Supported-host gate, global/local resolution, version, permission, and start diagnostics. No path or credential output. |
+| `scripts/opencode-smoke.ts` | No-inference server smoke | **Integrated** | Starts the resolved OpenCode server on an ephemeral loopback port, reads `/api/info`, and stops it. |
 | `scripts/opencode-live-diagnostic.ts` | Opt-in compatibility probe | **Integrated; run in Phase 9** | Server 2.0.32, catalog, disposable session create/read/remove. No prompt/model call. |
 | Render | Optional demo or private hosting | **Documented; not deployed** | `render.demo.yaml` and `render.yaml` reviewed statically. No live URL asserted. |
-| GitHub Actions | Typecheck/test/build quality gate | **Configured** | `.github/workflows/sentry-release.yml` runs the quality gate; Render owns production source-map upload. |
+| GitHub Actions | Linux/macOS install, resolution, test, build, and smoke gate | **Configured** | `.github/workflows/sentry-release.yml` runs `ubuntu-latest`, `macos-15`, and `macos-15-intel`; Render owns production source-map upload. |
 
 ## Observability and development evidence
 
@@ -46,12 +48,12 @@ Source freshness for this catalog:
 
 | Claim | Source | Last checked |
 |---|---|---|
-| OpenCode 2.0.32 client/server compatibility | Local pinned binary + Phase 9 live compatibility probe | 2026-10-31 |
+| OpenCode 2.0.32 client/server compatibility | Official cross-platform CLI resolution, local Linux smoke, macOS CI matrix, and Phase 9 live compatibility probe | 2026-11-01 |
 | Model access, pricing, and spending policy | OpenCode model catalog; `.env.example`; model-access and connection tests | 2026-11-01 |
 | Sentry privacy configuration | SDK code, redaction tests, deployment docs | 2026-10-31 |
 | Entire capture presence | Repository hooks/checkpoints and prior phase records | 2026-10-31 |
 | Render templates | `render.yaml`, `render.demo.yaml` static review | 2026-10-31 |
-| Playwright/browser availability | Visual suite against system Chromium | 2026-11-01 |
+| Playwright/browser availability | Visual suite against system Chromium on Linux; macOS candidate paths in `playwright.config.ts` | 2026-11-01 |
 
 ## Partner qualification truth
 

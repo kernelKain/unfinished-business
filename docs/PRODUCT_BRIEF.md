@@ -36,7 +36,7 @@ The release candidate has one project story with three deployment modes:
 
 | Mode | Browser can configure OpenCode? | OpenCode process | Persistence | Intended use |
 |---|---|---|---|---|
-| `local` | Yes; password may be held in memory | Supplies it separately on loopback | `UB_DATA_DIR` | A developer on their own Linux machine |
+| `local` | Yes; password may be held in memory | Supplies it separately on loopback | `UB_DATA_DIR` | A developer on their own Linux x64 or macOS machine |
 | `private-hosted` | No; environment/secret store owns the URL and password | Loopback child process | Private persistent disk | Protected Render or self-hosted instance |
 | `hosted-demo` | No | None | None for visitors | Public recorded sample |
 

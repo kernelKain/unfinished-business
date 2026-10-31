@@ -1,8 +1,8 @@
 # Architecture — Unfinished Business
 
-**Status:** Upgrade Phase 6 (canonical sample and rewritten landing page) implemented on the verified Phase 5 baseline.
+**Status:** Platform Phase 7 (macOS support) implemented on the verified Upgrade Phase 6 baseline.
 **Owner:** Engineering.
-**Last verified:** 2026-11-01 against the Phase 6 verification matrix recorded in `docs/EVIDENCE.md`.
+**Last verified:** 2026-11-01 against the Platform Phase 7 verification matrix recorded in `docs/EVIDENCE.md`.
 
 ## 1. System shape
 
@@ -97,6 +97,7 @@ Public hero assets are produced by `scripts/build-hero-assets.py` into `public/a
 | `src/server/workflow/` | Schema v7, explicit v1–v6 migration, candidate transitions, idempotency, retention, restart recovery |
 | `src/server/opencode/client.ts` | Safe client, version/auth/model readiness |
 | `src/server/opencode/connection.ts` | Connection settings, discovery, model access policy and resolution |
+| `src/server/opencode/executable.ts` | Cross-platform CLI resolution, platform support, version/permission/server-start diagnostics |
 | `src/server/opencode/provider-errors.ts` | Classifies provider failures into safe, actionable categories |
 | `src/server/opencode/sessions.ts` | Project-owned session/permission/usage controls |
 | `src/server/experience/guide.ts` | Four role sessions, timeouts, stricter-of-two budgets, interruption |
@@ -121,6 +122,17 @@ Public hero assets are produced by `scripts/build-hero-assets.py` into `public/a
 | `hosted-demo` | `0.0.0.0` | public; mutation read-only; no token issued | none | visitor state not stored |
 
 Local mode refuses a non-loopback bind. Private-hosted requires an explicit public URL/host for origin checks, plus `UB_ACCESS_PASSWORD` and `UB_SESSION_TOKEN`. The hosted demo deliberately requires neither and stays read-only.
+
+### Local platform support
+
+| Platform id | Status | Evidence |
+|---|---|---|
+| `linux-x64` | Supported and locally verified | Full matrix plus `npm run test:platform`, `npm run smoke:opencode`, and the CI `linux-x64` job |
+| `darwin-arm64` | Supported through the CI matrix | `macos-15` job: install, CLI resolution, typecheck, tests, build, workspace safety, OpenCode smoke |
+| `darwin-x64` | Supported through the CI matrix | `macos-15-intel` job with the same steps |
+| `linux-arm64`, `win32-*`, 32-bit | Not supported or claimed | `OPENCODE_PLATFORM_UNSUPPORTED` diagnostic |
+
+`src/server/opencode/executable.ts` owns platform gating, global-versus-local resolution, CLI version checks, and start-failure diagnostics. The Render supervisor shares the resolver; Render-specific paths stay in environment variables. A successful CLI resolution on a supported host materializes `node_modules/@opencode/cli/bin/opencode.exe` through the official package's postinstall.
 
 ## 6. Request pipeline and authorization
 
@@ -173,6 +185,7 @@ Operational rules:
 
 - a new project cannot call Oracle until one of the four source paths is selected; a remote source remains unusable until its managed workspace is explicitly confirmed and imported;
 - local repository paths pass the existing canonical workspace checks; canonical paths are private state and are omitted from public project responses and model prompts;
+- broad-root rejection covers Linux and macOS roots (`/`, `/home`, `/tmp`, `/var`, `/Users`, `/Volumes`, `/System`, `/private`, `/private/tmp`, `/private/var/tmp`, `/private/var/folders`); the resolved real path of the host temporary directory is also rejected, so macOS's `/var` → `/private/var` alias cannot bypass the temporary-root check;
 - remote repository URLs must be public HTTPS URLs without userinfo, query strings, fragments, or nonstandard ports; import uses a credential-disabled, noninteractive Git process in an app-managed directory and does not expose clone output;
 - Oracle keeps the full discovery procedure active, asks at most three high-value explained questions per turn, and the server refuses a proposal until essential facts exist or every essential assumption has explicit user authorization;
 - every mutation sends `actionId` and `expectedRevision`;

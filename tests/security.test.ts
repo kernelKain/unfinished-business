@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { realpathSync } from "node:fs";
 import { mkdtemp, mkdir, symlink, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -33,6 +34,16 @@ test("rejects broad filesystem, home, temporary, and repository roots", async ()
     assert.throws(() => assertNotBroadRoot(root), WorkspacePolicyError);
   }
   await assert.rejects(canonicalizeDirectoryRoot("/"), WorkspacePolicyError);
+});
+
+test("rejects macOS system roots and the resolved temporary root", () => {
+  for (const root of ["/Users", "/Volumes", "/System", "/private", "/private/tmp", "/private/var/tmp", "/private/var/folders"]) {
+    assert.throws(() => assertNotBroadRoot(root), WorkspacePolicyError, root);
+  }
+  assert.throws(() => assertNotBroadRoot(realpathSync(tmpdir())), WorkspacePolicyError);
+  // Normal project children under those roots remain valid workspace targets.
+  assert.doesNotThrow(() => assertNotBroadRoot("/Users/person/project"));
+  assert.doesNotThrow(() => assertNotBroadRoot("/Volumes/External/project"));
 });
 
 test("rejects traversal and symlink escapes from a workspace root", async () => {

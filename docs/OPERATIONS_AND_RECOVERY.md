@@ -46,7 +46,7 @@ In hosted-demo mode the server independently enforces isolation: `/api/project` 
 | `UB_DATA_DIR/managed-imports/<project-id>/` | Explicitly confirmed public remote repository import | Root created `0700`; clone staged privately and atomically renamed; not granted to Maker in Phase 3 |
 | `dist/web/` | Built browser bundle | Served through `realpath` containment; no repository/private state |
 
-The default is `.unfinished-business/`, which is gitignored. Never place `UB_DATA_DIR` at a filesystem root, the user's home, `/tmp` itself, the repository root, or a broad system directory. Hosted deployments use a dedicated disk path such as `/var/data/unfinished-business`.
+The default is `.unfinished-business/`, which is gitignored. Never place `UB_DATA_DIR` at a filesystem root, the user's home, `/Users`, `/Volumes`, the temporary root (including the resolved macOS `/private/var/folders/...` form), the repository root, or a broad system directory. Hosted deployments use a dedicated disk path such as `/var/data/unfinished-business`.
 
 ## Atomic writes, backups, and migration
 

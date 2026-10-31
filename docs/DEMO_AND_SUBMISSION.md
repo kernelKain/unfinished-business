@@ -2,7 +2,7 @@
 
 **Status:** Guided sample and first-release evidence complete. A real recorded video, published article, deployment, and submission remain pending explicit authorization.
 **Owner:** Demo/submission.
-**Last verified:** 2026-11-01 (20 visual/accessibility tests; 186 unit/integration/component tests).
+**Last verified:** 2026-11-01 (20 visual/accessibility tests; 200 unit/integration/component tests).
 
 ## Two different demos
 

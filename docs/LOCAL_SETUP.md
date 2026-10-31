@@ -1,8 +1,8 @@
 # Local setup
 
-**Status:** Verified local path.
+**Status:** Linux x64 verified locally; macOS Apple Silicon and macOS Intel are gated by the CI matrix and are not claimed from this checkout.
 **Owner:** Engineering.
-**Last verified:** 2026-11-01 on Linux with Node 22.22.1, npm 9.2.0, Git, and the pinned OpenCode 2.0.32 binary. This guide is the source for the landing page's setup tabs.
+**Last verified:** 2026-11-01 on Linux x64 with Node 22.22.1, npm 9.2.0, Git, and the pinned OpenCode 2.0.32 CLI. macOS jobs run the same install, resolution, typecheck, test, build, workspace-safety, and OpenCode smoke steps. This guide is the source for the landing page's setup tabs.
 
 ## What you get
 
@@ -16,10 +16,12 @@ The browser app does not receive provider credentials or the OpenCode password. 
 
 ## Prerequisites
 
-- Linux (first release target), Node **22.14+**, npm, and Git (required only for confirmed remote repository imports).
-- A supported OpenCode 2.x server. The repository pins `@opencode/cli-linux-x64-baseline@2.0.32`.
+- **Linux x64**, **macOS Apple Silicon (arm64)**, or **macOS Intel (x64)**; Node **22.14+**, npm, and Git (required only for confirmed remote repository imports).
+- A supported OpenCode 2.x server. The repository pins the official cross-platform `@opencode/cli@2.0.32` and `@opencode/client@2.0.32`; npm selects the native binary for the host.
 - At least one model route that answers on your OpenCode account, or a local model. The free `opencode/deepseek-v4.1-flash-free` route is still available when the provider reports it, but availability is time-limited and not guaranteed.
-- A writable `UB_DATA_DIR` whose demo/spirit child directories stay inside that root. Do not point it at `/`, your home, the repository root, or a broad system directory.
+- A writable `UB_DATA_DIR` whose demo/spirit child directories stay inside that root. Do not point it at `/`, your home, `/Users`, `/Volumes`, the temporary root, the repository root, or another broad system directory.
+
+Windows, Linux ARM64, and 32-bit hosts are not supported or claimed. `npm run diagnose:platform` reports an unsupported-platform diagnostic before probing any binary.
 
 New projects allow any model OpenCode reports as available. A paid or unknown-price remote model requires an explicit confirmation, and the optional spending limit is enforced only against cost OpenCode reports. There is no silent model substitution or automatic paid fallback.
 
@@ -29,7 +31,7 @@ New projects allow any model OpenCode reports as available. A paid or unknown-pr
 npm ci
 ```
 
-The lockfile pins React 19, Vite 8, Motion 14, Playwright, the OpenCode 2.0.32 CLI, and Sentry. `npm ci` is the reproducible install; use it when verifying a release.
+The lockfile pins React 19, Vite 8, Motion 14, Playwright, the cross-platform OpenCode 2.0.32 CLI, and Sentry. `npm ci` is the reproducible install; use it when verifying a release. The `@opencode/cli` postinstall materializes the native `opencode` binary for Linux x64, macOS arm64, or macOS x64.
 
 ## 2. Create a local environment file (optional)
 
@@ -51,6 +53,7 @@ UB_DATA_DIR=.unfinished-business
 `UB_DEPLOYMENT_MODE` is canonical (`local`, `private-hosted`, or `hosted-demo`). The legacy `UB_MODE` alias is accepted, but new setups should use `UB_DEPLOYMENT_MODE`.
 
 - `OPENCODE_PASSWORD` must match the password printed by `opencode serve`, or the fixed `OPENCODE_SERVER_PASSWORD` you chose. Leave it blank only if your local server has no password.
+- `UB_OPENCODE_EXECUTABLE` is optional. Leave it empty so the resolver prefers a compatible global `opencode` on `PATH`, then the lockfile-installed `@opencode/cli` binary. Set it only when a specific executable must be used.
 - `UB_SESSION_TOKEN` may be blank; the server generates one for the local browser session.
 - `UB_DATA_DIR` stores project metadata, confirmed managed repository imports, and the isolated demo and spirit workspaces. It is gitignored.
 - Do not put provider API keys in `.env`. Provider accounts belong inside OpenCode.
@@ -59,21 +62,55 @@ The security and budget variables in `.env.example` have safe defaults. `UB_MAX_
 
 ## 3. Start OpenCode (terminal 1)
 
-Use the pinned binary:
+Use the lockfile-installed cross-platform CLI:
 
 ```bash
-./node_modules/@opencode/cli-linux-x64-baseline/bin/opencode serve --hostname 127.0.0.1 --port 4096
+npx --no-install opencode serve --hostname 127.0.0.1 --port 4096
 ```
 
-If you already have a supported global OpenCode installation, this is equivalent:
+This command is the same on Linux x64, macOS Apple Silicon, and macOS Intel. If you already have a compatible global OpenCode 2.x installation, this is equivalent:
 
 ```bash
 opencode serve --hostname 127.0.0.1 --port 4096
 ```
 
+The application itself prefers a compatible global `opencode` on `PATH`; otherwise it resolves the lockfile-installed binary. If you install globally instead:
+
+```bash
+# npm on Linux or macOS
+npm install -g @opencode/cli@2.0.32
+opencode --version
+
+# Homebrew on macOS
+brew install anomalyco/tap/opencode-v2
+opencode --version
+```
+
 OpenCode prints a generated server password. Copy it into `OPENCODE_PASSWORD` or enter it in the first-run wizard. Do not commit it.
 
 A full model call was not repeated during the Phase 9 gate. The Phase 9 compatibility probe verified server version, catalog access, and disposable session create/read/remove without inference.
+
+### Platform diagnostics
+
+Run these before opening a support issue:
+
+```bash
+npm run diagnose:platform   # executable, source, version, platform support, permission
+npm run smoke:opencode      # starts the resolved server, reads /api/info, stops it
+```
+
+The diagnostic emits one of:
+
+| Code | Meaning | Repair |
+|---|---|---|
+| `OPENCODE_PLATFORM_UNSUPPORTED` | Host is not Linux x64, macOS arm64, or macOS x64 | Run on a supported host; do not claim the current host as supported. |
+| `OPENCODE_CLI_MISSING` | No usable `opencode` on `PATH` and no materialized `@opencode/cli` binary | Run `npm ci`; if install scripts were disabled, reinstall with scripts enabled. |
+| `OPENCODE_CLI_PERMISSION_DENIED` | A candidate exists but is not executable by this user | Fix ownership/mode or reinstall without `sudo`. |
+| `OPENCODE_CLI_VERSION_INCOMPATIBLE` | Major version is not 2, or no version was reported | Install `@opencode/cli@2.0.32` or the matching Homebrew tap. |
+| `OPENCODE_CLI_VERSION_UNTESTED` | A different 2.x patch was found | Use 2.0.32 for the tested surface, or run the live diagnostic. |
+| `OPENCODE_SERVER_START_FAILED` | The server exited before answering `/api/info` | Check the port, data/config directory permissions, and the CLI version. |
+
+No diagnostic prints the executable path, credentials, prompts, or model output.
 
 ## 4. Start the API (terminal 2)
 
@@ -180,7 +217,24 @@ Stop the previous process or set `UB_PORT` to a free port. Vite reads `UB_PORT` 
 2. Check `/api/connection` with the session token.
 3. Confirm `OPENCODE_BASE_URL` matches.
 4. Confirm `OPENCODE_PASSWORD` matches the server. The wizard uses Basic auth with OpenCode's fixed `opencode` username.
-5. Restart the API after changing `.env`.
+5. Run `npm run diagnose:platform` and `npm run smoke:opencode` to separate CLI resolution from server/network problems.
+6. Restart the API after changing `.env`.
+
+### The OpenCode executable is missing or not executable
+
+`npm run diagnose:platform` returns `OPENCODE_CLI_MISSING` or `OPENCODE_CLI_PERMISSION_DENIED`. Run `npm ci` with install scripts enabled. On macOS/Linux, avoid `sudo`; fix ownership on the install directory instead. `@opencode/cli` materializes its native binary during postinstall, so `--ignore-scripts` installs are incomplete.
+
+### Unsupported architecture
+
+`npm run diagnose:platform` returns `OPENCODE_PLATFORM_UNSUPPORTED`. Supported hosts are Linux x64, macOS Apple Silicon, and macOS Intel. Linux ARM64, Windows, and 32-bit hosts are not tested or claimed. Use one of the supported hosts or a remote allowlisted OpenCode server from the supported application host.
+
+### OpenCode CLI version is incompatible
+
+The resolver reports `OPENCODE_CLI_VERSION_INCOMPATIBLE` when the major version is not 2 or no version can be parsed. Install the pinned CLI with `npm install -g @opencode/cli@2.0.32`, or on macOS run `brew install anomalyco/tap/opencode-v2`. A different 2.x patch resolves but shows `OPENCODE_CLI_VERSION_UNTESTED`.
+
+### OpenCode server failed to start
+
+`npm run smoke:opencode` reports `OPENCODE_SERVER_START_FAILED` when the server exits before answering `/api/info`. Confirm port 4096 or the chosen port is free, the XDG/data directories are writable, and a compatible CLI is selected. The smoke script starts a disposable server, makes no model call, and stops it automatically.
 
 ### Authentication required
 
@@ -216,7 +270,7 @@ Do not delete `UB_DATA_DIR`. Inspect `project.json`, `.previous`, and `backups/`
 
 ### A local or path error mentions a broad root
 
-Choose a dedicated child directory under a writable parent, not `/`, your home, `/tmp`, the repository root, or `/var/data` itself.
+Choose a dedicated child directory under a writable parent, not `/`, your home, `/Users`, `/Volumes`, the temporary root (including its resolved macOS `/private/var/folders/...` form), the repository root, or `/var/data` itself.
 
 ## Verification commands
 
@@ -226,7 +280,9 @@ npm test
 npm run build
 npm run budget
 npm run test:visual
+npm run test:platform
+npm run smoke:opencode
 npm audit --omit=dev --audit-level=high
 ```
 
-The interface's full visual and accessibility check is `npm run test:visual`. It needs a Chromium executable. The config prefers `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, then system Chrome/Chromium, then Playwright's installed browser.
+The interface's full visual and accessibility check is `npm run test:visual`. It needs a Chromium executable. The config prefers `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, then system Chrome/Chromium (including the standard macOS application paths), then Playwright's installed browser. The web-server data directory comes from the host temporary directory, not a hardcoded `/tmp`.

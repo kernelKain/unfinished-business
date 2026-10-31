@@ -1,14 +1,23 @@
 import { existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { defineConfig } from "@playwright/test";
 
-// Prefer a system Chromium when present (useful in this repository's verified
-// Linux environment); otherwise Playwright uses its installed browser.
+// Prefer a system Chromium when present; otherwise Playwright uses its
+// installed browser. Paths cover Linux and both macOS architectures.
 const executablePath = [
   process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
   "/usr/bin/google-chrome",
+  "/usr/bin/google-chrome-stable",
   "/usr/bin/chromium",
   "/usr/bin/chromium-browser",
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "/Applications/Chromium.app/Contents/MacOS/Chromium",
+  "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
 ].find((candidate): candidate is string => Boolean(candidate && existsSync(candidate)));
+
+// Use the host temporary directory instead of a Linux-only /tmp path.
+const visualDataDir = join(tmpdir(), "unfinished-business-visual");
 
 export default defineConfig({
   testDir: "./tests/visual",
@@ -34,7 +43,7 @@ export default defineConfig({
     launchOptions: executablePath ? { executablePath } : undefined,
   },
   webServer: {
-    command: "npm run build && UB_PORT=4317 UB_DATA_DIR=/tmp/unfinished-business-visual OPENCODE_BASE_URL=http://127.0.0.1:65534 node --import tsx src/server/start.ts",
+    command: `npm run build && UB_PORT=4317 UB_DATA_DIR=${JSON.stringify(visualDataDir)} OPENCODE_BASE_URL=http://127.0.0.1:65534 node --import tsx src/server/start.ts`,
     url: "http://127.0.0.1:4317/api/health",
     reuseExistingServer: false,
     timeout: 120_000,

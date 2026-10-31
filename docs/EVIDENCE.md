@@ -1,17 +1,26 @@
 # Evidence index and requirements matrix
 
-**Status:** Upgrade Phase 6 complete and verified.
+**Status:** Platform Phase 7 implemented and Linux-verified; macOS verification is CI-gated.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
-**Baseline revision:** `4d811bf` (`refactor(ui): create a focused workshop experience`). Phase 5's 184 tests passed before Phase 6 edits.
-**Environment:** Linux, Node `22.22.1`, npm `9.2.0`, pinned OpenCode `2.0.32`, system Chromium. No provider credentials were used for inference in any phase.
+**Baseline revision:** `ddf632a` (`feat(demo): unify the project revival story`). Upgrade Phase 6's 186 tests passed before Platform Phase 7 edits.
+**Environment:** Linux x64, Node `22.22.1`, npm `9.2.0`, pinned OpenCode `2.0.32`, system Chromium. macOS arm64 and x64 are exercised by the CI matrix. No provider credentials were used for inference in any phase.
 
-Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observed failure; **UNAVAILABLE** = prerequisite absent; **DEFERRED** = explicitly out of this release; **BLOCKED** = required prerequisite missing.
+Labels: **VERIFIED** = inspected/tested in this environment; **CI-GATED** = automated job defined, result required before the platform is claimed; **FAILED** = observed failure; **UNAVAILABLE** = prerequisite absent; **DEFERRED** = explicitly out of this release; **BLOCKED** = required prerequisite missing.
 
 ## Requirements-to-evidence matrix
 
 | Area | Requirement | Status | Evidence | Limitation |
 |---|---|---|---|---|
+| Platform | Official cross-platform OpenCode CLI replaces the Linux-only package | VERIFIED | `package.json`, `package-lock.json`, `tests/platform.test.ts` | npm installs multiple Linux x64 variants selected by the official postinstall |
+| Platform | Compatibility prefers a valid global `opencode` then the pinned local binary | VERIFIED | `src/server/opencode/executable.ts`; resolver tests cover global, incompatible-global fallback, local-only, and missing cases | A global binary is accepted when it reports major 2 even if the patch is untested; a warning is shown |
+| Platform | Linux x64 remains operational | VERIFIED | Full local matrix; `npm run diagnose:platform`; `npm run smoke:opencode` | No live model call |
+| Platform | macOS Apple Silicon and macOS Intel resolve and run OpenCode | CI-GATED | `macos-15` and `macos-15-intel` jobs run install, resolution, tests, build, and server smoke | This Linux checkout cannot stand in for macOS evidence; do not claim a green macOS job before it exists |
+| Platform | Unsupported architectures fail before probing | VERIFIED | `describePlatform` tests for linux-arm64, win32-x64, darwin-ia32, freebsd-x64 | Windows and Linux ARM64 are not claimed |
+| Platform | Missing executable, incompatible version, permission, and server-start failures have distinct diagnostics | VERIFIED | CLI diagnostic cases in `tests/platform.test.ts`; `scripts/opencode-platform-diagnostic.ts`; `scripts/opencode-smoke.ts` | Diagnostics intentionally omit executable paths |
+| Platform | Render-specific behavior is isolated from local development | VERIFIED | `src/server/render-start.ts` uses the shared resolver and environment-derived XDG paths; local start never imports it | Render deployment itself remains a separate authorized action |
+| Platform | Workspace security handles macOS roots and resolved temporary paths | VERIFIED | `tests/security.test.ts` macOS broad-root and realpath cases | Symlink policy remains realpath-based |
+| Platform | Setup UI and docs contain no Linux-only package path and name npm/Homebrew installs | VERIFIED | `tests/platform.test.ts`, `tests/web.test.ts`, `src/web/setup.ts`, README, `docs/LOCAL_SETUP.md` | Homebrew installs the current tap version, not necessarily the 2.0.32 patch |
 | Project source | Every fresh project chooses new, local, remote, or saved work before Oracle | VERIFIED | `tests/oracle-discovery.test.ts`; source-first workshop rendering; `PROJECT_SOURCE_REQUIRED` server gate | Demo fixture carries an explicit `DEMO` source |
 | Project source | Local repositories pass existing workspace-security rules and private paths stay server-only | VERIFIED | `tests/oracle-discovery.test.ts`, `tests/security.test.ts`; public project serialization assertion | Selection validates but does not assess repository contents |
 | Project source | Remote URL is credential-free/public HTTPS, staged without import, then imported into a managed workspace only after confirmation | VERIFIED | `tests/oracle-discovery.test.ts`; injected importer asserts no call before confirm and managed target after confirm | Public unauthenticated Git only; no SSH/private/submodule credentials |
@@ -70,7 +79,7 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 | Recovery | Previous snapshot offered; corrupt bytes preserved; no silent reset | VERIFIED | `tests/recovery.test.ts`, `tests/store-hardening.test.ts` | Both-corrupt state requires operator restore |
 | Serialization | Schema v7 JSON round-trip preserves source, field-level intake, answer/assumption provenance, structured proposal, candidate base/summary/decision metadata, access/budget policy, provider errors, operations, approvals, evidence, and recovery metadata | VERIFIED | `tests/migration.test.ts`, `tests/provider-errors.test.ts`, `tests/demo.test.ts` (projectSchema round-trip of the updated fixture) | Model cost/privacy facts remain provider-owned |
 | Accessibility | Keyboard/focus/dialog/tabs/drawers/zoom/overflow/reduced motion/contrast | VERIFIED | `tests/visual/landing.spec.ts`, `tests/visual/demo.spec.ts` (20 tests) | Automated checks do not replace a screen-reader audit |
-| Performance | Bundle/asset budgets | VERIFIED | `npm run budget`: initial JS 201.3 KiB gzip, all JS 279.9 KiB, CSS 17.0 KiB, hero 581.2 KiB, largest 87.8 KiB | All-JS budget remains 290 KiB after adding the canonical sample and new hero; Vite reports a >500 KiB minified initial chunk warning |
+| Performance | Bundle/asset budgets | VERIFIED | `npm run budget`: initial JS 201.5 KiB gzip, all JS 280.1 KiB, CSS 17.0 KiB, hero 581.2 KiB, largest 87.8 KiB | All-JS budget remains 290 KiB; Vite reports a >500 KiB minified initial chunk warning |
 | Documentation | Canonical routes/schema/env/modes/UI terms and history pointers | VERIFIED | This documentation set; link scan | Ongoing maintenance |
 | Documentation | Runtime prompts separated from implementation prompts | VERIFIED | `src/server/prompts/loader.ts`, `tests/prompts.test.ts`, `docs/prompts/README.md` | Loader reads a fixed map |
 | Dependency audit | No high/critical production advisory | VERIFIED at high threshold | `npm audit --omit=dev --audit-level=high` exit 0 | 6 moderate `glob`/`minimatch` advisories remain in the Sentry bundler path; `npm audit` exits 1 |
@@ -86,13 +95,16 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 |---|---|
 | `npm ci` | PASS — exact lockfile install |
 | `npm run typecheck` | PASS |
-| `npm test` | PASS — 186 tests, 0 failures |
+| `npm test` | PASS — 200 tests, 0 failures |
 | `npm run build` | PASS — `dist/web` produced; one large-chunk warning |
-| `npm run budget` | PASS — all five budgets; initial JS 201.3 KiB, all JS 279.9 KiB, CSS 17.0 KiB, hero 581.2 KiB |
+| `npm run budget` | PASS — all five budgets; initial JS 201.5 KiB, all JS 280.1 KiB, CSS 17.0 KiB, hero 581.2 KiB |
 | `npm run test:visual` | PASS — 20 tests; rewritten landing, guided sample, consistency, Activity & results, and character snapshots updated; no horizontal overflow |
+| `npm run test:platform` | PASS — platform gate, resolver, setup/CI contracts, and Linux workspace/macOS-root safety |
+| `npm run diagnose:platform` | PASS — `linux-x64`, version `2.0.32`, no diagnostics |
+| `npm run smoke:opencode` | PASS — disposable server on loopback; `/api/info` reports `2.0.32`; no prompt/model call |
 | `npm audit --omit=dev --audit-level=high` | PASS (exit 0); 6 moderate advisories reported |
 | `npm audit` | FAIL (exit 1) — same 6 moderate advisories; no high/critical |
-| `node scripts/preflight.mjs` | BLOCKED for optional partner/runtime proof: Entire and global OpenCode CLI absent; DNS, Git read, loopback, and Node checks pass; no Phase 3 verification depends on it |
+| `node scripts/preflight.mjs` | PASS for required checks: supported platform, OpenCode CLI `2.0.32`, client metadata, DNS, Git read, loopback, and Node; partner/runtime proofs remain NOT_RUN | No inference or Git writes |
 | Local smoke | Prior Phase 2 PASS — health, mode descriptor, token issue, project read, `/api/runtime`, `/workshop` and `/demo` HTML | Phase 3 behavior is covered by HTTP integration tests; no separate live smoke was required |
 | Hosted-demo smoke | PASS — fixture project, `/api/session` 403, mutation `DEMO_READ_ONLY`, `/api/engine` 503/no engine, `/demo` HTML |
 | OpenCode compatibility probe | PASS — server 2.0.32, compatible major, 9 models, disposable session create/read/remove; no prompt/model call |
@@ -111,8 +123,9 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 
 ### Tests and reports
 
-- `tests/` — 186 unit/integration/component tests.
+- `tests/` — 200 unit/integration/component tests.
 - `tests/visual/` — 20 Playwright visual/accessibility tests with committed snapshots.
+- `tests/platform.test.ts` — platform gate, global/local CLI resolution, version/permission/start diagnostics, setup/CI static contracts, and the installed-binary resolution check.
 - `tests/memory.test.ts` — project-memory add/correct/supersede transitions and the authenticated `/api/memory` route.
 - `tests/web.test.ts` — workshop surfaces, Activity & results structure, Project memory content, and collapsed Advanced diagnostics.
 - `tests/observable-runs.test.ts` — Phase 2 matrix: late Oracle reply, section 06 Architect timeout recovery, late Maker diff with exact-once application, duplicate reconciliation, permission waiting, cancellation, restart reconnect, retry lineage, mark-abandoned, prompt-progress visibility.
@@ -162,6 +175,26 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 | Visual regression | PASS | 20 Playwright tests, including landing wide/narrow, 200% zoom, guided sample wide/narrow/presentation, and canonical consistency |
 | Migration | NOT REQUIRED | Demo-only change; schema v7 and saved projects are unchanged |
 
+## Platform Phase 7 evidence
+
+| Check | Result | Detail |
+|---|---|---|
+| Dependency install | PASS — Linux | `npm ci` installs the official `@opencode/cli@2.0.32`; `@opencode/client@2.0.32` stays matched |
+| CLI resolution | PASS — Linux | `npm run diagnose:platform` reports `linux-x64`, source `path` under npm scripts, version `2.0.32`, no diagnostics |
+| Local binary resolution | PASS — Linux | Resolver test with an empty `PATH` resolves `node_modules/@opencode/cli/bin/opencode.exe` and version `2.0.32` |
+| Server smoke | PASS — Linux | `npm run smoke:opencode` resolves the CLI, starts a disposable server on a loopback ephemeral port, reads `/api/info` as `2.0.32`, and stops it; no prompt or model call |
+| Platform gate | PASS | `tests/platform.test.ts` covers linux-x64, darwin-arm64, darwin-x64, and rejects linux-arm64, win32-x64, darwin-ia32, freebsd-x64 |
+| Diagnostics | PASS | Distinct missing, permission, incompatible, untested-patch, unsupported-platform, and server-start diagnostics; messages assert no local path |
+| Workspace safety | PASS | `tests/security.test.ts` covers `/Users`, `/Volumes`, `/System`, `/private`, `/private/tmp`, `/private/var/tmp`, `/private/var/folders`, and the resolved temporary root |
+| Setup UI | PASS | `setupTabs` contains no `cli-linux`; command is `npx --no-install opencode serve`; notes include npm and Homebrew installs |
+| Static CI contract | PASS | Workflow test asserts `ubuntu-latest`, `macos-15`, `macos-15-intel`, and the platform/test/smoke steps |
+| Typecheck | PASS | `npm run typecheck` |
+| Unit/integration tests | PASS — 200 | `npm test` |
+| Production build | PASS | `npm run build` |
+| macOS arm64 execution | CI-GATED | `macos-15` job; not executable on this Linux checkout |
+| macOS x64 execution | CI-GATED | `macos-15-intel` job; not executable on this Linux checkout |
+| Migration | NOT REQUIRED | Dependency and resolver change; schema v7 and saved projects are unchanged |
+
 ## Release classification
 
 The product-release criteria pass with the limitations below. Partner-category qualification (Backboard, Sentry Agent Tracing, Entire evidence) remains unverified or development-only; **no partner category is claimed**. Those pending partner claims do not block the product release, but they do block any partner-category submission claim until separately evidenced and authorized.
@@ -180,6 +213,7 @@ The product-release criteria pass with the limitations below. Partner-category q
 | Remote browser-to-local pairing | DEFERRED | Out of release scope |
 | Private/authenticated repository connector | DEFERRED | Phase 3 supports only public credential-free HTTPS import; Maker remains demo-workspace bounded |
 | Moderate dependency advisories | KNOWN LIMITATION | Fix requires a breaking Sentry downgrade; production high-severity audit passes |
+| macOS manual session | NOT RUN | macOS execution is covered by CI only; no manual macOS session is recorded in this checkout |
 
 ## Evidence handling rules
 

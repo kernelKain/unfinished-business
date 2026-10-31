@@ -11,7 +11,7 @@ export const setupTabs: readonly SetupTab[] = [
     id: "install",
     label: "Install",
     title: "Install the pinned toolchain",
-    note: "Node 22.14 or newer. The lockfile pins OpenCode 2.0.32, React 19, and Vite 8.",
+    note: "Node 22.14 or newer. The lockfile pins the cross-platform OpenCode 2.0.32 CLI, React 19, and Vite 8 for Linux and macOS.",
     command: "npm ci",
   },
   {
@@ -29,11 +29,18 @@ export const setupTabs: readonly SetupTab[] = [
     command: "npm run dev:web",
   },
   {
-    id: "opencode",
+    id: "engine",
     label: "OpenCode",
+    title: "Install OpenCode with npm or Homebrew",
+    note: "Linux and macOS npm: npm install -g @opencode/cli@2.0.32. macOS Homebrew: brew install anomalyco/tap/opencode-v2. npm ci already installs the pinned local CLI, so a global install is optional.",
+    command: "npm install -g @opencode/cli@2.0.32",
+  },
+  {
+    id: "opencode",
+    label: "Server",
     title: "Start the pinned OpenCode server",
-    note: "Terminal 3. Match OPENCODE_PASSWORD in .env to the password OpenCode prints or the one you set.",
-    command: "./node_modules/@opencode/cli-linux-x64-baseline/bin/opencode serve --hostname 127.0.0.1 --port 4096",
+    note: "Terminal 3. The lockfile-installed CLI works on Linux x64, macOS Apple Silicon, and macOS Intel. A compatible global opencode on PATH is preferred automatically. Match OPENCODE_PASSWORD in .env to the password OpenCode prints or the one you set.",
+    command: "npx --no-install opencode serve --hostname 127.0.0.1 --port 4096",
   },
   {
     id: "production",

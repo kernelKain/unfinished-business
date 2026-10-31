@@ -24,13 +24,16 @@
     "test:recovery": "node --import tsx --test tests/recovery.test.ts",
     "test:security": "node --import tsx --test tests/security.test.ts tests/http-hardening.test.ts tests/store-hardening.test.ts tests/experience-hardening.test.ts",
     "diagnose:opencode": "node --import tsx scripts/opencode-live-diagnostic.ts",
+    "diagnose:platform": "node --import tsx scripts/opencode-platform-diagnostic.ts",
+    "smoke:opencode": "node --import tsx scripts/opencode-smoke.ts",
+    "test:platform": "node --import tsx --test tests/platform.test.ts tests/security.test.ts",
     "test:connection": "node --import tsx --test tests/connection.test.ts tests/migration.test.ts tests/onboarding.test.ts",
     "test:runs": "node --import tsx --test tests/runs.test.ts tests/sessions.test.ts",
     "test:onboarding": "node --import tsx --test tests/onboarding.test.ts tests/migration.test.ts"
   },
   "dependencies": {
     "@hono/node-server": "2.1.5",
-    "@opencode/cli-linux-x64-baseline": "2.0.32",
+    "@opencode/cli": "2.0.32",
     "@opencode/client": "2.0.32",
     "@sentry/hono": "^11.10.0",
     "@sentry/node": "^11.10.0",

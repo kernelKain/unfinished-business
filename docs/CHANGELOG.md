@@ -4,6 +4,35 @@
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
+## 2026-11-01 — Platform Phase 7 macOS support
+
+### Added
+
+- Official cross-platform `@opencode/cli@2.0.32` with platform-aware executable resolution.
+- macOS Apple Silicon and macOS Intel workspace paths and CI jobs.
+- `npm run diagnose:platform` and `npm run smoke:opencode`.
+- Distinct diagnostics for unsupported architecture, missing/non-executable CLI, incompatible or untested version, and server start failure.
+- npm and Homebrew install paths in the setup UI and local guide.
+
+### Changed
+
+- Prefer a compatible global `opencode` on `PATH`, then the lockfile-installed binary.
+- `render-start.ts` uses the shared resolver and environment-derived XDG paths instead of a Linux executable path.
+- Playwright uses the host temporary directory and standard macOS browser locations.
+- Workspace broad-root checks include macOS system roots and the resolved temporary root.
+- Setup commands use `npx --no-install opencode`, removing the Linux-only package path.
+- CI runs Linux x64, macOS arm64, and macOS x64 with install, CLI resolution, typecheck, tests, build, workspace safety, and an OpenCode smoke test.
+
+### Removed
+
+- The `@opencode/cli-linux-x64-baseline` runtime dependency and its hardcoded user-facing path.
+
+### Not in this entry
+
+- No schema change or migration; schema v7 remains current.
+- No provider call, deployment, publication, or submission.
+- Windows and Linux ARM64 remain unsupported and unclaimed.
+
 ## 2026-11-01 — Upgrade Phase 6 canonical sample and landing page
 
 ### Added

@@ -19,6 +19,8 @@ services:
       - key: UB_HOST
         value: 0.0.0.0
       - key: UB_DATA_DIR
+        # Render Linux runs on an ephemeral filesystem; this path is deployment-only.
+        # Local development uses the platform temporary directory or .unfinished-business.
         value: /tmp/unfinished-business-demo
       - key: SENTRY_DSN
         sync: false

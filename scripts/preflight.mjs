@@ -43,9 +43,24 @@ async function locate(name) {
 }
 
 async function inspectOpenCode() {
-  const binary = await locate('opencode');
+  const platform = `${process.platform}-${process.arch}`;
+  const supported = new Set(['linux-x64', 'darwin-arm64', 'darwin-x64']);
+  record('OPENCODE_PLATFORM', supported.has(platform) ? 'PASS' : 'FAIL',
+    supported.has(platform)
+      ? `${platform} is a supported local host.`
+      : `${platform} is not a supported local host (Linux x64, macOS arm64, macOS x64 only).`);
+  const local = join(workspace, 'node_modules', '@opencode', 'cli', 'bin', 'opencode.exe');
+  let binary = await locate('opencode');
+  let source = 'PATH';
   if (!binary) {
-    record('OPENCODE_CLI', 'FAIL', 'OpenCode is absent from PATH.');
+    try {
+      await access(local, constants.X_OK);
+      binary = local;
+      source = 'lockfile @opencode/cli';
+    } catch { /* No local binary. */ }
+  }
+  if (!binary) {
+    record('OPENCODE_CLI', 'FAIL', 'OpenCode is absent from PATH and the lockfile package has no materialized binary.');
     return;
   }
   const temporary = await mkdtemp(join(tmpdir(), 'ub-preflight-'));
@@ -60,18 +75,17 @@ async function inspectOpenCode() {
     const version = await command(binary, ['--version'], env);
     const match = version.ok && version.output.match(/^opencode v?(\d+\.\d+\.\d+)(?:\s|$)/);
     record('OPENCODE_CLI', match ? 'PASS' : 'INCONCLUSIVE', match
-      ? `Installed binary ${match[1]}; CLI startup only, not server/model proof.`
+      ? `${source} binary ${match[1]}; CLI startup only, not server/model proof.`
       : 'Could not identify the binary version within 15 seconds.');
     const help = await command(binary, ['serve', '--help'], env);
     record('OPENCODE_SERVER_COMMAND', help.ok && /--hostname/.test(help.output) ? 'PASS' : 'INCONCLUSIVE',
       'Inspects serve help only; no server or session was started.');
     try {
-      const adjacent = join(dirname(dirname(binary)), 'node_modules', '@opencode-ai', 'sdk', 'package.json');
-      const sdk = JSON.parse(await readFile(adjacent, 'utf8'));
-      record('SDK_COMPATIBILITY', 'INCONCLUSIVE',
-        `Adjacent @opencode-ai/sdk ${sdk.version}; compatibility has not been exercised. Check the native v2 @opencode/client contract.`);
+      const client = JSON.parse(await readFile(join(workspace, 'node_modules', '@opencode', 'client', 'package.json'), 'utf8'));
+      record('CLIENT_COMPATIBILITY', match && match[1] === client.version ? 'PASS' : 'INCONCLUSIVE',
+        `Pinned @opencode/client ${client.version}; CLI/server/client patch match is checked in tests, not by this read.`);
     } catch {
-      record('SDK_COMPATIBILITY', 'NOT_RUN', 'No adjacent legacy SDK metadata found; select the supported version-matched client during EP-01.');
+      record('CLIENT_COMPATIBILITY', 'NOT_RUN', 'No @opencode/client metadata found; run npm ci.');
     }
   } finally {
     await rm(temporary, { recursive: true, force: true });

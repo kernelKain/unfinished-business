@@ -1,4 +1,4 @@
-import { constants } from "node:fs";
+import { constants, realpathSync } from "node:fs";
 import { lstat, mkdir, open, realpath, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, parse, resolve, sep } from "node:path";
@@ -45,11 +45,23 @@ const broadRoots = new Set([
   "/Users",
   "/Volumes",
   "/private",
+  "/private/tmp",
+  "/private/var/tmp",
+  "/private/var/folders",
   "/System",
 ]);
 
 function normalized(path: string): string {
   return resolve(path).replace(/[\\/]+$/, "") || sep;
+}
+
+/** Resolves aliases such as macOS `/tmp` → `/private/tmp` when possible. */
+function canonical(path: string): string {
+  try {
+    return normalized(realpathSync(path));
+  } catch {
+    return normalized(path);
+  }
 }
 
 function isInside(root: string, candidate: string): boolean {
@@ -58,9 +70,9 @@ function isInside(root: string, candidate: string): boolean {
 
 export function assertNotBroadRoot(path: string): void {
   const resolved = normalized(path);
-  const home = normalized(homedir());
-  const temporary = normalized(tmpdir());
-  const repository = normalized(process.cwd());
+  const home = canonical(homedir());
+  const temporary = canonical(tmpdir());
+  const repository = canonical(process.cwd());
   const filesystemRoot = parse(resolved).root;
 
   if (

@@ -255,7 +255,9 @@ test("connection recovers after the server becomes reachable", async () => {
     return { version: "2.0.32" };
   };
   const { connection } = await service(client);
-  assert.equal((await connection.check({ baseUrl: "http://127.0.0.1:4096" })).state, "unavailable");
+  const unavailable = await connection.check({ baseUrl: "http://127.0.0.1:4096" });
+  assert.equal(unavailable.state, "unavailable");
+  assert.match(unavailable.diagnostics[0].repair, /npm run diagnose:platform/);
   reachable = true;
   assert.equal((await connection.check({ baseUrl: "http://127.0.0.1:4096" })).state, "degraded");
 });

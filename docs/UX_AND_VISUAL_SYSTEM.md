@@ -345,15 +345,15 @@ All four characters are hand-authored SVG in this repository. They are not gener
 
 | Metric | Budget | Measured (2026-11-01) | Status |
 |---|---|---|---|
-| Initial JS (gzip) | ≤ 220 KiB | 201.3 KiB | PASS |
-| All JS chunks (gzip) | ≤ 290 KiB | 279.9 KiB | PASS |
+| Initial JS (gzip) | ≤ 220 KiB | 201.5 KiB | PASS |
+| All JS chunks (gzip) | ≤ 290 KiB | 280.1 KiB | PASS |
 | CSS (gzip) | ≤ 18 KiB | 17.0 KiB | PASS |
 | All hero variants (total) | ≤ 640 KiB | 581.2 KiB | PASS |
 | Largest single hero file | ≤ 190 KiB | 87.8 KiB | PASS |
 
 The all-JS budget remains 290 KiB after Upgrade Phase 6 replaced the static recommendation block and hero with the canonical sample and a new image. CSS remains within the 18 KiB budget raised in Phase 4 for the safe Markdown typography, diff review, and audit-history surfaces. Any increase is recorded here rather than silently accepted.
 
-The initial route is the landing page. Workshop and sample are lazy-loaded (69.4 KiB and 5.6 KiB gzip, plus 3.5 KiB shared stage tabs). The canonical fixture is shared by the eager landing chunk and the lazy sample chunk; the sample chunk adds the playback reducer and guided UI. This removes the previous duplicate landing state and raises initial JS to 201.3 KiB while lowering all-JS to 279.9 KiB. The workshop chunk includes the connection/discovery wizard, project memory, Activity & results, and lazy Advanced diagnostics. The hero transfers **15.6–56.3 KiB** as AVIF on a typical wide viewport and **32.8–52.4 KiB** as AVIF on mobile depending on pixel density; the total covers all breakpoints and formats, not one visit.
+The initial route is the landing page. Workshop and sample are lazy-loaded (69.4 KiB and 5.6 KiB gzip, plus 3.5 KiB shared stage tabs). The canonical fixture is shared by the eager landing chunk and the lazy sample chunk; the sample chunk adds the playback reducer and guided UI. This raises initial JS to 201.5 KiB while keeping all-JS at 280.1 KiB. The workshop chunk includes the connection/discovery wizard, project memory, Activity & results, and lazy Advanced diagnostics. The hero transfers **15.6–56.3 KiB** as AVIF on a typical wide viewport and **32.8–52.4 KiB** as AVIF on mobile depending on pixel density; the total covers all breakpoints and formats, not one visit.
 
 ### Rules
 

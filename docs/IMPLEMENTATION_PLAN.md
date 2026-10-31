@@ -1,6 +1,6 @@
 # Implementation plan and phase record
 
-**Status:** Upgrade Phase 6 complete and verified.
+**Status:** Platform Phase 7 implemented and Linux-verified; macOS verification is CI-gated.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
@@ -24,6 +24,7 @@
 | Upgrade Phase 4 — Reviewable generated revisions | Section content contracts, candidate revisions, explicit accept/reject, stale approvals, safe Markdown, unified/side-by-side diffs, schema v7 migration | Complete and verified; commit recorded by `git log -1` after phase handoff |
 | Upgrade Phase 5 — Focused workshop and reorganized OpenCode controls | One primary task, collapsible outline, contextual Activity & results, editable Project memory, compact model/connection header, lazy Advanced diagnostics, accessible drawers | Complete and verified; commit recorded by `git log -1` after phase handoff |
 | Upgrade Phase 6 — Canonical sample and rewritten landing page | One Driftwatch fixture, coherent abandoned-open-source story, rewritten landing hierarchy, one primary CTA, direct OpenCode explanation, bespoke hero, fixture-consistency and visual tests | Complete and verified; commit recorded by `git log -1` after phase handoff |
+| Platform Phase 7 — macOS support | Official cross-platform `@opencode/cli`, platform-aware resolver with global-first preference, macOS workspace/temp safety, setup UI and docs, Linux/macOS CI matrix, CLI and server diagnostics | Implemented; Linux verified, macOS CI-gated |
 
 The guided-interface line (`origin/main` at `b2d2654`) and the hardening line (`origin/phase-8-hardening` at `8c50439`) both descended from `2205774`. Phase 9 integrates them rather than choosing one and losing the other. The release candidate therefore keeps the landing page, onboarding, deterministic demo, security middleware, state migration, retention, and recovery in one build.
 
@@ -263,6 +264,40 @@ The product now tells one story. A single versioned Driftwatch fixture powers th
 - [x] Final typecheck, 186 tests, build, all five budgets, 20 visual/accessibility tests, and diff/security review pass.
 
 Phase 6 acceptance passed on 2026-11-01. No live provider inference was used.
+
+## Platform Phase 7 — macOS support
+
+### Outcome
+
+The local workshop now supports Linux x64, macOS Apple Silicon, and macOS Intel. The Linux-only OpenCode package is gone. One resolver prefers a compatible global `opencode` on `PATH`, then the official cross-platform `@opencode/cli` binary pinned by the lockfile. Unsupported hosts, missing or non-executable binaries, incompatible versions, and server start failures produce distinct, path-safe diagnostics. Render keeps its process-supervisor behavior through environment configuration rather than a hardcoded Linux executable.
+
+**Phase commit:** `feat(platform): add macOS OpenCode support`.
+
+### Work units
+
+| Unit | Outcome | Evidence |
+|---|---|---|
+| P7-1 dependency | Replaced `@opencode/cli-linux-x64-baseline` with official `@opencode/cli@2.0.32`; the lockfile pins CLI and `@opencode/client` together and carries all platform optional dependencies | `package.json`, `package-lock.json`, `tests/platform.test.ts` |
+| P7-2 resolver | Explicit `UB_OPENCODE_EXECUTABLE` → compatible `PATH` → lockfile binary; incompatible global installs are skipped; no executable path is logged | `src/server/opencode/executable.ts`, `tests/platform.test.ts` |
+| P7-3 platform gate | Only `linux-x64`, `darwin-arm64`, and `darwin-x64` are claimed; other hosts fail before probing with `OPENCODE_PLATFORM_UNSUPPORTED` | `SUPPORTED_OPENCODE_PLATFORMS`, platform tests |
+| P7-4 Render isolation | `render-start.ts` uses the shared resolver; XDG and port values come from environment or `UB_DATA_DIR`, not hardcoded Linux paths | `src/server/render-start.ts`, `.env.example` |
+| P7-5 workspace safety | Broad-root rejection covers `/Users`, `/Volumes`, `/System`, `/private`, `/private/tmp`, `/private/var/tmp`, and `/private/var/folders`; the resolved host temporary root is rejected | `src/server/security/workspace.ts`, `tests/security.test.ts` |
+| P7-6 temp and browser paths | Playwright data uses `os.tmpdir()`; system browser candidates include standard macOS application paths | `playwright.config.ts` |
+| P7-7 diagnostics | CLI missing, unsupported architecture, incompatible/untested version, permission denial, and server start failure have distinct codes and repairs; the doctor and smoke scripts are path-safe | `src/server/opencode/executable.ts`, `scripts/opencode-platform-diagnostic.ts`, `scripts/opencode-smoke.ts` |
+| P7-8 setup UI and docs | Setup tabs use `npx --no-install opencode`; npm and Homebrew install commands are documented; Linux and macOS evidence is separated | `src/web/setup.ts`, README, `docs/LOCAL_SETUP.md`, `docs/OPENCODE_INTEGRATION.md` |
+| P7-9 CI matrix | Linux x64, macOS arm64, and macOS x64 run install, CLI resolution, typecheck, tests, build, workspace safety, and a no-inference OpenCode server smoke | `.github/workflows/sentry-release.yml` |
+
+### Acceptance status
+
+- [x] Linux behavior remains operational; the full local matrix and OpenCode smoke pass.
+- [x] No user-facing setup command contains `cli-linux` or a Linux-only package path.
+- [x] macOS arm64 and x64 resolutions use the same resolver; injected host tests cover both, and the CI jobs exercise the real binaries.
+- [x] Workspace security rejects macOS broad roots and the resolved temporary root.
+- [x] Setup documentation distinguishes locally verified Linux from CI-gated macOS and marks Windows/Linux ARM64 unsupported.
+- [x] Typecheck, **200 tests**, build, budget, visual suite, platform diagnostics, and OpenCode smoke pass locally.
+- [x] Diff review found no secrets, debugging output, or unrelated changes.
+
+Platform Phase 7 local acceptance passed on 2026-11-01. macOS execution is delegated to the `macos-15` and `macos-15-intel` CI jobs; local execution on this Linux host cannot stand in for that evidence and is not claimed as manual macOS proof. The phase does not claim a green macOS run until those jobs report it. No live provider inference was used.
 
 ## Phase 8 hardening units
 

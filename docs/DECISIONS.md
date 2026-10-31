@@ -1,6 +1,6 @@
 # Decision ledger
 
-**Scope:** Product, interface, demo, hardening, release, and upgrade decisions.
+**Scope:** Product, interface, demo, hardening, release, platform, and upgrade decisions.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
@@ -20,7 +20,7 @@
 | D4-12 | Keep workflow authorization semantics stable during the interface refactor | Refactor approvals while restyling | Approval/authority semantics are security-sensitive | Phase 4 did not change exact-version approvals, Maker scope, or native denial; Phase 8 later hardened the HTTP/token layer without weakening them |
 | D4-13 | Make the deterministic demo read-only | Let visitors run fake actions | Fake actions would undermine the honesty claim | Fixture controls step through states; real actions live in `/workshop` |
 | D4-14 | Commit Playwright visual snapshots | Manual screenshots only | The prompt requires visual snapshots and keyboard/contrast/reduced-motion checks | `npm run test:visual`; snapshots in `tests/visual/snapshots/` |
-| D4-15 | Prefer system Chrome/Chromium for visual tests, with Playwright fallback | Require a fixed browser download | Works in the verified Linux environment without a second browser install | `PLAYWRIGHT_CHROMIUM_EXECUTABLE` is honored; otherwise Playwright's browser is used |
+| D4-15 | Prefer system Chrome/Chromium for visual tests, with Playwright fallback | Require a fixed browser download | Works in the verified Linux environment and on macOS without a second browser install | `PLAYWRIGHT_CHROMIUM_EXECUTABLE` is honored; standard Linux and macOS application paths are checked; otherwise Playwright's browser is used |
 | D4-16 | Do not use fabricated social proof | Testimonials, counts, awards | The product has no measured users or endorsements | Landing copy states the absence of fabricated claims |
 | D4-17 | Remove Node `--watch` from the default dev script | Keep watch and require `.env` | Pinned Node crashes watching a missing `.env`; default setup must work from a clean checkout | `npm run dev` is stable; `npm run dev:watch` is opt-in with `.env` |
 | D4-18 | Keep the hero image decorative and put all meaning in HTML | Put product copy in the image | Accessibility, localization, and performance | Hero `<picture>` is `aria-hidden`; headings and CTAs are real text |
@@ -163,6 +163,19 @@
 | U6-09 | Reduce oversized display type, glass cards, pills, outlines, glows, and monospace labels on the landing page | Keep the previous maximal treatment | The page should feel intentional at desktop and mobile scale rather than loud everywhere | Smaller display scale, flatter sections, fewer card borders, and UI-font eyebrows replace mono labels |
 | U6-10 | Add fixture-consistency and visual-regression coverage instead of relying on copy review | Snapshot the landing only; trust manual inspection | The previous contradiction was invisible to typecheck and unit tests | Unit tests assert both pages use the same fixture outcome; a Playwright test compares the landing and `/demo`; snapshots cover the new layout |
 | U6-11 | Keep schema v7 and add no migration | Bump the schema for a demo-only change | The canonical fixture is not persisted user state | Saved projects remain compatible; only the internal `DEMO_FIXTURE_VERSION` changed |
+
+## Platform Phase 7 — macOS support
+
+| ID | Decision | Alternatives considered | Rationale | Consequence |
+|---|---|---|---|---|
+| P7-01 | Replace `@opencode/cli-linux-x64-baseline` with the official `@opencode/cli` meta package at the same pinned version | Keep a Linux package plus manually select per-platform packages; download binaries at runtime | The official package selects the native binary for Linux x64, macOS arm64, and macOS x64 during install and keeps the CLI version identical to `@opencode/client` | The lockfile carries `@opencode/cli` and all platform optional dependencies at `2.0.32`; no user-facing command names a Linux package path |
+| P7-02 | Resolve the executable at runtime in one platform-aware module, preferring a compatible global `opencode` | Hardcode the vendored path; always use the local package; always require a global install | Users may have npm, Homebrew, or package-manager OpenCode already; a global install may be older than the pin | Order is explicit `UB_OPENCODE_EXECUTABLE`, compatible `PATH`, then the pinned local binary; an incompatible global is skipped so the local pin can still run |
+| P7-03 | Gate support to Linux x64, macOS arm64, and macOS x64 and emit `OPENCODE_PLATFORM_UNSUPPORTED` elsewhere | Treat every npm-supported platform as supported | The phase has automated evidence only for those three; claiming Windows or Linux ARM64 would violate the evidence rule | Unsupported hosts fail before probing a binary; docs and CI use the same three-platform list |
+| P7-04 | Keep `render-start.ts` as the Render-only supervisor but route it through the shared resolver | Maintain a separate Render binary path; remove the supervisor | Render needs a process parent and persistent XDG paths; local development must not depend on Render behavior | Render-specific values are environment variables; the resolver is identical locally and hosted |
+| P7-05 | Derive the Playwright data directory from `os.tmpdir()` and add macOS browser paths | Keep `/tmp` and Linux-only Chrome paths | Local visual tests must run on macOS without a patched config | The web server uses the host temporary directory; system Chrome/Chromium candidates include the standard macOS application locations |
+| P7-06 | Resolve the host temporary directory and add macOS broad roots in workspace security | Rely on string equality with `/tmp` | macOS aliases `/tmp` and the host temporary directory through `/private`; a resolved path must not bypass the broad-root check | Broad roots include `/Users`, `/Volumes`, `/System`, `/private`, `/private/tmp`, `/private/var/tmp`, and `/private/var/folders`; the real temporary root is rejected |
+| P7-07 | Verify Linux and both macOS architectures in CI, including an OpenCode server smoke test | Claim macOS from documentation; run only unit tests | Acceptance requires automated or recorded manual evidence per claimed host | Matrix jobs run install, CLI resolution, typecheck, tests, build, workspace safety, and a no-inference server start/version smoke |
+| P7-08 | Keep the setup UI and docs platform-neutral: `npx --no-install opencode` plus npm and Homebrew install options | Show the vendored Linux path; omit install alternatives | The setup tabs are user-facing and previously named a Linux-only package | No setup command contains `cli-linux`; docs distinguish Linux from macOS evidence and mark Windows/Linux ARM64 unsupported |
 
 ## Open follow-ups (post-release)
 

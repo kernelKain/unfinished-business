@@ -1,19 +1,46 @@
 # OpenCode integration contract
 
-**Status:** Implemented and locally verified.
+**Status:** Implemented and locally verified on Linux x64; macOS Apple Silicon and macOS Intel are covered by the CI matrix.
 **Owner:** Engineering/integration.
-**Last verified:** 2026-11-01 against the Phase 5 focused-workshop and reorganized OpenCode-controls surface.
+**Last verified:** 2026-11-01 against Platform Phase 7 and the Phase 5 focused-workshop/OpenCode-controls surface.
 
 This document describes the supported OpenCode surface, not every endpoint OpenCode exposes. OpenCode remains the owner of inference, the agent loop, tools, permissions, and native sessions.
 
-## Supported versions and client
+## Supported versions, client, and hosts
 
 | Component | Tested value | Policy |
 |---|---|---|
 | OpenCode server | `2.0.32` | Major `2` is accepted. A different `2.x` version is shown as `degraded` with an explicit untested-version warning. Major `1.x`, unparseable versions, and other majors are `incompatible_version`; discovery stops. |
+| OpenCode CLI package | `@opencode/cli` `2.0.32` | Official cross-platform package pinned in the lockfile. Its postinstall selects the native binary for the host. |
 | `@opencode/client` | `2.0.32` | Exact lockfile version, matched to the pinned server. |
 | Node.js | `>=22.14` | Application runtime. |
 | Server host | loopback by default | A remote target must use HTTPS, be explicitly allowlisted, and pass DNS/IP policy. |
+| Local host platform | Linux x64, macOS arm64, macOS x64 | Declared supported. Linux is verified in this checkout; macOS is gated by the CI jobs below. Windows, Linux ARM64, and 32-bit hosts are not claimed. |
+
+### CLI resolution and Render isolation
+
+`src/server/opencode/executable.ts` is the only runtime resolver. It:
+
+1. honors an explicit `UB_OPENCODE_EXECUTABLE`;
+2. prefers a compatible global `opencode` found on `PATH` (npm, Homebrew, or a package manager install);
+3. falls back to the lockfile-installed `node_modules/@opencode/cli/bin/opencode.exe`;
+4. probes `--version` and requires major `2`, warning when the patch is not `2.0.32`;
+5. rejects unsupported platforms before probing anything.
+
+The Render/private-hosted supervisor (`src/server/render-start.ts`) uses the same resolver. Its only Render-specific behavior is environment configuration (`OPENCODE_DATA_HOME`, `OPENCODE_CONFIG_HOME`, `OPENCODE_PORT`, and the loopback bind). Local development never starts that supervisor and never depends on a Linux executable path. Default XDG locations are derived from `UB_DATA_DIR` or the host temporary directory, not a hardcoded `/tmp` or `/var/data` path.
+
+### Runtime diagnostics
+
+| Code | Severity | Meaning |
+|---|---|---|
+| `OPENCODE_PLATFORM_UNSUPPORTED` | error | Host is not Linux x64, macOS arm64, or macOS x64. |
+| `OPENCODE_CLI_MISSING` | error | No usable executable on `PATH` or in the local package. |
+| `OPENCODE_CLI_PERMISSION_DENIED` | error | Candidate exists but cannot be executed by this user. |
+| `OPENCODE_CLI_VERSION_INCOMPATIBLE` | error | Major version is not `2`, or no version was reported. |
+| `OPENCODE_CLI_VERSION_UNTESTED` | warning | A different `2.x` patch is in use. |
+| `OPENCODE_SERVER_START_FAILED` | error | The child server exited before answering `/api/info`. |
+
+Diagnostics contain no executable path, credential, prompt, or model output. `npm run diagnose:platform` prints resolution only; `npm run smoke:opencode` starts the resolved server with disposable XDG directories, reads `/api/info` with a generated in-memory password, and stops it without a prompt or model call.
 
 ## Transport and security policy
 

@@ -4,16 +4,27 @@ on:
   push:
     branches:
       - main
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build:
-    name: Typecheck, test, and build
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+  verify:
+    name: Verify (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x64
+          - os: macos-15
+            platform: darwin-arm64
+          - os: macos-15-intel
+            platform: darwin-x64
 
     steps:
       - name: Check out source
@@ -28,8 +39,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Resolve the platform OpenCode CLI
+        run: npm run diagnose:platform
+
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Test workspace path safety and platform resolution
+        run: npm run test:platform
 
       - name: Test
         run: npm test
@@ -37,7 +54,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Smoke-test the OpenCode server
+        run: npm run smoke:opencode
+
       - name: Preserve the deployable browser artifact
+        if: matrix.platform == 'linux-x64'
         uses: actions/upload-artifact@v4
         with:
           name: unfinished-business-web-${{ github.sha }}

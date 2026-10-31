@@ -458,7 +458,7 @@ export class ConnectionService {
     if (code === "ORIGIN_BLOCKED") return "Check the OpenCode server's hostname, CORS/origin settings, and reverse proxy. This application connects from the server, not the browser.";
     if (code === "TIMEOUT") return "Confirm the OpenCode process is healthy and the URL points at its API port. Retry when it is idle.";
     if (code === "MALFORMED") return "Confirm the URL points at an OpenCode 2.x server (not a different service or a stale proxy).";
-    return "Start OpenCode with `opencode serve --hostname 127.0.0.1 --port 4096`, confirm the URL and port, then retry.";
+    return "Start OpenCode with `npx --no-install opencode serve --hostname 127.0.0.1 --port 4096`, confirm the URL and port, then retry. If the CLI is missing, incompatible, or not executable, run `npm run diagnose:platform`.";
   }
 
   private diagnosticsFor(discovery: OpenCodeDiscovery, selected: ModelRef | null, accessMode: ModelAccessMode) {

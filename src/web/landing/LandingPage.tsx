@@ -93,7 +93,7 @@ export function LandingPage() {
             <div className="setup-copy">
               <h3>Before you start</h3>
               <ul className="check-list">
-                <li><Check size={15} aria-hidden="true" /><span>Node 22.14 or newer.</span></li>
+                <li><Check size={15} aria-hidden="true" /><span>Node 22.14 or newer on Linux x64, macOS Apple Silicon, or macOS Intel.</span></li>
                 <li><Check size={15} aria-hidden="true" /><span>A gitignored <span className="mono">.env</span> copied from <span className="mono">.env.example</span>.</span></li>
                 <li><Check size={15} aria-hidden="true" /><span>OpenCode 2.x and a model route that answers on your account, or a local model.</span></li>
               </ul>

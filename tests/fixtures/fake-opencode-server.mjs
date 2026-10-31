@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createServer } from "node:http";
+import { tmpdir } from "node:os";
 
 const port = Number(process.env.FAKE_OPENCODE_PORT ?? 4291);
 const password = process.env.FAKE_OPENCODE_PASSWORD ?? "test-password";
@@ -62,7 +63,7 @@ const server = createServer((request, response) => {
       return;
     }
     response.writeHead(200, { "content-type": "application/json" });
-    response.end(JSON.stringify({ version: "2.0.32", pid: process.pid, urls: [`http://127.0.0.1:${port}`], paths: { tmp: "/tmp" }, capabilities: { persistentPty: false } }));
+    response.end(JSON.stringify({ version: "2.0.32", pid: process.pid, urls: [`http://127.0.0.1:${port}`], paths: { tmp: tmpdir() }, capabilities: { persistentPty: false } }));
     return;
   }
   if (!authorized(request)) {

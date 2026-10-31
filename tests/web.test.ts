@@ -122,12 +122,20 @@ test("setup tabs expose the tested local commands", () => {
   assert.match(commands, /npm ci/);
   assert.match(commands, /npm run dev\n/);
   assert.match(commands, /npm run dev:web/);
-  assert.match(commands, /\.\/node_modules\/@opencode\/cli-linux-x64-baseline\/bin\/opencode serve/);
+  assert.match(commands, /npm install -g @opencode\/cli@2\.0\.32/);
+  assert.match(commands, /npx --no-install opencode serve/);
+  assert.doesNotMatch(commands, /cli-linux/);
   assert.match(commands, /npm run build && npm start/);
+
+  const notes = setupTabs.map((tab) => tab.note).join("\n");
+  assert.match(notes, /brew install anomalyco\/tap\/opencode-v2/);
+  assert.match(notes, /macOS Apple Silicon/);
+  assert.match(notes, /macOS Intel/);
 
   const html = renderToStaticMarkup(createElement(LandingPage));
   for (const tab of setupTabs) assert.ok(text(html).includes(tab.label));
   assert.match(text(html), /Commands are checked against docs\/LOCAL_SETUP\.md/);
+  assert.match(text(html), /Linux x64, macOS Apple Silicon, or macOS Intel/);
 });
 
 test("demo and evidence previews use the canonical sample and keep the missing live proof visible", () => {

@@ -46,7 +46,7 @@ npm run build
 UB_DEPLOYMENT_MODE=hosted-demo \
 UB_HOST=127.0.0.1 \
 UB_PORT=4319 \
-UB_DATA_DIR=/tmp/opencode/ub-demo-smoke \
+UB_DATA_DIR="${TMPDIR:-/tmp}/opencode/ub-demo-smoke" \
 node --import tsx src/server/start.ts
 ```
 
@@ -85,7 +85,7 @@ The Phase 9 smoke run passed these checks and confirmed `/demo` returns HTML.
 | Origin policy | `RENDER_EXTERNAL_HOSTNAME` supplies the public HTTPS origin |
 | Sentry | DSNs and auth token supplied as sync-false secrets |
 
-`npm run start:render` starts the pinned OpenCode baseline binary on loopback, then the Hono server. It forwards termination to both and exits if OpenCode exits unexpectedly. It does not require a build tool on the runtime disk; the binary is pinned in the lockfile.
+`npm run start:render` is the Render/private-hosted process supervisor. It resolves OpenCode through the same cross-platform resolver used locally (preferring a compatible `PATH` install, then the lockfile package), starts it on loopback, then starts the Hono server. Render-specific values live in environment variables (`OPENCODE_DATA_HOME`, `OPENCODE_CONFIG_HOME`, `OPENCODE_PORT`, `UB_DATA_DIR`); no Linux-only executable path is embedded in the source. The supervisor forwards termination to both and exits if OpenCode exits unexpectedly. It does not require a build tool on the runtime disk; the binary is pinned in the lockfile.
 
 The private service is **not compatible with Render's free plan** because it needs a persistent disk and enough memory for OpenCode.
 
@@ -107,6 +107,7 @@ Canonical mode is `UB_DEPLOYMENT_MODE` (`local`, `private-hosted`, `hosted-demo`
 | `UB_MAX_SESSION_COST_USD` | Optional | `unlimited` (default), `disabled`, or `0` for no app ceiling; a positive value sets a deployment-wide USD ceiling. A project limit can be stricter; cost is checked against OpenCode's reported value. |
 | `OPENCODE_BASE_URL` | Yes | Keep `http://127.0.0.1:4096` for the private child. Remote targets require HTTPS + allowlist. |
 | `OPENCODE_PASSWORD` | Private hosted | Required by `render-start.ts`; passed to OpenCode as both `OPENCODE_PASSWORD` and `OPENCODE_SERVER_PASSWORD`. |
+| `UB_OPENCODE_EXECUTABLE` | Optional | Explicit CLI path for the resolver. Omit to prefer `PATH`, then the lockfile package. |
 | `OPENCODE_DATA_HOME` / `OPENCODE_CONFIG_HOME` | Private hosted | XDG paths on the persistent disk. |
 | `UB_OPENCODE_ALLOWED_HOSTS` | Remote only | Explicit HTTPS host allowlist. |
 | `UB_OPENCODE_ALLOWED_PORTS` | Optional | Comma-separated port allowlist. |

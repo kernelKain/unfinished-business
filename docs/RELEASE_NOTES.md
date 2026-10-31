@@ -1,9 +1,26 @@
 # Release notes — Unfinished Business release candidate
 
 **Date:** 2026-11-01
-**Status:** Upgrade Phase 6 implemented; deployment, publication, and submission remain outside this phase.
+**Status:** Platform Phase 7 implemented; deployment, publication, and submission remain outside this phase.
 
 ## What changed
+
+### Platform Phase 7 — macOS support
+
+- Replaced the Linux-only `@opencode/cli-linux-x64-baseline` dependency with the official cross-platform **`@opencode/cli` 2.0.32**, still pinned with `@opencode/client` 2.0.32 in the lockfile.
+- Added one platform-aware resolver. It prefers an explicit `UB_OPENCODE_EXECUTABLE`, then a compatible global `opencode` on `PATH` (npm, Homebrew, or another package manager), then the lockfile-installed binary. An incompatible global install is skipped so the pinned local CLI can still run.
+- Added distinct diagnostics for an unsupported architecture, missing executable, non-executable install, incompatible CLI major, untested 2.x patch, and server start failure. Diagnostics never print executable paths, credentials, prompts, or model output.
+- Declared support for **Linux x64**, **macOS Apple Silicon**, and **macOS Intel**. Windows, Linux ARM64, and 32-bit hosts are unsupported and report `OPENCODE_PLATFORM_UNSUPPORTED`.
+- Kept the Render supervisor, but it now shares the resolver. Render-specific storage and port values come from environment variables rather than a hardcoded Linux executable path.
+- Replaced the Playwright `/tmp` data directory with the host temporary directory and added standard macOS Chrome/Chromium application paths.
+- Hardened workspace validation for macOS: `/Users`, `/Volumes`, `/System`, `/private`, `/private/tmp`, `/private/var/tmp`, and `/private/var/folders` are broad roots, and the resolved host temporary root is rejected even through the macOS `/var` → `/private/var` alias.
+- Updated the setup tabs and local guide: no user-facing command names a Linux-only package path, and npm plus Homebrew installation commands are documented.
+- Added `npm run diagnose:platform` (resolution only) and `npm run smoke:opencode` (disposable server start and `/api/info` check; no prompt or model call).
+- Added a CI matrix for `ubuntu-latest`, `macos-15`, and `macos-15-intel`, each covering dependency install, CLI resolution, typecheck, tests, build, workspace path safety, and the OpenCode smoke test.
+- No schema change or migration is required; schema v7 and saved projects are unchanged.
+- Verification passes on Linux: typecheck, **200 tests**, production build, platform resolution, and the OpenCode server smoke. macOS execution is CI-gated and is not claimed from this Linux checkout.
+
+Known limits: macOS evidence comes from the CI jobs; no manual macOS session is recorded here. Homebrew installs the current tap version, so use `opencode --version` and the untested-version warning. The official package may install multiple compatible Linux x64 variants selected by its postinstall.
 
 ### Upgrade Phase 6 — canonical sample and rewritten landing page
 
