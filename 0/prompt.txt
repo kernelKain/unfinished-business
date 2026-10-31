@@ -1,0 +1,158 @@
+**# Phase 0 prompt — Protect the baseline and establish canonical documentation**
+
+Implement only Phase 0 of the Unfinished Business roadmap. This phase protects the current product, records its actual architecture and behavior, and establishes the documentation structure required by later phases. Do not implement the asynchronous Maker, redesign, new onboarding, recommendation engine, or deployment changes yet.
+
+**## Outcome**
+
+Produce a verified baseline and a canonical documentation map that later agents can update without creating contradictory plans. Preserve all current application behavior unless a minimal documentation/test-fixture correction is necessary to make the baseline reproducible.
+
+**## Inspect before editing**
+
+1\. Read repository instructions and \`docs/prompts/implementation-phases/README.md\`.
+2\. Inspect \`git status\`, current branch/HEAD, recent history, manifests, lockfile, runtime configuration, source tree, tests, deployment configuration, and existing documentation.
+3\. Pay special attention to user-owned changes in \`docs/ENGINEERING_BLUEPRINT.md\` and \`.backboard/\`; preserve them and do not incorporate or delete them without clear evidence that they belong to this phase.
+4\. Run the existing typecheck, tests, build, and safe preflight. Record the exact baseline and distinguish local proof from unverified external integrations.
+5\. Inspect the persisted-state schema and identify migration and backup requirements without altering user data.
+
+**## Work to perform**
+
+\- Create a short current-state architecture description covering browser, server, OpenCode boundary, persistence, Sentry, Render, and trust boundaries.
+\- Record the current user journeys and failure states, especially OpenCode authentication and the synchronous Maker wait.
+\- Create a canonical documentation ownership map. Use these future canonical names unless existing facts justify a focused alternative:
+&#x20; \- \`docs/PRODUCT_BRIEF.md\`
+&#x20; \- \`docs/ARCHITECTURE.md\`
+&#x20; \- \`docs/IMPLEMENTATION_PLAN.md\`
+&#x20; \- \`docs/OPENCODE_INTEGRATION.md\`
+&#x20; \- \`docs/LOCAL_SETUP.md\`
+&#x20; \- \`docs/HOSTED_DEPLOYMENT.md\`
+&#x20; \- \`docs/TOOL_CATALOG.md\`
+&#x20; \- \`docs/UX_AND_VISUAL_SYSTEM.md\`
+&#x20; \- \`docs/OPERATIONS_AND_RECOVERY.md\`
+&#x20; \- \`docs/DEMO_AND_SUBMISSION.md\`
+&#x20; \- \`docs/DECISIONS.md\`
+&#x20; \- \`docs/CHANGELOG.md\`
+\- Create only the documents needed to establish ownership now. Do not duplicate complete content from legacy documents merely to populate files.
+\- Add a migration table mapping every existing document to keep, revise, merge, supersede, or archive. Do not archive or delete legacy files in this phase.
+\- Define state-schema versioning, backup, and forward migration rules for later phases.
+\- Record supported OpenCode and Node versions as inspected facts. Mark assumptions and unstable external facts for re-verification.
+\- Update the root README so it points to canonical documents while still preserving links needed for current behavior.
+\- Add a decision-log entry explaining OpenCode-only scope and the distinction between local full execution, hosted demo, and private hosted deployment.
+
+**## Documentation requirements**
+
+At minimum, update or create the canonical architecture, implementation plan, decisions, and changelog documents, and update \`README.md\` plus \`docs/prompts/README.md\` when links or ownership change. Keep \`docs/ENGINEERING_BLUEPRINT.md\` authoritative until its content has been deliberately migrated in Phase 9.
+
+Document:
+
+\- inspected facts versus proposed future state;
+\- current risks and known blockers;
+\- where each later phase must record its API, schema, UX, setup, operations, and release changes;
+\- the exact commands that establish a clean local baseline.
+
+**## Non-goals**
+
+\- No product feature implementation.
+\- No prompt runtime rename.
+\- No dependency additions or upgrades unless required to repair a broken baseline and explicitly justified.
+\- No deployment, credential configuration, account changes, publication, or submission.
+\- No destructive cleanup or blanket formatting.
+
+**## Verification and acceptance**
+
+\- Existing behavior and persisted data remain intact.
+\- \`npm run typecheck\`, \`npm test\`, and \`npm run build\` pass or a pre-existing failure is documented with evidence.
+\- Documentation has one declared owner for every subject; there are no two documents both claiming to be the canonical future plan.
+\- All legacy documents have a migration disposition.
+\- README links resolve.
+\- A later agent can identify current architecture, future architecture, phase order, migration policy, and documentation obligations without reading chat history.
+
+Finish with the required phase handoff and stop. Do not start Phase 1.
+
+---
+
+# Phase 1 prompt — Build a reliable asynchronous Maker and live Run Inspector
+
+Implement only Phase 1 of the Unfinished Business roadmap. Replace the blocking Maker request with a durable asynchronous OpenCode run lifecycle and a user-visible Run Inspector. Reliability is the priority; do not begin the broad visual redesign or tool recommendation work.
+
+## Prerequisite
+
+Verify Phase 0's baseline and canonical documentation exist and match the repository. Inspect current state rather than trusting a summary. If the state-schema migration or documentation ownership is unresolved, stop and report the blocker.
+
+## Outcome
+
+Starting Maker must return immediately, persist an identifiable run and OpenCode session, stream understandable progress, survive refresh/restart, interrupt the actual OpenCode session when cancelled, and finish with evidence. A timeout must never silently lose the native session.
+
+## Inspect before editing
+
+- Read the current Maker frontend, experience service, OpenCode guide/client/operation helpers, persistence layer, API routes, tests, and relevant docs.
+- Verify the installed OpenCode client/server API for session creation, events, status, interrupt, permissions, diff, and usage. Use the pinned version's actual types/docs rather than memory.
+- Inspect current user data without mutating it. Design a forward migration and backup before changing stored records.
+- Preserve unrelated and user-owned changes.
+
+## Backend work
+
+- Introduce a durable run record with states such as `QUEUED`, `CONNECTING`, `RUNNING`, `WAITING_PERMISSION`, `VERIFYING`, `SUCCEEDED`, `FAILED`, `CANCELLED`, and `UNKNOWN`.
+- Make `POST /api/runs` validate authorization, persist the queued run, and return `202` with a stable run ID without waiting for model completion.
+- Persist the OpenCode session/message identifiers before sending work that can mutate files.
+- Run work through a bounded in-process coordinator appropriate to the current single-process architecture. Do not add Temporal or another service in this phase.
+- Subscribe to OpenCode events when supported; otherwise use the smallest safe status reconciliation required by the installed version.
+- Normalize events into a versioned, append-only application event shape with sequence/cursor, timestamp, category, public summary, redacted metadata, and evidence references.
+- Add authenticated SSE for run events with heartbeat, cursor/`Last-Event-ID` resume, snapshot resync, and terminal closure behavior.
+- On process restart, reconcile non-terminal runs against OpenCode rather than retrying them automatically.
+- Make cancellation call OpenCode's native interrupt API. Do not mark a run cancelled until the native outcome is observed or explicitly becomes unknown.
+- Make duplicate action IDs idempotent. Prevent double-submit and unsafe retries.
+- Record diff, verification results, duration, model/session identity, usage/cost when available, and honest limitations at terminal status.
+- Redact prompts, secrets, headers, cookies, environment values, and unrestricted tool arguments/results from stored events and telemetry.
+
+## Frontend work
+
+- Replace the global frozen waiting state with immediate run acknowledgement.
+- Add a Run Inspector drawer or tab showing queued, connection, session, model response summaries, tool activity, permission waits, file changes, verification, and final evidence.
+- Never show hidden chain-of-thought. Render operational facts and concise user-visible summaries only.
+- Reconnect after reload using the run ID and event cursor.
+- Provide clear cancel, retry-after-reconciliation, authentication repair, and terminal next actions.
+- Replace “This is taking longer than usual” with meaningful live state. A slow run may show elapsed time and the last confirmed event, but must not imply that nothing is happening.
+- Keep the existing stage workflow functional and accessible at narrow and wide widths.
+
+## Required tests
+
+Add focused unit/integration tests for:
+
+- immediate `202` response and persisted queued run;
+- state transitions and invalid transitions;
+- SSE ordering, reconnect, gap resync, heartbeat, and terminal behavior;
+- refresh and server restart recovery;
+- actual native interrupt handling;
+- timeout becoming reconcilable `UNKNOWN`, not fabricated failure;
+- duplicate submission/idempotency;
+- OpenCode unavailable, authentication failure, provider limit, missing model, permission denial, verification failure, and malformed event;
+- event and Sentry secret redaction;
+- state migration and backup.
+
+Use deterministic fakes at the boundary; do not require paid inference for automated tests. Run one harmless live OpenCode proof only when the invoking environment already has authorized access.
+
+## Documentation requirements
+
+Update in the same change:
+
+- `docs/ARCHITECTURE.md` for the coordinator, event stream, persistence, and trust boundary;
+- `docs/OPENCODE_INTEGRATION.md` for session/event/interrupt behavior and version constraints;
+- `docs/OPERATIONS_AND_RECOVERY.md` for restart, reconciliation, cancellation, retention, and unknown outcomes;
+- `docs/LOCAL_SETUP.md` for required OpenCode server configuration;
+- `docs/IMPLEMENTATION_PLAN.md` with completed acceptance evidence and remaining work;
+- `docs/DECISIONS.md` for SSE and in-process coordination choices;
+- `docs/CHANGELOG.md` and `README.md` for visible Maker behavior.
+
+If a canonical document does not yet exist, create it with only verified and phase-relevant content. Do not update only the old blueprint.
+
+## Acceptance
+
+- The user sees a saved run and first status within 500 ms under normal local conditions.
+- Refresh resumes the same run.
+- Restart reconciles rather than duplicating work.
+- Cancel invokes OpenCode interrupt.
+- Timeout cannot erase the native session reference.
+- A terminal result includes diff and verification evidence or explicitly explains why they are unavailable.
+- All automated checks pass and documentation matches the implemented API/state schema.
+
+Finish with the required phase handoff and stop. Do not start Phase 2.
