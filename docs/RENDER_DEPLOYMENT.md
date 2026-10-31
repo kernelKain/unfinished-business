@@ -1,6 +1,8 @@
 # Render deployment
 
-The repository includes a Render Blueprint in `render.yaml`. It creates one paid Linux x64 Node web service that runs both Unfinished Business and a private OpenCode server. The OpenCode Linux baseline binary is pinned directly to avoid platform-detection install scripts in Render's build environment. A 1 GB persistent disk stores workflow state and OpenCode data.
+The canonical hosted operations guide is [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md). This page is the Render-specific checklist.
+
+The repository includes a Render Blueprint in `render.yaml`. It creates one paid Linux x64 Node web service in `hosted-demo` mode that runs both Unfinished Business and a private OpenCode server. The OpenCode Linux baseline binary is pinned directly to avoid platform-detection install scripts in Render's build environment. A 1 GB persistent disk stores workflow state and OpenCode data.
 
 ## Create the service
 
@@ -36,7 +38,10 @@ Render owns production builds and Sentry source-map uploads because it builds th
 
 - Do not select Render’s free plan. Free services cannot attach the persistent disk this stateful application requires.
 - Render mounts the persistent disk only at runtime. The Blueprint therefore maps its `OPENCODE_*_HOME` settings to XDG paths inside the OpenCode child process instead of exposing `/var/data` to build tools.
-- `/api/health` is intentionally public for Render health checks and a future Sentry uptime monitor. All other application and API routes require HTTP Basic Auth.
+- `/api/health` is intentionally public and minimal for Render health checks and a future Sentry uptime monitor. It returns only `status` and `service`; no mode, paths, versions, or debug details. All other application and API routes require HTTP Basic Auth, and state/mutation/SSE routes also require the loopback session token.
+- `UB_MODE=hosted-demo`, `UB_TRUST_PROXY=true`, and `UB_REDACT_LOCAL_PATHS=true` are set by the Blueprint. `UB_PUBLIC_URL` is derived from `RENDER_EXTERNAL_HOSTNAME` so Host/Origin checks have an explicit HTTPS origin.
 - `RENDER_GIT_COMMIT` supplies the release identifier to both browser builds and the running server. Do not set `SENTRY_RELEASE` manually on Render.
-- Rotate `UB_ACCESS_PASSWORD` in Render whenever access should be revoked. Rotating it causes a redeploy.
+- Rotate `UB_ACCESS_PASSWORD` in Render whenever access should be revoked. Rotating it causes a redeploy. Rotating `UB_SESSION_TOKEN` invalidates existing browser sessions.
 - The Sentry auth token is a build credential. Never prefix it with `VITE_` or commit it.
+- Do not enable `UB_OPENCODE_ALLOW_INSECURE_REMOTE` in this mode. OpenCode stays on loopback.
+- The persistent disk holds state, backups, quarantined corrupt files, and the isolated demo workspace. Never use `/` or `/var/data` itself as `UB_DATA_DIR`.

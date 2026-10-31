@@ -139,20 +139,13 @@ export function recordWitnessDrafts(
     title: draft.title,
     content: draft.content,
     nativeSessionId: sessionId,
+    createdAt: new Date().toISOString(),
   }));
   rememberSession(next, "witness", sessionId);
   rememberTranscript(next, "witness", drafts.map((draft) => draft.title).join(", "));
   return projectSchema.parse(refreshNextAction(next));
 }
 
-export function noteCapability(project: Project, id: string, outcome: string, availability: Project["capabilities"][number]["availability"]): Project {
-  const next = clone(project);
-  const capability = next.capabilities.find((item) => item.id === id);
-  if (!capability) throw new WorkflowConflict(`Unknown capability: ${id}`);
-  capability.observedOutcome = outcome;
-  capability.availability = availability;
-  return projectSchema.parse(refreshNextAction(next));
-}
 
 export function compileApprovedPlan(project: Project): string {
   const unresolved = project.sections.filter((section) => section.status !== "APPROVED");

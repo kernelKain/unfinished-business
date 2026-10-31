@@ -133,7 +133,6 @@ h2 {
 }
 
 .status-line,
-.note,
 label,
 .side li,
 .meta {
@@ -201,10 +200,6 @@ textarea {
 
 .banner.bad {
   color: var(--danger);
-}
-
-.banner.good {
-  color: var(--success);
 }
 
 .prose,

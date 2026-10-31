@@ -9,11 +9,13 @@ import {
   loadEngine,
   loadExport,
   loadProject,
+  loadRuntime,
   reconcileRun,
   reviseSection,
   runMaker,
   sendMessage,
   type EngineStatus,
+  type RuntimeStatus,
   type WorkshopProject,
 } from "./api.ts";
 
@@ -27,6 +29,7 @@ const spirits = [
 export function App() {
   const [project, setProject] = useState<WorkshopProject | null>(null);
   const [engine, setEngine] = useState<EngineStatus | null>(null);
+  const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const [text, setText] = useState("");
   const [scope, setScope] = useState("Build the approved plan in the isolated demo workspace and leave a passing Node test.");
   const [change, setChange] = useState("");
@@ -37,10 +40,11 @@ export function App() {
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
-    void Promise.all([loadProject(), loadEngine()])
-      .then(([loaded, native]) => {
+    void Promise.all([loadProject(), loadEngine(), loadRuntime().catch(() => null)])
+      .then(([loaded, native, limits]) => {
         setProject(loaded);
         setEngine(native);
+        setRuntime(limits);
       })
       .catch((caught: unknown) => {
         setError(caught instanceof Error ? caught.message : "The workshop could not be loaded.");
@@ -58,7 +62,7 @@ export function App() {
       const loaded = await loadProject().catch(() => null);
       if (loaded) setProject(loaded);
       setError(caught instanceof ApiError
-        ? `${caught.message} ${caught.retryable ? "You can try a new request. The current section was not overwritten." : "Nothing was repeated."}`
+        ? `${caught.message} ${caught.retryable ? "You can try a new request. The current section was not overwritten." : "Nothing was repeated."}${caught.operationId ? ` Reference ${caught.operationId.slice(0, 8)}.` : ""}`
         : "The workshop lost its connection. Reload before trying again.");
     } finally {
       window.clearTimeout(timer);
@@ -77,7 +81,7 @@ export function App() {
   }
 
   const section = project.sections.find((item) => item.id === project.currentSectionId) ?? null;
-  const unknown = project.operations.find((item) => item.status === "UNKNOWN") ?? null;
+  const unknown = project.operations.find((item) => item.status === "UNKNOWN" || item.status === "WAITING_PERMISSION" || item.status === "RUNNING") ?? null;
   const header = project.stage === "ORACLE"
     ? "What's still haunting your to-do list?"
     : section
@@ -122,17 +126,39 @@ export function App() {
               ) : null}
             </h1>
             <p className="status-line">Stopped here: {project.nextAction}</p>
+            {runtime ? (
+              <p className="banner" role="status">
+                {runtime.mode === "local" ? "Local mode" : `${runtime.mode} mode`} · isolated demo workspace.
+                {" "}Execution is limited to that workspace; there is no arbitrary repository or remote connector.
+                {" "}Limits: {Math.round(runtime.budgets.makerTimeoutMs / 1000)}s Maker run,
+                {" "}{runtime.budgets.maxSessionTokens.toLocaleString()} tokens per session.
+                {runtime.budgets.toolCallBudget === null ? " Tool-call counts are unavailable from OpenCode, so elapsed-time and token budgets apply." : ""}
+              </p>
+            ) : null}
             {engine && !engine.available ? (
               <p className="banner bad" role="status">
-                {engine.limitation?.includes("fetch failed")
-                  ? "OpenCode is not reachable on the configured loopback address."
-                  : engine.limitation}{" "}
-                Start OpenCode, then try again. No paid model will be used.
+                {!engine.authenticated
+                  ? "OpenCode rejected the configured credentials. Check OPENCODE_PASSWORD."
+                  : !engine.versionCompatible
+                    ? "OpenCode is not a compatible 2.x version. This build will not run against it."
+                    : engine.limitation?.includes("fetch failed")
+                      ? "OpenCode is not reachable on the configured loopback address."
+                      : engine.limitation}{" "}
+                Start or repair OpenCode, then try again. No paid model will be used.
+              </p>
+            ) : null}
+            {engine?.available && !engine.modelAvailable ? (
+              <p className="banner bad" role="status">
+                The required free DeepSeek model is not available. No substitute or paid model will be used.
               </p>
             ) : null}
             {unknown ? (
               <p className="banner bad" role="status">
-                A native run is unknown and was not repeated.
+                {unknown.status === "WAITING_PERMISSION"
+                  ? "A native permission is pending. Resolve it in OpenCode; it was not approved automatically."
+                  : unknown.status === "RUNNING"
+                    ? "A native run is still running. It was not started again."
+                    : "A native run has an unknown outcome and was not repeated."}
                 <button className="action secondary" type="button" disabled={busy} onClick={() => void act(() => reconcileRun(project, unknown.id))}>Reconcile native session</button>
               </p>
             ) : null}

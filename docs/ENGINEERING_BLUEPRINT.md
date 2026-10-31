@@ -1,10 +1,14 @@
 # Unfinished Business — Engineering Blueprint
 
-Version: 0.2.7  
+> Phase 8 hardening addendum: the implemented trust boundaries, modes, storage/recovery, OpenCode URL/auth/version/retry policy, budgets, retention, and residual risks are documented in [ARCHITECTURE.md](ARCHITECTURE.md), [OPERATIONS_AND_RECOVERY.md](OPERATIONS_AND_RECOVERY.md), [OPENCODE_INTEGRATION.md](OPENCODE_INTEGRATION.md), and [DECISIONS.md](DECISIONS.md). This blueprint remains the product/phase history; do not treat older draft security notes as the current implementation.
+
+Version: 0.2.8
+
 Updated: 31 October 2026, IST  
-Status: EXPERIENCE_VERIFIED_UNCOMMITTED; partner access remains blocked  
+Status: PHASE_8_HARDENED_UNCOMMITTED; partner access remains blocked
+
 Canonical path: `docs/ENGINEERING_BLUEPRINT.md`  
-Stage: Prompt 2 — Experience phase gate; Verification has not started
+Stage: Prompt 2 — Phase 8 hardening complete; phase verification/commit pending
 
 ## 1. Control, scope, and acceptance
 

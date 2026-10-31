@@ -1,4 +1,8 @@
 export interface WorkshopProject {
+  schemaVersion: number;
+  mode: "local" | "hosted-demo" | "private-hosted";
+  demoWorkspace: boolean;
+  updatedAt: string;
   revision: number;
   stage: "ORACLE" | "ARCHITECT" | "MAKER" | "WITNESS";
   currentSectionId: string | null;
@@ -31,8 +35,35 @@ export interface WorkshopProject {
 export interface EngineStatus {
   available: boolean;
   serverVersion: string | null;
+  versionCompatible: boolean;
+  authenticated: boolean;
+  mode: "local" | "hosted-demo" | "private-hosted";
   modelAvailable: boolean;
   limitation: string | null;
+}
+
+export interface RuntimeStatus {
+  mode: "local" | "hosted-demo" | "private-hosted";
+  production: boolean;
+  demoWorkspace: true;
+  authRequired: boolean;
+  originProtection: true;
+  budgets: {
+    guideTimeoutMs: number;
+    makerTimeoutMs: number;
+    nodeCheckTimeoutMs: number;
+    maxSessionTokens: number;
+    maxSessionCostUsd: number;
+    toolCallBudget: null;
+    toolCallBudgetLimitation: string;
+  };
+  limits: {
+    maxRequestBytes: number;
+    rateLimitPerMinute: number;
+    maxConcurrentMutations: number;
+    maxSseConnections: number;
+  };
+  retention: Record<string, number>;
 }
 
 export interface ActionResult {
@@ -45,36 +76,60 @@ export class ApiError extends Error {
     message: string,
     readonly code: string,
     readonly retryable: boolean,
+    readonly operationId: string | null = null,
   ) {
     super(message);
   }
 }
 
 let sessionToken: string | null = null;
+let sessionPromise: Promise<string> | null = null;
 
-async function token(): Promise<string> {
-  if (sessionToken) return sessionToken;
-  const response = await fetch("/api/session");
-  if (!response.ok) throw new ApiError("The local workshop session could not be opened.", "SESSION", true);
-  const body = await response.json() as { token: string };
-  sessionToken = body.token;
-  return sessionToken;
+async function token(force = false): Promise<string> {
+  if (sessionToken && !force) return sessionToken;
+  if (sessionPromise && !force) return sessionPromise;
+  sessionPromise = (async () => {
+    const response = await fetch("/api/session", { headers: { accept: "application/json" } });
+    if (!response.ok) throw new ApiError("The workshop session could not be opened. Reload the page.", "SESSION", true);
+    const body = await response.json() as { token: string };
+    sessionToken = body.token;
+    return sessionToken;
+  })();
+  try {
+    return await sessionPromise;
+  } finally {
+    sessionPromise = null;
+  }
 }
 
 async function request<T>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
-  const headers: Record<string, string> = {};
-  if (init?.body) {
-    headers["content-type"] = "application/json";
-    headers["x-ub-session-token"] = await token();
-  }
+  const headers: Record<string, string> = {
+    accept: "application/json",
+    "x-ub-session-token": await token(),
+  };
+  if (init?.body) headers["content-type"] = "application/json";
   const response = await fetch(path, {
     method: init?.method ?? "GET",
     headers,
     body: init?.body ? JSON.stringify(init.body) : undefined,
   });
-  const body = await response.json() as T & { message?: string; code?: string; retryable?: boolean };
+  const body = await response.json().catch(() => ({})) as T & {
+    message?: string;
+    code?: string;
+    retryable?: boolean;
+    operationId?: string | null;
+  };
   if (!response.ok) {
-    throw new ApiError(body.message ?? "The workshop could not complete that action.", body.code ?? "REQUEST_FAILED", Boolean(body.retryable));
+    if (body.code === "INVALID_SESSION") {
+      sessionToken = null;
+      throw new ApiError("The local workshop session expired. Reload the page.", "SESSION", true);
+    }
+    throw new ApiError(
+      body.message ?? "The workshop could not complete that action.",
+      body.code ?? "REQUEST_FAILED",
+      Boolean(body.retryable),
+      body.operationId ?? null,
+    );
   }
   return body;
 }
@@ -85,25 +140,22 @@ export function loadProject() {
 
 export async function loadEngine(): Promise<EngineStatus> {
   try {
-    const response = await fetch("/api/engine");
-    const body = await response.json() as Partial<EngineStatus>;
-    if (typeof body.available === "boolean") {
-      return {
-        available: body.available,
-        serverVersion: body.serverVersion ?? null,
-        modelAvailable: Boolean(body.modelAvailable),
-        limitation: body.limitation ?? null,
-      };
-    }
+    return await request<EngineStatus>("/api/engine");
   } catch {
-    // The status below is the visible recovery state.
+    return {
+      available: false,
+      serverVersion: null,
+      versionCompatible: true,
+      authenticated: true,
+      mode: "local",
+      modelAvailable: false,
+      limitation: "OpenCode could not be reached from this workshop.",
+    };
   }
-  return {
-    available: false,
-    serverVersion: null,
-    modelAvailable: false,
-    limitation: "OpenCode could not be reached from this workshop.",
-  };
+}
+
+export function loadRuntime(): Promise<RuntimeStatus> {
+  return request<RuntimeStatus>("/api/runtime");
 }
 
 export function sendMessage(project: WorkshopProject, intent: "clarify" | "draft" | "question" | "witness", text: string) {
@@ -155,6 +207,17 @@ export function reconcileRun(project: WorkshopProject, operationId: string) {
   });
 }
 
+export interface ApprovedExport {
+  schemaVersion: number;
+  mode: string;
+  generatedAt: string;
+  plan: string | null;
+  unresolved: string[];
+  drafts: Array<{ title: string; content: string }>;
+  redacted: true;
+  limitation: string;
+}
+
 export function loadExport() {
-  return request<{ plan: string | null; unresolved: string[]; drafts: Array<{ title: string; content: string }>; limitation: string }>("/api/export");
+  return request<ApprovedExport>("/api/export");
 }

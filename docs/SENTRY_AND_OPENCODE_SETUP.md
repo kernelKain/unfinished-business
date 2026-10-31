@@ -1,5 +1,7 @@
 # Sentry and OpenCode setup
 
+For the current OpenCode URL/auth/version/retry policy see [OPENCODE_INTEGRATION.md](OPENCODE_INTEGRATION.md). For secure local/hosted defaults see [LOCAL_SETUP.md](LOCAL_SETUP.md) and [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md).
+
 The local server and Vite build read `.env` from the repository root. `.env` is gitignored. `.env.example` documents every supported variable without containing passwords, API keys, or auth tokens.
 
 ## OpenCode
@@ -52,7 +54,9 @@ VITE_SENTRY_REPLAYS_SESSION_SAMPLE_RATE=0.1
 VITE_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE=1
 ```
 
-`SENTRY_RELEASE` can remain empty for ordinary local development. OpenCode inputs, outputs, system instructions, tool arguments, tool results, request bodies, headers, cookies, query parameters, user identity, and stack variables are excluded from Sentry.
+`SENTRY_RELEASE` can remain empty for ordinary local development. OpenCode inputs, outputs, system instructions, tool arguments, tool results, request bodies, headers, cookies, query parameters, user identity, and stack variables are excluded from Sentry. Server events also pass through a final sanitizer that strips request data/headers/cookies/user fields, redacts credential-looking text, and removes local paths. Browser replay masks text and blocks media.
+
+Set `UB_REDACT_PROMPTS=true` to additionally replace stored transcript prompt text with `[REDACTED_PROMPT]`; approved plans and product content are still needed for the product and are not silently removed. Retention for state, backups, and quarantined corrupt files is documented in [OPERATIONS_AND_RECOVERY.md](OPERATIONS_AND_RECOVERY.md). Sentry retention is controlled by the Sentry project/plan; disabling the DSN stops server/browser telemetry.
 
 ## Production build and source maps
 

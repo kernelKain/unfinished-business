@@ -1,6 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 
+export const CURRENT_SCHEMA_VERSION = 2;
+
+export const projectModeSchema = z.enum(["local", "hosted-demo", "private-hosted"]);
+export type ProjectMode = z.infer<typeof projectModeSchema>;
+
 export const sectionStatusSchema = z.enum(["NOT_STARTED", "DRAFT", "APPROVED", "STALE"]);
 export const operationStatusSchema = z.enum([
   "QUEUED", "RUNNING", "WAITING_PERMISSION", "SUCCEEDED", "FAILED", "CANCELLED", "UNKNOWN",
@@ -30,6 +35,7 @@ export const actionSchema = z.object({
   id: z.string(),
   payloadHash: z.string(),
   resultRevision: z.number().int().nonnegative(),
+  createdAt: z.string().default(() => new Date().toISOString()),
 });
 
 export const operationSchema = z.object({
@@ -40,6 +46,8 @@ export const operationSchema = z.object({
   nativeMessageId: z.string().nullable(),
   status: operationStatusSchema,
   result: z.string().nullable(),
+  startedAt: z.string().nullable().default(null),
+  finishedAt: z.string().nullable().default(null),
 });
 
 export const evidenceSchema = z.object({
@@ -84,6 +92,7 @@ export const witnessDraftSchema = z.object({
   title: z.string(),
   content: z.string(),
   nativeSessionId: z.string().nullable(),
+  createdAt: z.string().default(() => new Date().toISOString()),
 });
 
 export const nativeSessionRefSchema = z.object({
@@ -92,10 +101,14 @@ export const nativeSessionRefSchema = z.object({
 });
 
 export const projectSchema = z.object({
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(CURRENT_SCHEMA_VERSION),
   id: z.string(),
   revision: z.number().int().nonnegative(),
+  mode: projectModeSchema.default("local"),
   workspace: z.string(),
+  demoWorkspace: z.boolean().default(true),
+  createdAt: z.string().default(() => new Date().toISOString()),
+  updatedAt: z.string().default(() => new Date().toISOString()),
   stage: z.enum(["ORACLE", "ARCHITECT", "MAKER", "WITNESS"]),
   currentSectionId: z.string().nullable(),
   sections: z.array(sectionSchema),
@@ -118,6 +131,13 @@ export type Operation = z.infer<typeof operationSchema>;
 export type Capability = z.infer<typeof capabilitySchema>;
 export type SpiritRole = "oracle" | "architect" | "maker" | "witness";
 
+export class UnsupportedSchemaVersionError extends Error {
+  constructor(readonly version: unknown) {
+    super(`Project schema version ${String(version)} is newer than this build. The original file was preserved.`);
+    this.name = "UnsupportedSchemaVersionError";
+  }
+}
+
 const sectionDefinitions = [
   ["control", "Control, product, scope, and acceptance", []],
   ["architecture", "Architecture and contracts", ["control"]],
@@ -133,11 +153,28 @@ export function contentHash(content: string): string {
   return createHash("sha256").update(content).digest("hex");
 }
 
-export function payloadHash(payload: unknown): string {
-  return contentHash(JSON.stringify(payload, Object.keys(payload as object).sort()));
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object") {
+    const sorted: Record<string, unknown> = {};
+    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
+      const entry = (value as Record<string, unknown>)[key];
+      if (entry !== undefined) sorted[key] = canonicalize(entry);
+    }
+    return sorted;
+  }
+  return value;
 }
 
-export function createProject(workspace: string): Project {
+export function payloadHash(payload: unknown): string {
+  return contentHash(JSON.stringify(canonicalize(payload)));
+}
+
+export function createProject(
+  workspace: string,
+  mode: ProjectMode = "local",
+  options?: { demoWorkspace?: boolean; now?: string },
+): Project {
   const sections = sectionDefinitions.map(([id, title, dependencies], index) => ({
     id,
     title,
@@ -148,11 +185,16 @@ export function createProject(workspace: string): Project {
     hash: contentHash(""),
     status: "NOT_STARTED" as const,
   }));
+  const now = options?.now ?? new Date().toISOString();
   return refreshNextAction(projectSchema.parse({
-    schemaVersion: 1,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     id: randomUUID(),
     revision: 0,
+    mode,
     workspace,
+    demoWorkspace: options?.demoWorkspace ?? true,
+    createdAt: now,
+    updatedAt: now,
     stage: "ORACLE",
     currentSectionId: sections[0].id,
     sections,
@@ -187,9 +229,51 @@ export function createProject(workspace: string): Project {
   }));
 }
 
+export interface MigrationResult {
+  project: Project;
+  fromVersion: number;
+  migrated: boolean;
+}
+
+export function migrateProject(raw: unknown): MigrationResult {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("Project state must be a JSON object.");
+  }
+  const source = { ...(raw as Record<string, unknown>) };
+  const version = typeof source.schemaVersion === "number" ? source.schemaVersion : 1;
+  if (version > CURRENT_SCHEMA_VERSION) throw new UnsupportedSchemaVersionError(version);
+  if (version < 1) throw new Error("Project state has an invalid schema version.");
+
+  const migrated = version < CURRENT_SCHEMA_VERSION;
+  if (migrated) {
+    const now = new Date().toISOString();
+    source.schemaVersion = CURRENT_SCHEMA_VERSION;
+    source.mode = source.mode ?? "local";
+    source.demoWorkspace = source.demoWorkspace ?? true;
+    source.createdAt = source.createdAt ?? source.updatedAt ?? now;
+    source.updatedAt = source.updatedAt ?? source.createdAt;
+  }
+  const project = projectSchema.parse(source);
+  return { project, fromVersion: version, migrated };
+}
+
 export function refreshNextAction(project: Project): Project {
   const current = project.sections.find((section) => section.status !== "APPROVED") ?? null;
   project.currentSectionId = current?.id ?? null;
+
+  const unresolved = project.operations.find((operation) =>
+    ["QUEUED", "RUNNING", "WAITING_PERMISSION", "UNKNOWN"].includes(operation.status),
+  );
+  if (unresolved) {
+    project.stage = unresolved.kind === "maker" ? "MAKER" : unresolved.kind === "witness" ? "WITNESS" : "ARCHITECT";
+    project.nextAction = unresolved.status === "WAITING_PERMISSION"
+      ? "A native permission is pending. Resolve it in OpenCode, then reconcile. Work will not be repeated automatically."
+      : unresolved.status === "RUNNING"
+        ? "A native run is still running. Wait or reconcile. It will not be started again automatically."
+        : "A native run has an unknown outcome. Reconcile it before any new run.";
+    return project;
+  }
+
   if (project.product.status !== "APPROVED") {
     project.stage = "ORACLE";
     project.nextAction = project.product.status === "PROPOSED"

@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/hono/node";
 import type { Span } from "@sentry/hono/node";
+import { redactText } from "../security/redaction.ts";
 import { FREE_DEEPSEEK_MODEL } from "../opencode/client.ts";
 
 type SpiritRole = "oracle" | "architect" | "maker" | "witness";
@@ -8,6 +9,8 @@ interface OpenCodeResultMetadata {
   sessionId?: string | null;
   messageId?: string | null;
   cost?: number;
+  inputTokens?: number;
+  outputTokens?: number;
 }
 
 const pipelineName = "unfinished-business";
@@ -24,9 +27,11 @@ function baseAttributes(role: SpiritRole, conversationId: string) {
 }
 
 function safeSpanError(error: unknown): string {
-  const message = error instanceof Error ? error.message : "";
+  const message = redactText(error instanceof Error ? error.message : "");
   if (/timed out|timeout|abort/i.test(message)) return "deadline_exceeded";
   if (/ECONN|fetch|network|socket|unavailable/i.test(message)) return "unavailable";
+  if (/429|rate limit|quota/i.test(message)) return "provider_limited";
+  if (/401|403|auth/i.test(message)) return "authentication";
   return "internal_error";
 }
 
@@ -117,6 +122,8 @@ export function setOpenCodeResult(span: Span, metadata: OpenCodeResultMetadata):
   if (metadata.sessionId) span.setAttribute("opencode.session.id", metadata.sessionId);
   if (metadata.messageId) span.setAttribute("gen_ai.response.id", metadata.messageId);
   if (typeof metadata.cost === "number" && Number.isFinite(metadata.cost)) {
-    span.setAttribute("gen_ai.cost.total_tokens", metadata.cost);
+    span.setAttribute("gen_ai.usage.cost", metadata.cost);
   }
+  if (typeof metadata.inputTokens === "number") span.setAttribute("gen_ai.usage.input_tokens", metadata.inputTokens);
+  if (typeof metadata.outputTokens === "number") span.setAttribute("gen_ai.usage.output_tokens", metadata.outputTokens);
 }

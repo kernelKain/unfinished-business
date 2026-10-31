@@ -11,10 +11,20 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 22.14.0
+      - key: UB_MODE
+        value: hosted-demo
       - key: UB_HOST
         value: 0.0.0.0
+      - key: UB_TRUST_PROXY
+        value: "true"
       - key: UB_DATA_DIR
         value: /var/data/unfinished-business
+      - key: UB_REDACT_LOCAL_PATHS
+        value: "true"
+      - key: UB_LOG_LEVEL
+        value: info
+      - key: UB_OPENCODE_ALLOW_INSECURE_REMOTE
+        value: "false"
       - key: UB_ACCESS_USERNAME
         value: unfinished-business
       - key: UB_ACCESS_PASSWORD

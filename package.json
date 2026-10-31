@@ -16,7 +16,8 @@
     "test:contracts": "node --import tsx --test tests/contracts.test.ts tests/prompts.test.ts",
     "test:permissions": "node --import tsx --test tests/native-permissions.test.ts",
     "test:workflow": "node --import tsx --test tests/workflow.test.ts",
-    "test:recovery": "node --import tsx --test tests/recovery.test.ts"
+    "test:recovery": "node --import tsx --test tests/recovery.test.ts",
+    "test:security": "node --import tsx --test tests/security.test.ts tests/http-hardening.test.ts tests/store-hardening.test.ts tests/experience-hardening.test.ts"
   },
   "dependencies": {
     "@hono/node-server": "2.1.5",
