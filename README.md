@@ -15,14 +15,16 @@ OpenCode provides the agent loop, model access, tools, permissions, and native s
 
 ## Status
 
-Prompt 2 is active. Foundation is `14fc6a6`. Workflow is `abf87f7`. The Experience workshop is implemented and verified, and its phase commit is the current gate. Oracle, Architect, Maker, and Witness run through OpenCode's free DeepSeek route. Maker edits only an isolated demo workspace, then the app runs `node --test` there. A live umbrella-relay attempt wrote a ledger whose Node check failed on a duplicate `snapshot` declaration; Witness recorded that failure. Backboard and Sentry remain blocked because `BACKBOARD_API_KEY` and `SENTRY_DSN` are absent.
+Prompt 2 is active. Foundation is `14fc6a6`, Workflow is `abf87f7`, and Experience is `b465fa0`. The Verification phase has entered local reconciliation: typecheck, production build, all 21 tests, and the production dependency audit pass. Oracle, Architect, Maker, and Witness run through OpenCode's free DeepSeek route. Maker edits only an isolated demo workspace, then the app runs `node --test` there. A live umbrella-relay attempt wrote a ledger whose Node check failed on a duplicate `snapshot` declaration; Witness recorded that failure. Sentry error, performance, replay, feedback, profiling, and metadata-only OpenCode agent tracing are verified locally. Backboard remains dependent on its API/tooling setup.
 
 ```bash
 npm ci
 npm run dev
 ```
 
-In another terminal, `npm run build && npm start` serves the built workshop and API on `127.0.0.1`. Set `UB_PORT` if `4200` is taken. `OPENCODE_BASE_URL` defaults to `http://127.0.0.1:4096`. See `.env.example` for names only. Start `opencode serve` yourself; this app does not print or store its password. Project data stays in `UB_DATA_DIR` (default `.unfinished-business/`), which is gitignored.
+In another terminal, `npm run build && npm start` serves the built workshop and API on `127.0.0.1`. Set `UB_PORT` if `4200` is taken. `OPENCODE_BASE_URL` defaults to `http://127.0.0.1:4096`. The server scripts and Vite read the gitignored `.env`; use `.env.example` as the safe template. Start `opencode serve` yourself; this app does not print or store its password. Project data stays in `UB_DATA_DIR` (default `.unfinished-business/`), which is gitignored.
+
+Environment setup, Sentry release/source-map configuration, and OpenCode password matching are documented in [docs/SENTRY_AND_OPENCODE_SETUP.md](docs/SENTRY_AND_OPENCODE_SETUP.md).
 
 Run the dependency-free diagnostic from the repository:
 
@@ -45,7 +47,7 @@ It checks the toolchain, read-only Git state, DNS, localhost socket access and E
 - Steps are work/checklist units, not individual commits. Commit subjects describe the change without phase or step numbering.
 - Preserve unrelated changes. A blocked commit blocks entry to the next implementation phase; do not bypass access restrictions.
 
-The active unit is the Experience phase gate. Verification does not start until that commit is complete and inspected. Publication and submission belong to Prompt 3.
+The Experience gate is committed and linked to Entire checkpoint `01M6874YH3592P2RKCZ9KV0MVQ`. The active unit is Verification V1 partner access: Backboard and Sentry work waits for supported credentials/tooling or an approved focused amendment. Publication and submission belong to Prompt 3.
 
 ## Delivery
 

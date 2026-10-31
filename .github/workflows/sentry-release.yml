@@ -1,0 +1,63 @@
+name: Verify and create Sentry release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Test, build, and upload source maps
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out full Git history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Require the Sentry CI token
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "::error::The SENTRY_AUTH_TOKEN repository secret is missing."
+            exit 1
+          fi
+
+      - name: Build and create the Sentry release
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: kernelkain
+          SENTRY_PROJECT: unfinished-business-web
+          SENTRY_RELEASE: unfinished-business@${{ github.sha }}
+          VITE_SENTRY_ENVIRONMENT: production
+        run: npm run build
+
+      - name: Preserve the deployable browser artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: unfinished-business-web-${{ github.sha }}
+          path: dist/web
+          if-no-files-found: error
+          retention-days: 14

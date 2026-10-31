@@ -1,3 +1,4 @@
+import { sentry } from "@sentry/hono/node";
 import { Hono } from "hono";
 import { z } from "zod";
 import { healthSchema, nativeEngineStatusSchema, type NativeEngineStatus } from "../shared/contracts.ts";
@@ -35,6 +36,8 @@ export interface WorkflowHttpOptions {
 
 export function createApp(probe: EngineProbe, workflow?: WorkflowHttpOptions) {
   const app = new Hono();
+
+  app.use(sentry(app));
 
   app.get("/api/health", (context) => context.json(healthSchema.parse({
     status: "ok",

@@ -7,9 +7,9 @@
     "node": ">=22.14.0"
   },
   "scripts": {
-    "dev": "tsx watch src/server/index.ts",
+    "dev": "node --env-file-if-exists=.env --import tsx --watch src/server/start.ts",
     "build": "vite build",
-    "start": "tsx src/server/index.ts",
+    "start": "node --env-file-if-exists=.env --import tsx src/server/start.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "test:contracts": "node --import tsx --test tests/contracts.test.ts tests/prompts.test.ts",
@@ -20,6 +20,10 @@
   "dependencies": {
     "@hono/node-server": "2.1.5",
     "@opencode/client": "2.0.32",
+    "@sentry/hono": "^11.10.0",
+    "@sentry/node": "^11.10.0",
+    "@sentry/profiling-node": "^11.10.0",
+    "@sentry/react": "^11.10.0",
     "hono": "4.13.14",
     "lucide-react": "1.65.0",
     "motion": "14.9.0",
@@ -28,6 +32,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@sentry/bundler-plugins": "^11.10.0",
     "@types/node": "22.20.5",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",

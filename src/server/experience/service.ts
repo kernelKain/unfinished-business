@@ -22,6 +22,7 @@ import {
   sectionReplySchema,
   witnessReplySchema,
 } from "./parse.ts";
+import { traceAgentOperation, traceToolOperation } from "./telemetry.ts";
 
 export class ExperienceFailure extends Error {
   constructor(
@@ -86,57 +87,63 @@ export class ExperienceService {
     if (project.makerScope.status !== "GRANTED" || !project.makerScope.statement) {
       throw new ExperienceFailure("Grant a separate Maker scope before a native run.", "MAKER_SCOPE_REQUIRED", 409, false);
     }
-    const prompt = await this.instructions("maker", project, project.makerScope.statement);
-    let performed;
-    try {
-      performed = await this.guide.perform({
-        sessionId: sessionFor(project, "maker"),
-        prompt,
-        workspace: this.options.demoWorkspace,
-      });
-    } catch (error) {
-      return this.recordUncertain(actionId, payload, expectedRevision, "maker", error);
-    }
-    const edited = !performed.diff.includes("without a file diff");
-    const check = edited ? await runApprovedNodeCheck(this.options.demoWorkspace) : null;
-    return this.workflow.execute(actionId, payload, expectedRevision, (current) => {
-      const next = structuredClone(current);
-      rememberSession(next, "maker", performed.sessionId);
-      const checkText = check
-        ? `Node check exit ${check.code ?? "unavailable"}. ${check.output}`
-        : "No native diff, so the Node check did not run.";
-      next.operations.push({
-        id: randomUUID(),
-        kind: "maker",
-        payloadHash: payloadHash(payload),
-        nativeSessionId: performed.sessionId,
-        nativeMessageId: performed.messageId,
-        status: edited ? "SUCCEEDED" : "FAILED",
-        result: `${performed.diff}\n\n${checkText}`,
-      });
-      if (check) {
-        next.evidence.push({
-          id: randomUUID(),
-          checkId: "CK-06",
-          nativeResultReference: performed.sessionId,
-          testedFingerprint: payloadHash(check.output),
-          result: check.code === 0 ? "PASS" : "FAIL",
-          observedAt: new Date().toISOString(),
-          limitation: check.code === 0 ? null : "The native edit did not leave a passing Node test.",
+    const makerScope = project.makerScope.statement;
+    return traceAgentOperation("maker", project.id, async () => {
+      const prompt = await this.instructions("maker", project, makerScope);
+      let performed;
+      try {
+        performed = await this.guide.perform({
+          conversationId: project.id,
+          sessionId: sessionFor(project, "maker"),
+          prompt,
+          workspace: this.options.demoWorkspace,
         });
-        const capability = next.capabilities.find((item) => item.id === "node-check");
-        if (capability) {
-          capability.availability = "available";
-          capability.observedOutcome = check.code === 0 ? "PASS" : "FAIL";
-        }
-        const inspection = next.capabilities.find((item) => item.id === "inspect-changes");
-        if (inspection) {
-          inspection.availability = "available";
-          inspection.observedOutcome = performed.diff;
-        }
+      } catch (error) {
+        return this.recordUncertain(actionId, payload, expectedRevision, "maker", error);
       }
-      rememberTranscript(next, "maker", edited ? performed.diff : "Maker finished without a file change.");
-      return refreshNextAction(next);
+      const edited = !performed.diff.includes("without a file diff");
+      const check = edited
+        ? await traceToolOperation("maker", project.id, "node.test", () => runApprovedNodeCheck(this.options.demoWorkspace))
+        : null;
+      return this.workflow.execute(actionId, payload, expectedRevision, (current) => {
+        const next = structuredClone(current);
+        rememberSession(next, "maker", performed.sessionId);
+        const checkText = check
+          ? `Node check exit ${check.code ?? "unavailable"}. ${check.output}`
+          : "No native diff, so the Node check did not run.";
+        next.operations.push({
+          id: randomUUID(),
+          kind: "maker",
+          payloadHash: payloadHash(payload),
+          nativeSessionId: performed.sessionId,
+          nativeMessageId: performed.messageId,
+          status: edited ? "SUCCEEDED" : "FAILED",
+          result: `${performed.diff}\n\n${checkText}`,
+        });
+        if (check) {
+          next.evidence.push({
+            id: randomUUID(),
+            checkId: "CK-06",
+            nativeResultReference: performed.sessionId,
+            testedFingerprint: payloadHash(check.output),
+            result: check.code === 0 ? "PASS" : "FAIL",
+            observedAt: new Date().toISOString(),
+            limitation: check.code === 0 ? null : "The native edit did not leave a passing Node test.",
+          });
+          const capability = next.capabilities.find((item) => item.id === "node-check");
+          if (capability) {
+            capability.availability = "available";
+            capability.observedOutcome = check.code === 0 ? "PASS" : "FAIL";
+          }
+          const inspection = next.capabilities.find((item) => item.id === "inspect-changes");
+          if (inspection) {
+            inspection.availability = "available";
+            inspection.observedOutcome = performed.diff;
+          }
+        }
+        rememberTranscript(next, "maker", edited ? performed.diff : "Maker finished without a file change.");
+        return refreshNextAction(next);
+      });
     });
   }
 
@@ -162,7 +169,11 @@ export class ExperienceService {
     if (!operation?.nativeSessionId) {
       throw new ExperienceFailure("This operation has no native session to reconcile.", "NOTHING_TO_RECONCILE", 409, false);
     }
-    const observed = await this.guide.inspect(operation.nativeSessionId);
+    const role = operation.kind === "maker" ? "maker" : operation.kind === "witness" ? "witness" : "architect";
+    const observed = await this.guide.inspect(operation.nativeSessionId, {
+      conversationId: claimed.project.id,
+      role,
+    });
     return this.workflow.execute(actionId, payload, expectedRevision, (project) => {
       const next = structuredClone(project);
       const current = next.operations.find((item) => item.id === operationId);
@@ -202,110 +213,122 @@ export class ExperienceService {
   }
 
   private async clarify(actionId: string, payload: object, expectedRevision: number, project: Project, text: string) {
-    if (project.product.status === "APPROVED") {
-      throw new ExperienceFailure("The product proposal is already approved.", "PRODUCT_ALREADY_APPROVED", 409, false);
-    }
-    const spoken = await this.guide.speak({
-      role: "oracle",
-      sessionId: sessionFor(project, "oracle"),
-      prompt: await this.instructions("oracle", project, text),
-      workspace: this.options.safeDirectory,
-    });
-    const reply = oracleReplySchema.parse(extractJsonObject(spoken.text));
-    return this.workflow.execute(actionId, payload, expectedRevision, (current) => {
-      const seeded = structuredClone(current);
-      rememberTranscript(seeded, "user", text);
-      const next = recordOracleProposal(seeded, { ...reply, sessionId: spoken.sessionId });
-      next.operations.push(operation("guide", payload, spoken, "Oracle proposal stored. It is not approved."));
-      return refreshNextAction(next);
+    return traceAgentOperation("oracle", project.id, async () => {
+      if (project.product.status === "APPROVED") {
+        throw new ExperienceFailure("The product proposal is already approved.", "PRODUCT_ALREADY_APPROVED", 409, false);
+      }
+      const spoken = await this.guide.speak({
+        role: "oracle",
+        conversationId: project.id,
+        sessionId: sessionFor(project, "oracle"),
+        prompt: await this.instructions("oracle", project, text),
+        workspace: this.options.safeDirectory,
+      });
+      const reply = oracleReplySchema.parse(extractJsonObject(spoken.text));
+      return this.workflow.execute(actionId, payload, expectedRevision, (current) => {
+        const seeded = structuredClone(current);
+        rememberTranscript(seeded, "user", text);
+        const next = recordOracleProposal(seeded, { ...reply, sessionId: spoken.sessionId });
+        next.operations.push(operation("guide", payload, spoken, "Oracle proposal stored. It is not approved."));
+        return refreshNextAction(next);
+      });
     });
   }
 
   private async draft(actionId: string, payload: object, expectedRevision: number, project: Project, text: string) {
-    if (project.product.status !== "APPROVED" || !project.currentSectionId) {
-      throw new ExperienceFailure("Drafting waits for an approved product and an active section.", "SECTION_NOT_READY", 409, false);
-    }
-    const sectionId = project.currentSectionId;
-    const spoken = await this.guide.speak({
-      role: "architect",
-      sessionId: sessionFor(project, "architect"),
-      prompt: await this.instructions("architect", project, text),
-      workspace: this.options.safeDirectory,
-    });
-    let reply;
-    try {
-      reply = sectionReplySchema.parse(extractJsonObject(spoken.text));
-    } catch {
-      const prose = spoken.text.trim();
-      if (prose.length < 80) {
-        return this.recordFailure(actionId, payload, expectedRevision, "architect", spoken.sessionId, `The Architect reply was malformed, so the section was left unchanged. Reply began: ${prose.slice(0, 240)}`);
+    return traceAgentOperation("architect", project.id, async () => {
+      if (project.product.status !== "APPROVED" || !project.currentSectionId) {
+        throw new ExperienceFailure("Drafting waits for an approved product and an active section.", "SECTION_NOT_READY", 409, false);
       }
-      reply = {
-        content: prose.slice(0, 12_000),
-        recommendation: "The Architect returned prose. Review the draft before approval.",
-        tradeoff: "Separate recommendation and tradeoff fields were not returned.",
-      };
-    }
-    const content = formatSectionDraft(reply);
-    return this.workflow.execute(actionId, payload, expectedRevision, (current) => {
-      const next = reviseSection(current, sectionId, content);
-      rememberSession(next, "architect", spoken.sessionId);
-      rememberTranscript(next, "user", text);
-      rememberTranscript(next, "architect", content);
-      next.operations.push(operation("guide", payload, spoken, "Draft stored as the current section version."));
-      return refreshNextAction(next);
+      const sectionId = project.currentSectionId;
+      const spoken = await this.guide.speak({
+        role: "architect",
+        conversationId: project.id,
+        sessionId: sessionFor(project, "architect"),
+        prompt: await this.instructions("architect", project, text),
+        workspace: this.options.safeDirectory,
+      });
+      let reply;
+      try {
+        reply = sectionReplySchema.parse(extractJsonObject(spoken.text));
+      } catch {
+        const prose = spoken.text.trim();
+        if (prose.length < 80) {
+          return this.recordFailure(actionId, payload, expectedRevision, "architect", spoken.sessionId, `The Architect reply was malformed, so the section was left unchanged. Reply began: ${prose.slice(0, 240)}`);
+        }
+        reply = {
+          content: prose.slice(0, 12_000),
+          recommendation: "The Architect returned prose. Review the draft before approval.",
+          tradeoff: "Separate recommendation and tradeoff fields were not returned.",
+        };
+      }
+      const content = formatSectionDraft(reply);
+      return this.workflow.execute(actionId, payload, expectedRevision, (current) => {
+        const next = reviseSection(current, sectionId, content);
+        rememberSession(next, "architect", spoken.sessionId);
+        rememberTranscript(next, "user", text);
+        rememberTranscript(next, "architect", content);
+        next.operations.push(operation("guide", payload, spoken, "Draft stored as the current section version."));
+        return refreshNextAction(next);
+      });
     });
   }
 
   private async question(actionId: string, payload: object, expectedRevision: number, project: Project, text: string) {
     const role = project.stage === "ORACLE" ? "oracle" : "architect";
-    const spoken = await this.guide.speak({
-      role,
-      sessionId: sessionFor(project, role),
-      prompt: await this.instructions(role, project, `The user is asking a question. This is not approval and must not change an approved artifact.\n\n${text}`),
-      workspace: this.options.safeDirectory,
-    });
-    return this.workflow.execute(actionId, payload, expectedRevision, (current) => {
-      const next = structuredClone(current);
-      rememberSession(next, role, spoken.sessionId);
-      rememberTranscript(next, "user", text);
-      rememberTranscript(next, role, spoken.text.slice(0, 4_000));
-      next.operations.push(operation("guide", payload, spoken, "Question answered without changing approvals."));
-      return refreshNextAction(next);
+    return traceAgentOperation(role, project.id, async () => {
+      const spoken = await this.guide.speak({
+        role,
+        conversationId: project.id,
+        sessionId: sessionFor(project, role),
+        prompt: await this.instructions(role, project, `The user is asking a question. This is not approval and must not change an approved artifact.\n\n${text}`),
+        workspace: this.options.safeDirectory,
+      });
+      return this.workflow.execute(actionId, payload, expectedRevision, (current) => {
+        const next = structuredClone(current);
+        rememberSession(next, role, spoken.sessionId);
+        rememberTranscript(next, "user", text);
+        rememberTranscript(next, role, spoken.text.slice(0, 4_000));
+        next.operations.push(operation("guide", payload, spoken, "Question answered without changing approvals."));
+        return refreshNextAction(next);
+      });
     });
   }
 
   private async witness(actionId: string, payload: object, expectedRevision: number, project: Project, text: string) {
-    const makerDone = project.operations.some((operation) => operation.kind === "maker" && operation.status === "SUCCEEDED");
-    if (!makerDone) throw new ExperienceFailure("Witness review waits for a completed Maker run.", "WITNESS_NOT_READY", 409, false);
-    const spoken = await this.guide.speak({
-      role: "witness",
-      sessionId: null,
-      prompt: await this.instructions("witness", project, text),
-      workspace: this.options.safeDirectory,
-    });
-    let reply;
-    try {
-      reply = witnessReplySchema.parse(extractJsonObject(spoken.text));
-    } catch {
-      const prose = spoken.text.trim();
-      if (prose.length < 80) {
-        return this.recordFailure(actionId, payload, expectedRevision, "witness", spoken.sessionId, `The Witness reply was malformed, so no draft was stored. Reply began: ${prose.slice(0, 240)}`);
+    return traceAgentOperation("witness", project.id, async () => {
+      const makerDone = project.operations.some((operation) => operation.kind === "maker" && operation.status === "SUCCEEDED");
+      if (!makerDone) throw new ExperienceFailure("Witness review waits for a completed Maker run.", "WITNESS_NOT_READY", 409, false);
+      const spoken = await this.guide.speak({
+        role: "witness",
+        conversationId: project.id,
+        sessionId: null,
+        prompt: await this.instructions("witness", project, text),
+        workspace: this.options.safeDirectory,
+      });
+      let reply;
+      try {
+        reply = witnessReplySchema.parse(extractJsonObject(spoken.text));
+      } catch {
+        const prose = spoken.text.trim();
+        if (prose.length < 80) {
+          return this.recordFailure(actionId, payload, expectedRevision, "witness", spoken.sessionId, `The Witness reply was malformed, so no draft was stored. Reply began: ${prose.slice(0, 240)}`);
+        }
+        reply = {
+          findings: prose.slice(0, 8_000),
+          limitations: "The Witness returned prose rather than separate fields.",
+          draftNotes: "These notes are an in-app review. They are not a submitted article or video.",
+        };
       }
-      reply = {
-        findings: prose.slice(0, 8_000),
-        limitations: "The Witness returned prose rather than separate fields.",
-        draftNotes: "These notes are an in-app review. They are not a submitted article or video.",
-      };
-    }
-    return this.workflow.execute(actionId, payload, expectedRevision, (current) => {
-      const next = recordWitnessDrafts(current, [
-        { title: "Findings", content: reply.findings },
-        { title: "Limitations", content: reply.limitations },
-        { title: "Draft notes", content: reply.draftNotes },
-      ], spoken.sessionId);
-      next.operations.push(operation("witness", payload, spoken, "Witness drafts stored from a fresh session."));
-      return refreshNextAction(next);
+      return this.workflow.execute(actionId, payload, expectedRevision, (current) => {
+        const next = recordWitnessDrafts(current, [
+          { title: "Findings", content: reply.findings },
+          { title: "Limitations", content: reply.limitations },
+          { title: "Draft notes", content: reply.draftNotes },
+        ], spoken.sessionId);
+        next.operations.push(operation("witness", payload, spoken, "Witness drafts stored from a fresh session."));
+        return refreshNextAction(next);
+      });
     });
   }
 
