@@ -6,9 +6,17 @@ import { z } from "zod";
  * These schemas are shared by the server, the browser, and the deterministic
  * demo fixture. Hashing, persistence, and project creation stay in
  * `src/server/workflow/model.ts` because they use Node's crypto module.
+ *
+ * Schema v2 is the single current shape. It accepts documents written by the
+ * guided-interface line (engine selection, timestamps, operation metadata) and
+ * the hardening line (mode/demo metadata), and both are migrated through the
+ * same defaults without discarding history.
  */
 
 export const LEGACY_FIXED_MODEL_KEY = "opencode/deepseek-v4.1-flash-free";
+
+export const projectModeSchema = z.enum(["local", "hosted-demo", "private-hosted"]);
+export type ProjectMode = z.infer<typeof projectModeSchema>;
 
 export const sectionStatusSchema = z.enum(["NOT_STARTED", "DRAFT", "APPROVED", "STALE"]);
 export const operationStatusSchema = z.enum([
@@ -58,6 +66,7 @@ export const actionSchema = z.object({
   id: z.string(),
   payloadHash: z.string(),
   resultRevision: z.number().int().nonnegative(),
+  createdAt: z.string().default(() => new Date().toISOString()),
 });
 
 const operationCoreSchema = z.object({
@@ -123,6 +132,7 @@ export const witnessDraftSchema = z.object({
   title: z.string(),
   content: z.string(),
   nativeSessionId: z.string().nullable(),
+  createdAt: z.string().default(() => new Date().toISOString()),
 });
 
 export const nativeSessionRefSchema = z.object({
@@ -150,6 +160,7 @@ const projectCoreSchema = z.object({
   nativeSessions: z.array(nativeSessionRefSchema).default([]),
 });
 
+/** Legacy v1 rows have no engine selection, timestamps, or mode metadata. */
 export const projectV1Schema = projectCoreSchema.extend({
   schemaVersion: z.literal(1),
   operations: z.array(operationCoreSchema),
@@ -158,6 +169,10 @@ export const projectV1Schema = projectCoreSchema.extend({
 
 export const projectSchema = projectCoreSchema.extend({
   schemaVersion: z.literal(2),
+  mode: projectModeSchema.default("local"),
+  demoWorkspace: z.boolean().default(true),
+  createdAt: z.string().default(() => new Date().toISOString()),
+  updatedAt: z.string().default(() => new Date().toISOString()),
   engine: engineSelectionSchema.default({ model: null, source: "none", updatedAt: null, legacyModel: null }),
 });
 

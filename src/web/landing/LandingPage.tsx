@@ -73,9 +73,9 @@ export function LandingPage() {
 
         <section className="section" id="modes" aria-labelledby="modes-title">
           <div className="section-heading">
-            <p className="eyebrow">Two ways to use it</p>
+            <p className="eyebrow">Three ways to use it</p>
             <h2 id="modes-title">Choose the honest path for the moment</h2>
-            <p>Both paths use the same four-stage workflow. Neither path silently reaches into a visitor's local repository.</p>
+            <p>All three use the same four-stage workflow. None silently reaches into a visitor's local repository.</p>
           </div>
           <div className="mode-grid">
             {usageModes.map((mode) => (

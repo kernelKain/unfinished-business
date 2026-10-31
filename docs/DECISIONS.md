@@ -1,14 +1,15 @@
 # Decision ledger
 
-**Scope:** Phase 4 interface plus Phase 7 guided demo decisions.
-**Last updated:** 2026-10-31.
+**Scope:** Product, interface, demo, hardening, and Phase 9 release decisions.
+**Owner:** Engineering.
+**Last verified:** 2026-10-31.
 
 | ID | Decision | Alternatives considered | Rationale | Consequence |
 |---|---|---|---|---|
 | D4-01 | Use the **Ghostlight Hacker Workshop** theme | Generic SaaS landing, bright productivity app, pure terminal | Fits the existing haunted-workshop product while keeping a readable contemporary interface | Deep navy foundation, amber work light, spectral blue accents, layered paper/blueprint/glass/terminal surfaces |
 | D4-02 | Keep the landing page at `/` and the real workshop at `/workshop` | Replace the workshop with a landing page; use a hash route | A first-time visitor needs a product explanation; the workshop needs a stable direct URL | Three routes (`/`, `/demo`, `/workshop`) with SPA fallback |
 | D4-03 | Add a separate deterministic demo at `/demo` | Put fixture controls inside the real workshop; use a video only | Keeps fixture data out of the live workflow and gives visual tests stable states | The demo is explicitly labeled; it never calls a model |
-| D4-04 | Lazy-load the workshop and demo | One large bundle | Landing is the first visit; workshop-specific Motion/API code should not block it | Initial JS 192.8 KiB gzip; workshop chunk 54.8 KiB; demo 2.6 KiB |
+| D4-04 | Lazy-load the workshop and demo | One large bundle | Landing is the first visit; workshop-specific Motion/API code should not block it | Initial JS 193.8 KiB gzip; workshop chunk 54.9 KiB; demo 11.5 KiB |
 | D4-05 | Do not add an animation framework | GSAP, Lottie, Rive, Three.js | Motion and CSS already cover entry, state, and transitions; measured need is low | No new runtime; animation stays small and state-bound |
 | D4-06 | Draw the four spirits as original inline SVG | Generated character images; copied mascots | Crisp at every size, tiny, themeable, accessible, state-driven, and provably original | Characters are code in `SpiritCharacter.tsx`; every state is a class |
 | D4-07 | Generate one original hero image with the authorized image tool | Pure CSS landscape; stock photo; no hero image | The prompt calls for a cinematic workshop with atmospheric depth and copy space; generation was authorized | Master + responsive AVIF/WebP/JPEG outputs, prompt/provenance documented; no text/logos/watermarks |
@@ -16,7 +17,7 @@
 | D4-09 | Use semantic stage navigation, not disabled buttons | Keep disabled tab buttons | Disabled buttons are skipped by keyboard focus and imply interactivity | `<nav><ol><li aria-current="step">` with mini spirits and state text |
 | D4-10 | Use native `<dialog>` for setup help | Custom modal | Built-in focus trapping, Escape behavior, and backdrop semantics | Opening help never implies the engine is connected |
 | D4-11 | Use tabbed setup commands with roving tabindex | Static code blocks | The landing must show several tested commands without a wall of code | Arrow/Home/End keyboard support and copy action |
-| D4-12 | Keep workflow authorization untouched | Refactor auth while restyling | Phase 3 semantics are working and security-sensitive | No changes to session-token checks, exact-version approvals, Maker scope, or native permission authority |
+| D4-12 | Keep workflow authorization semantics stable during the interface refactor | Refactor approvals while restyling | Approval/authority semantics are security-sensitive | Phase 4 did not change exact-version approvals, Maker scope, or native denial; Phase 8 later hardened the HTTP/token layer without weakening them |
 | D4-13 | Make the deterministic demo read-only | Let visitors run fake actions | Fake actions would undermine the honesty claim | Fixture controls step through states; real actions live in `/workshop` |
 | D4-14 | Commit Playwright visual snapshots | Manual screenshots only | The prompt requires visual snapshots and keyboard/contrast/reduced-motion checks | `npm run test:visual`; snapshots in `tests/visual/snapshots/` |
 | D4-15 | Prefer system Chrome/Chromium for visual tests, with Playwright fallback | Require a fixed browser download | Works in the verified Linux environment without a second browser install | `PLAYWRIGHT_CHROMIUM_EXECUTABLE` is honored; otherwise Playwright's browser is used |
@@ -26,7 +27,7 @@
 | D4-19 | Merge the first-run connection/discovery wizard into the workshop route | Keep the merged version's workshop at `/` and rebuild onboarding as a separate app | A visitor needs the landing page first, but the real workflow still needs a guided connection step | `/workshop` shows onboarding when OpenCode is reachable without a selected model; an unavailable engine keeps the workshop visible with a repair action |
 | D4-20 | Discover models, providers, agents, and permissions instead of assuming a fixed model | Keep the old fixed DeepSeek assumption | The merged OpenCode integration correctly treats the catalog as server-owned and time-limited | A model must be reported by OpenCode; a disappeared model blocks a run; provider keys stay in OpenCode |
 | D4-21 | Keep the advanced OpenCode panel collapsed behind `<details>` | Put all session/permission controls in the main four-stage layout | Model/session controls are power-user surfaces; the main workflow should stay readable | Advanced controls remain reachable but do not compete with the current stage |
-| D4-22 | Preserve the remote onboarding commit and integrate it rather than overwrite it | Push the Phase 4 commit over the remote or discard onboarding | The remote work is user work and adds required connection functionality | Rebase replay preserved both histories; 63 tests pass after integration |
+| D4-22 | Preserve the remote onboarding commit and integrate it rather than overwrite it | Push the Phase 4 commit over the remote or discard onboarding | The remote work is user work and adds required connection functionality | Both histories preserved through integration; 111 tests pass in the Phase 9 candidate |
 
 ## Phase 7 — guided demo
 
@@ -45,7 +46,33 @@
 | D7-11 | Add three distinct landing actions | One ambiguous “demo” CTA | Visitors and judges need to choose interactive, presentation, or live | Try the example, Watch the guided workflow, Run live with OpenCode |
 | D7-12 | Keep the fixture source free of time/randomness/environment/network | Generate fixture at runtime | Deterministic playback and reproducible screenshots | Source scan test; fixed timestamps and content hashes |
 
-## Open follow-ups (not Phase 8 work)
+## Phase 8 — security and recovery hardening
+
+| ID | Decision | Alternatives considered | Rationale | Consequence |
+|---|---|---|---|---|
+| D8-01 | Use one canonical `UB_DEPLOYMENT_MODE` (`local`, `hosted-demo`, `private-hosted`) | Keep parallel `UB_MODE` values | Two mode dialects caused contradictory docs and startup behavior | Legacy alias accepted; `hosted-private` and `private-hosted` map to the same mode |
+| D8-02 | Make hosted-demo public and read-only, not password-protected | Reuse the private Basic Auth path for the demo | The demo contains no user data, secret, engine, or mutation; requiring credentials would make the judge path worse | No token, no OpenCode, every non-GET `/api/*` → `DEMO_READ_ONLY` |
+| D8-03 | Require session token on protected API reads as well as writes | Token only on mutations | State, connection, discovery, usage, and exports can contain project/native metadata | Browser client obtains the token once; manual API checks need the header |
+| D8-04 | Reject paid or unpriced remote models at selection | Accept any discovered model and rely on cost afterward | The release promises no paid fallback | Free/local models only; a paid model is discoverable but not selectable |
+| D8-05 | Keep async Maker runs with explicit UNKNOWN/WAITING_PERMISSION states | Revert to a synchronous blocking request | Long native work must not hold the HTTP request; restart/reconnect must be honest | `202` accepted; polling/SSE, cancel/reconcile; no automatic retry |
+| D8-06 | Refuse to mark cancellation when native interruption fails | Mark CANCELLED anyway | Native effects may continue | Explicit `CANCEL_UNAVAILABLE`; reconcile instead |
+| D8-07 | Use a lock, fsync, backups, quarantine, and state v2 | Single overwrite or reset-on-corrupt | Approvals and evidence must survive crashes | Recovery is visible; both-corrupt state refuses reset |
+| D8-08 | Apply SSRF/workspace/origin/rate/size controls in one server pipeline | Rely on the browser or deployment proxy alone | Server authority must not depend on UI or platform assumptions | Deterministic security tests cover the pipeline |
+| D8-09 | Keep Backboard unintegrated and unclaimed | Add a placeholder key/adapter for category optics | Installation alone is not meaningful use and no access exists | No Backboard category claim |
+
+## Phase 9 — release gate
+
+| ID | Decision | Alternatives considered | Rationale | Consequence |
+|---|---|---|---|---|
+| D9-01 | Integrate the guided-interface and hardening lines before verifying | Pick one line and document the other as future work | Each line contains a required MUST; dropping either breaks acceptance | One release candidate with both feature sets |
+| D9-02 | Treat the public demo's no-auth behavior as canonical over the earlier hardening test | Keep the older "demo requires token/password" test | The final mode contract and product promise make the demo public/read-only | Test updated to assert private-hosted protection instead |
+| D9-03 | Update async-run tests instead of reverting the async runner | Force synchronous behavior to satisfy older tests | Async queue/restart/reconnect is the implemented, safer UX | Tests poll persisted state; no retry/duplicate inference |
+| D9-04 | Move superseded planning/setup docs to `docs/history/` with pointers | Leave conflicting root docs active | One canonical story is required | Canonical docs + archived provenance |
+| D9-05 | Keep the four runtime prompts in `docs/prompts/` unchanged | Rename/archive them with the implementation docs | Loaders and runtime discovery must not be confused with phase history | Prompt filenames/loaders stay stable |
+| D9-06 | Report the unresolved moderate audit advisory honestly | Force a breaking Sentry downgrade without verification | A forced major downgrade could break telemetry and source maps | Production audit at high level passes; advisory documented |
+| D9-07 | Stop before deployment/publication/submission | Treat local verification as release authorization | External actions need separate scoped authority | Evidence and reviewable procedures only |
+
+## Open follow-ups (post-release)
 
 - A real recorded demo and final submission assets remain separate acceptance work.
 - The free-model route remains account-dependent and time-limited.

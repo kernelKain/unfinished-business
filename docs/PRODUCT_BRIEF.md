@@ -1,6 +1,8 @@
 # Product brief — Unfinished Business
 
-**Status:** Approved through the Phase 7 guided demo. Last updated 2026-10-31.
+**Status:** Approved product; Phase 9 release candidate verified locally.
+**Owner:** Product/interface.
+**Last verified:** 2026-10-31.
 
 ## One sentence
 
@@ -28,6 +30,18 @@ The product is for a builder with an idea but no finished submission: a student 
 - Paid-model fallback, fabricated usage metrics, testimonials, awards, or guaranteed outcomes.
 - Automatic deployment, publication, or submission.
 
+## Release truth (Phase 9)
+
+The release candidate has one project story with three deployment modes:
+
+| Mode | Browser can configure OpenCode? | OpenCode process | Persistence | Intended use |
+|---|---|---|---|---|
+| `local` | Yes; password may be held in memory | Supplies it separately on loopback | `UB_DATA_DIR` | A developer on their own Linux machine |
+| `private-hosted` | No; environment/secret store owns the URL and password | Loopback child process | Private persistent disk | Protected Render or self-hosted instance |
+| `hosted-demo` | No | None | None for visitors | Public deterministic sample |
+
+Maker edits only the isolated demo workspace under `UB_DATA_DIR`. The product does not mount an arbitrary local or hosted repository in this release. The Node check is a bounded child process, not an OS sandbox. App approvals constrain workflow transitions; they never override an OpenCode permission denial.
+
 ## The four roles
 
 | Spirit | Stage | Function | Approval boundary |
@@ -37,14 +51,15 @@ The product is for a builder with an idea but no finished submission: a student 
 | Maker | Build | Perform a bounded native edit through OpenCode | A separate Maker scope is required; OpenCode still owns tool permission |
 | Witness | Review | Inspect evidence in a fresh session and prepare review drafts | Notes are drafts, not a submitted article, video, or proof of success |
 
-## Two honest usage paths
+## Three honest usage paths
 
 | Path | What it is | What it is not |
 |---|---|---|
-| Hosted demo or private deployment | A labeled deterministic walkthrough, or a password-protected workshop using the server's own isolated demo workspace | Not a public sandbox; not access to a visitor's local repository |
-| Full local mode | The browser app, local API, and pinned OpenCode server running on the builder's machine over loopback | Not a guarantee of free-model availability; not permission to widen tool scope |
+| Hosted demo | A labeled deterministic walkthrough served without OpenCode, credentials, a session token, or visitor persistence | Not live inference; not a sandbox; not access to a visitor's repository |
+| Private hosted | A password-protected workshop on a private disk with a loopback OpenCode child | Not a public sandbox; not access to a visitor's local checkout |
+| Full local mode | The browser app, local API, and pinned OpenCode server on the builder's machine over loopback | Not a guarantee of free-model availability; not permission to widen tool scope |
 
-The landing page must describe both paths without implying that a hosted page can read a local checkout.
+The landing page must describe all three without implying that a hosted page can read a local checkout. The hosted demo's `/workshop` route explains that it is read-only and offers the guided example or local setup as exits.
 
 ## OpenCode-only claim
 
@@ -61,7 +76,7 @@ Provider API keys stay in OpenCode. The first-run panel accepts only the OpenCod
 1. Hero: “Turn unfinished ideas into hackathon-ready builds.”
 2. Value statement and OpenCode-only positioning.
 3. Primary actions: try the example, watch the guided workflow, run live with OpenCode, set up locally.
-4. Two ways to use it: hosted/private and full local.
+4. Three ways to use it: hosted demo, private hosted, and full local.
 5. Four-spirit workflow explanation.
 6. Deterministic demo teaser with an explicit fixture label.
 7. OpenCode controls and evidence preview.

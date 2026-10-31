@@ -41,7 +41,7 @@ function legacyProject() {
 }
 
 test("v1 fixed-model projects migrate to v2 without losing history", () => {
-  const migrated = migrateProject(legacyProject());
+  const migrated = migrateProject(legacyProject()).project;
   assert.equal(migrated.schemaVersion, 2);
   assert.equal(migrated.engine.model, null);
   assert.equal(migrated.engine.source, "migrated-legacy");
@@ -77,7 +77,31 @@ test("new projects start with no model selection", () => {
   assert.equal(project.engine.legacyModel, null);
 });
 
+test("accepts a hardening-line v2 snapshot that has no engine selection", () => {
+  const current = createProject("/workspace");
+  const { engine: _engine, ...withoutEngine } = current;
+  const migrated = migrateProject(withoutEngine).project;
+  assert.equal(migrated.schemaVersion, 2);
+  assert.equal(migrated.engine.source, "none");
+  assert.equal(migrated.engine.model, null);
+  assert.equal(migrated.mode, current.mode);
+});
+
+test("accepts a guided-interface v2 snapshot that has no mode or timestamps", () => {
+  const current = createProject("/workspace");
+  const legacyV2 = { ...current } as Record<string, unknown>;
+  delete legacyV2.mode;
+  delete legacyV2.createdAt;
+  delete legacyV2.updatedAt;
+  const migrated = migrateProject(legacyV2).project;
+  assert.equal(migrated.schemaVersion, 2);
+  assert.equal(migrated.mode, "local");
+  assert.equal(migrated.engine.source, "none");
+  assert.ok(migrated.createdAt.length > 0);
+  assert.ok(migrated.updatedAt.length > 0);
+});
+
 test("unsupported project schema versions fail visibly", () => {
-  assert.throws(() => migrateProject({ schemaVersion: 99 }), /Unsupported project schema/);
-  assert.throws(() => migrateProject(null), /not an object/);
+  assert.throws(() => migrateProject({ schemaVersion: 99 }), /newer than this build/);
+  assert.throws(() => migrateProject(null), /JSON object/);
 });

@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/hono/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
+import { sanitizeSentryEvent } from "./security/redaction.ts";
 
 const environment = process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV ?? "development";
 const release = process.env.SENTRY_RELEASE
@@ -29,6 +30,17 @@ Sentry.init({
   profileSessionSampleRate: profilesSampleRate,
   profileLifecycle: "trace",
   strictTraceContinuation: true,
+  beforeSend(event) {
+    return sanitizeSentryEvent(event as unknown as Record<string, unknown>, { hideLocalPaths: true }) as unknown as typeof event;
+  },
+  beforeSendTransaction(event) {
+    return sanitizeSentryEvent(event as unknown as Record<string, unknown>, { hideLocalPaths: true }) as unknown as typeof event;
+  },
+  beforeBreadcrumb(breadcrumb) {
+    if (breadcrumb.message) breadcrumb.message = String(sanitizeSentryEvent({ message: breadcrumb.message } as Record<string, unknown>).message ?? "");
+    delete breadcrumb.data;
+    return breadcrumb;
+  },
   dataCollection: {
     userInfo: false,
     cookies: false,

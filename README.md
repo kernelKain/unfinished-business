@@ -8,10 +8,11 @@ Unfinished Business is an OpenCode-powered hackathon project builder. Four frien
 
 ## What it is
 
-- A **landing page** at `/` that explains the product, the four roles, OpenCode's role, and the two honest usage paths.
+- A **landing page** at `/` that explains the product, the four roles, OpenCode's role, and the three honest usage paths.
 - A **guided deterministic example** at `/demo`: a versioned Campus Umbrella Relay fixture with Play/Pause, step, replay, reset, four inspectable spirit tabs, a representative diff and check, Witness findings, and an optional 90-second presentation mode at `/demo?presentation=1`. It does not call a model or read a repository.
 - The **real workshop** at `/workshop`, which connects to a local OpenCode server and records what actually happened.
 - A **first-run connection and discovery flow** that checks a supported OpenCode server, lists the models/providers/agents it actually reports, and lets the builder choose a model and reported reasoning variant. Provider API keys stay inside OpenCode.
+- A **read-only hosted demo** and a **private hosted** mode. Neither reaches into a visitor's local repository.
 
 OpenCode supplies the agent loop, model access, native tools, permissions, execution, interruption, and native sessions. Unfinished Business adds the four-stage workshop, exact-version approvals, dependency invalidation, evidence views, the onboarding/discovery flow, and the Ghostlight interface. It does **not** ship a second coding harness or a general command executor.
 
@@ -22,17 +23,17 @@ OpenCode supplies the agent loop, model access, native tools, permissions, execu
 | Maker | Perform an approved, bounded native edit through OpenCode |
 | Witness | Inspect evidence in a fresh session and prepare honest review drafts |
 
-## Two ways to use it
+## Three honest usage paths
 
-**Hosted demo or private deployment** — a labeled deterministic sample, or a private, password-protected workshop using the server's own isolated demo workspace. It does not reach into a visitor's local repository, and it is not a public execution sandbox.
+**Hosted demo** — `UB_DEPLOYMENT_MODE=hosted-demo`. A public, deterministic sample. It has no OpenCode process, provider credentials, session token, visitor persistence, or repository access. Every non-GET `/api/*` request returns `403 DEMO_READ_ONLY`.
 
-**Full local mode** — the browser app, local API, and pinned OpenCode server on your machine over loopback. Maker's edit in this release is bounded to an isolated demo workspace. App approval never overrides an OpenCode permission denial.
+**Private hosted** — `UB_DEPLOYMENT_MODE=private-hosted`. A password-protected Render or self-hosted instance with a private disk and a loopback OpenCode child. Maker edits the server's isolated demo workspace. A hosted browser cannot edit a visitor's machine.
 
-`UB_DEPLOYMENT_MODE` selects `local`, `hosted-private`, or `hosted-demo`. Local mode can edit the connection and enter the server password in memory. Hosted-private manages the URL/credentials in the environment and keeps browser configuration read-only. Hosted-demo serves the guided fixture, issues no session token, connects to no OpenCode server, and rejects every non-GET `/api/*` request with `DEMO_READ_ONLY`.
+**Full local mode** — `UB_DEPLOYMENT_MODE=local` (default). The browser app, local API, and pinned OpenCode server run on the builder's machine over loopback. Maker's edit in this release is bounded to an isolated demo workspace; arbitrary repository mounts are not implemented.
 
 The landing page exposes three distinct actions: **Try the example** (`/demo`), **Watch the guided workflow** (`/demo?presentation=1`), and **Run live with OpenCode** (`/workshop`). The example is always labeled as a prerecorded fixture; the live native session remains `NOT_RUN`.
 
-Models are discovered from OpenCode rather than assumed. The free DeepSeek route, `opencode/deepseek-v4.1-flash-free`, was the intended development route and is still listed by the tested server, but its availability is time-limited and must be verified on your own account. No paid fallback is configured.
+Models are discovered from OpenCode rather than assumed. The free DeepSeek route, `opencode/deepseek-v4.1-flash-free`, was the intended development route and is still listed by the tested server, but its availability is time-limited and must be verified on your own account. Paid or unpriced remote models are discovered but cannot be selected; no paid fallback is configured.
 
 ## Quick start
 
@@ -70,9 +71,11 @@ npm run build
 npm start
 ```
 
-Then open `http://127.0.0.1:4200/`. The detailed, tested guide is [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md).
+Then open `http://127.0.0.1:4200/`. The detailed, tested guide is [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md). All state and mutation API routes require the browser session token; the browser client obtains it from `/api/session` automatically.
 
 ## Verification
+
+Run the release matrix:
 
 ```bash
 npm run typecheck
@@ -82,41 +85,59 @@ npm run budget
 npm run test:visual
 ```
 
-Current results (2026-10-31):
+Current results (2026-10-31, Node 22.22.1, no live provider inference):
 
-- 73 unit/integration/component tests pass.
-- 18 Playwright visual/accessibility tests pass with committed snapshots, including the guided demo wide/narrow/presentation captures.
-- Initial JS is **193.1 KiB gzip**; all JS **262.9 KiB**; CSS **14.2 KiB gzip**; all hero variants **570.9 KiB** total.
+- **111 unit/integration/component tests pass**.
+- **18 Playwright visual/accessibility tests pass** with committed snapshots, including guided demo wide/narrow/presentation captures.
+- Initial JS is **193.8 KiB gzip**; all JS **263.6 KiB**; CSS **14.2 KiB gzip**; all hero variants **570.9 KiB** total.
 - Keyboard focus order, dialog Escape, setup tab arrow keys, 200% text zoom, 390px overflow, reduced motion, and token contrast are checked.
 - Demo playback, reset isolation, fixture/schema drift, 90-second timing, tab inspection, no-network behavior, and hosted-demo mutation rejection are covered.
-- Connection/discovery, model/variant validation, secret redaction, migration, asynchronous runs, sessions, and permissions are covered by the server test suite.
+- State migration covers schema v1 plus both supported v2 shapes.
+- Local and hosted-demo smoke journeys pass; the hosted demo makes no inference call and rejects mutation.
+- OpenCode 2.0.32 live compatibility probe passed (version, catalog, and disposable session create/read/remove; no prompt or model call).
+- Production dependency audit at `--audit-level=high` passes. `npm audit` still reports six moderate `glob`/`minimatch` advisories reachable through the Sentry bundler plugin during developer builds; the suggested fix is a breaking Sentry downgrade and was not applied.
 
 `npm run test:visual` needs a Chromium executable. It prefers `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, then system Chrome/Chromium, then Playwright's browser.
 
-## Status
+## Status and limitations
 
-The guided workflow, native execution path, recovery, and evidence ledger are implemented. Phase 4 adds the Ghostlight landing page, visual system, characters, motion, deterministic demo, and visual/accessibility tests. The merged OpenCode onboarding/discovery work adds first-run connection setup, model selection, session controls, and deployment-mode policy. Phase 7 adds the versioned guided example, deterministic playback, 90-second presentation path, hosted-demo mutation rejection, reset isolation, and the shared fixture contract. A live free-model run was not repeated during this interface work; the previous native execution evidence remains the workflow record.
+Phases 0–8 are integrated: foundation, staged workflow, guided experience, OpenCode onboarding/discovery, Ghostlight interface, hosted modes, deterministic demo, and security/persistence hardening. Phase 9 is the release-verification gate and does not add a new product feature.
 
-A real recorded demo, final article/video, and submission packaging remain separate acceptance work. A public hosted URL is not asserted here. Hosted and private deployment configuration is in [docs/HOSTED_DEPLOYMENT.md](docs/HOSTED_DEPLOYMENT.md).
+Known limitations:
+
+- The application is a trusted single-project tool, not a multi-tenant sandbox. Shared-host isolation, remote repository connectors, and a remote browser-to-local pairing flow are deferred.
+- Maker edits only `UB_DATA_DIR/demo-workspace`; the Node check is not an OS sandbox.
+- The free-model route is time-limited and account-dependent. No paid inference fallback is configured.
+- Backboard is not integrated and no partner category is claimed for installation alone. Sentry is configured but live release/source-map/trace verification requires authorized credentials and a deployment.
+- No public hosted URL, recorded video, published article, or submission is asserted by this repository.
+- A real recorded demonstration and final submission packaging remain separate acceptance work.
 
 ## Documentation
 
-- [Product brief](docs/PRODUCT_BRIEF.md) — positioning, landing claims, two usage paths.
-- [OpenCode integration contract](docs/OPENCODE_INTEGRATION.md) — tested version/API surface, discovery, credentials ownership, roles, sessions, limitations.
-- [UX and visual system](docs/UX_AND_VISUAL_SYSTEM.md) — theme, tokens, components, character states, onboarding states, motion, accessibility, asset prompt/provenance, performance budget.
+Canonical:
+
+- [Product brief](docs/PRODUCT_BRIEF.md) — positioning, landing claims, three usage paths.
+- [Architecture](docs/ARCHITECTURE.md) — routes, trust boundaries, persistence, modes, security.
+- [Implementation plan](docs/IMPLEMENTATION_PLAN.md) — phase history and release gate.
+- [OpenCode integration](docs/OPENCODE_INTEGRATION.md) — tested version/API surface, discovery, credentials ownership, sessions, limits.
 - [Local setup](docs/LOCAL_SETUP.md) — tested commands and troubleshooting.
-- [Hosted deployment](docs/HOSTED_DEPLOYMENT.md) — Render/private instance, secrets, security boundary.
-- [Demo and submission](docs/DEMO_AND_SUBMISSION.md) — scenario, fixture provenance, playback/reset, exact claims, screenshots, video beats, live-versus-simulated disclosure.
-- [Operations and recovery](docs/OPERATIONS_AND_RECOVERY.md) — demo reset isolation, live project recovery, unknown runs, presentation operations.
-- [Architecture](docs/ARCHITECTURE.md) — routes, fixture boundaries, schema reuse, hosted-demo enforcement, evidence flow.
-- [Decisions](docs/DECISIONS.md) — Phase 4 and Phase 7 design decisions and alternatives.
-- [Implementation plan](docs/IMPLEMENTATION_PLAN.md) — phase history, Phase 7 work units, verification gate.
-- [Changelog](docs/CHANGELOG.md) — Phase 7 and Phase 4 changes.
-- [Engineering blueprint](docs/ENGINEERING_BLUEPRINT.md) — canonical implementation plan and amendments.
-- [Product idea packet](docs/Unfinished-Business-Idea-Packet-v1.md) — approved product scope and decisions.
-- [Sentry and OpenCode setup](docs/SENTRY_AND_OPENCODE_SETUP.md) — release/source-map and password matching.
-- [Render deployment](docs/RENDER_DEPLOYMENT.md) — original deployment notes.
-- [Complete local prompt set](docs/prompts/README.md) — Prompts 0–3 and project overrides.
+- [Hosted deployment](docs/HOSTED_DEPLOYMENT.md) — Render/private instance, demo policy, secrets, review procedure.
+- [Tool catalog](docs/TOOL_CATALOG.md) — selected tools, honest availability, recommendation policy.
+- [UX and visual system](docs/UX_AND_VISUAL_SYSTEM.md) — theme, tokens, components, character states, motion, accessibility, performance budget.
+- [Operations and recovery](docs/OPERATIONS_AND_RECOVERY.md) — data layout, backups, migrations, retention, failure matrix.
+- [Demo and submission](docs/DEMO_AND_SUBMISSION.md) — scenario, fixture provenance, playback/reset, exact claims, video beats, disclosure.
+- [Decisions](docs/DECISIONS.md) — product, interface, demo, and hardening decisions.
+- [Changelog](docs/CHANGELOG.md) — released changes.
+- [Evidence index](docs/EVIDENCE.md) — requirements-to-evidence matrix, commands, limitations.
+- [Release notes](docs/RELEASE_NOTES.md) — concise release handoff.
+
+History and provenance:
+
+- [Engineering blueprint](docs/history/ENGINEERING_BLUEPRINT.md) — superseded planning record.
+- [Product idea packet](docs/history/Unfinished-Business-Idea-Packet-v1.md) — approved discovery record.
+- [Render deployment notes](docs/history/RENDER_DEPLOYMENT.md) — superseded by the hosted deployment guide.
+- [Sentry and OpenCode setup](docs/history/SENTRY_AND_OPENCODE_SETUP.md) — superseded by integration/deployment guides.
+- [Complete local prompt set](docs/prompts/README.md) — runtime Prompts 0–3 and project overrides.
 
 ## Development policy
 
@@ -130,7 +151,7 @@ A real recorded demo, final article/video, and submission packaging remain separ
 
 ## Delivery
 
-The first release targets a local browser on Linux. A real recorded demonstration and a reproducible local-start guide provide judge access; hosted code execution is outside this release. Backboard, Sentry Agent Tracing, and Entire remain selected partner targets, with qualification conditional on meaningful actual use and evidence.
+The first release targets a local browser on Linux. A real recorded demonstration and a reproducible local-start guide provide judge access; hosted code execution is outside this release. Backboard, Sentry Agent Tracing, and Entire remain selected partner targets, with qualification conditional on meaningful actual use and evidence. Publication, deployment, domain registration, credit claiming, and submission remain pending separate authorization.
 
 ## License
 

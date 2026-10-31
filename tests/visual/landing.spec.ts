@@ -18,8 +18,8 @@ test.describe("landing", () => {
     await expect(page.getByRole("button", { name: "Connect OpenCode" }).first()).toBeVisible();
     await expect(page.getByText("The example is a deterministic fixture, not live inference.")).toBeVisible();
     await expect(page.getByText("No second coding harness, no copied transcript database.")).toBeVisible();
-    await expect(page.getByText("A hosted instance can show the deterministic walkthrough")).toBeVisible();
-    await expect(page.getByText("never a visitor's local repository")).toBeVisible();
+    await expect(page.getByText("The public demo runs the deterministic walkthrough")).toBeVisible();
+    await expect(page.getByText("never uses a visitor's repository and rejects every mutation")).toBeVisible();
 
     const body = await page.locator("body").innerText();
     expect(body).not.toMatch(/trusted by|10,000|award-winning|guaranteed|used by \d/i);

@@ -80,7 +80,7 @@ const headers = { "content-type": "application/json", "x-ub-session-token": "tes
 
 test("a clean deployment reports not configured without inventing a connection", async () => {
   const { app } = await fixture();
-  const response = await app.request("/api/connection");
+  const response = await app.request("/api/connection", { headers });
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.state, "not_configured");

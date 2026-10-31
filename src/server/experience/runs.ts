@@ -23,7 +23,10 @@ interface ActiveRun {
   cancelled: boolean;
 }
 
-function failureIsUncertain(message: string): boolean {
+function failureIsUncertain(message: string, error?: unknown): boolean {
+  const code = typeof (error as { code?: unknown })?.code === "string" ? (error as { code: string }).code : "";
+  if (["BUDGET_EXCEEDED", "NATIVE_TIMEOUT"].includes(code)) return true;
+  if (typeof (error as { nativeSessionId?: unknown })?.nativeSessionId === "string") return true;
   return /timed out|timeout|ECONN|fetch|network|socket|unavailable|interrupted/i.test(message);
 }
 
@@ -44,6 +47,7 @@ export class MakerRunCoordinator {
       workflow: WorkflowService;
       guide: SpiritGuide;
       demoWorkspace: string;
+      nodeCheckTimeoutMs?: number;
     },
   ) {}
 
@@ -73,11 +77,13 @@ export class MakerRunCoordinator {
   async markFailed(operationId: string, error: unknown, model: ModelRef, agent: string | null): Promise<void> {
     const message = error instanceof Error ? error.message : "The Maker run could not start.";
     await this.finish(operationId, {
-      status: failureIsUncertain(message) ? "UNKNOWN" : "FAILED",
+      status: failureIsUncertain(message, error) ? "UNKNOWN" : "FAILED",
       result: message,
       model,
       agent,
-      sessionId: null,
+      sessionId: typeof (error as { nativeSessionId?: unknown })?.nativeSessionId === "string"
+        ? (error as { nativeSessionId: string }).nativeSessionId
+        : null,
       diff: null,
       check: null,
     });
@@ -123,9 +129,55 @@ export class MakerRunCoordinator {
         },
       });
       active.sessionId = performed.sessionId;
-      const edited = !performed.diff.includes("without a file diff");
+
+      if (active.cancelled) {
+        await this.finish(input.operationId, {
+          status: "CANCELLED",
+          result: "Cancellation was recorded before the native run finished.",
+          model: input.model,
+          agent: input.agent,
+          sessionId: performed.sessionId,
+          diff: performed.diff,
+          check: null,
+          messageId: performed.messageId,
+        });
+        return;
+      }
+
+      if (performed.pendingPermission) {
+        await this.finish(input.operationId, {
+          status: "WAITING_PERMISSION",
+          result: "A native permission request is pending. Resolve it in OpenCode, then reconcile. The run was not repeated.",
+          model: input.model,
+          agent: input.agent,
+          sessionId: performed.sessionId,
+          diff: performed.diff,
+          check: null,
+          messageId: performed.messageId,
+        });
+        return;
+      }
+
+      const nativeFailed = performed.outcome === "failed" || performed.outcome === "interrupted";
+      const stillRunning = performed.timedOut || performed.outcome === "running" || performed.outcome === "unknown";
+      if (stillRunning) {
+        await this.finish(input.operationId, {
+          status: "UNKNOWN",
+          result: "The native Maker run did not become idle before the deadline. It was not repeated; reconcile before another run.",
+          model: input.model,
+          agent: input.agent,
+          sessionId: performed.sessionId,
+          diff: performed.diff,
+          check: null,
+          messageId: performed.messageId,
+        });
+        return;
+      }
+
+      const edited = !nativeFailed && !performed.diff.includes("without a file diff");
       const check = edited
-        ? await traceToolOperation("maker", input.projectId, input.model, "node.test", () => runApprovedNodeCheck(this.options.demoWorkspace))
+        ? await traceToolOperation("maker", input.projectId, input.model, "node.test", () =>
+          runApprovedNodeCheck(this.options.demoWorkspace, this.options.nodeCheckTimeoutMs ?? 30_000))
         : null;
       await this.finish(input.operationId, {
         status: edited ? "SUCCEEDED" : "FAILED",
@@ -139,16 +191,19 @@ export class MakerRunCoordinator {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "The native Maker run failed.";
+      const errorSessionId = typeof (error as { nativeSessionId?: unknown })?.nativeSessionId === "string"
+        ? (error as { nativeSessionId: string }).nativeSessionId
+        : null;
       await this.finish(input.operationId, {
-        status: active.cancelled ? "CANCELLED" : failureIsUncertain(message) ? "UNKNOWN" : "FAILED",
+        status: active.cancelled ? "CANCELLED" : failureIsUncertain(message, error) ? "UNKNOWN" : "FAILED",
         result: active.cancelled
           ? "Cancellation was recorded before the native run finished."
-          : failureIsUncertain(message)
+          : failureIsUncertain(message, error)
             ? `Disconnected or interrupted: ${message}. Reconcile the native session before another run.`
             : message,
         model: input.model,
         agent: input.agent,
-        sessionId: active.sessionId,
+        sessionId: errorSessionId ?? active.sessionId,
         diff: null,
         check: null,
       });
@@ -158,7 +213,7 @@ export class MakerRunCoordinator {
   private async finish(
     operationId: string,
     outcome: {
-      status: "SUCCEEDED" | "FAILED" | "CANCELLED" | "UNKNOWN";
+      status: "SUCCEEDED" | "FAILED" | "CANCELLED" | "UNKNOWN" | "WAITING_PERMISSION";
       result: string;
       model: ModelRef;
       agent: string | null;
@@ -184,11 +239,13 @@ export class MakerRunCoordinator {
       operation.agent = outcome.agent;
       operation.nativeSessionId = outcome.sessionId ?? operation.nativeSessionId;
       operation.nativeMessageId = outcome.messageId ?? operation.nativeMessageId;
-      operation.finishedAt = new Date().toISOString();
+      operation.finishedAt = outcome.status === "WAITING_PERMISSION" || outcome.status === "UNKNOWN"
+        ? null
+        : new Date().toISOString();
       const checkText = outcome.check
         ? `Node check exit ${outcome.check.code ?? "unavailable"}. ${outcome.check.output}`
         : "No native diff, so the Node check did not run.";
-      operation.result = `${outcome.result}\n\n${checkText}`;
+      operation.result = outcome.check ? `${outcome.result}\n\n${checkText}` : outcome.result;
       if (outcome.sessionId) rememberSession(next, "maker", outcome.sessionId);
       if (outcome.check) {
         next.evidence.push({

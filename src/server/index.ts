@@ -1,75 +1,134 @@
-import { randomBytes, randomUUID } from "node:crypto";
-import { access, mkdir, readFile } from "node:fs/promises";
-import { extname, resolve, sep } from "node:path";
+import { access, readFile, realpath } from "node:fs/promises";
+import { extname, join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
-import type { DeploymentMode } from "../shared/opencode.ts";
-import type { RuntimeMode } from "../shared/modes.ts";
-import { createApp } from "./app.ts";
+import { createApp, httpSecurityFromConfig } from "./app.ts";
+import { loadConfig, publicRuntimeConfig } from "./config.ts";
 import { OpenCodeSpiritGuide } from "./experience/guide.ts";
 import { ExperienceService } from "./experience/service.ts";
+import { createLogger } from "./observability/logger.ts";
 import { ConnectionService } from "./opencode/connection.ts";
 import { SessionActionsService } from "./opencode/sessions.ts";
-import { AtomicProjectStore } from "./store/atomic-project-store.ts";
-import { createProject, refreshNextAction } from "./workflow/model.ts";
+import { AtomicProjectStore, StateError } from "./store/atomic-project-store.ts";
+import { WorkspacePolicyError, assertWorkspaceContains, canonicalizeDirectoryRoot, resolveStaticFile } from "./security/workspace.ts";
+import { createProject } from "./workflow/model.ts";
 import { WorkflowService } from "./workflow/service.ts";
 
-const port = Number(process.env.PORT ?? process.env.UB_PORT ?? 4200);
-const hostname = process.env.UB_HOST
-  ?? (process.env.RENDER || process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
-const baseUrl = process.env.OPENCODE_BASE_URL ?? "http://127.0.0.1:4096";
-const dataDirectory = resolve(process.env.UB_DATA_DIR ?? ".unfinished-business");
-const demoWorkspace = resolve(dataDirectory, "demo-workspace");
-const safeDirectory = resolve(dataDirectory, "spirit-workspace");
-const deploymentMode: DeploymentMode = process.env.UB_DEPLOYMENT_MODE === "hosted-demo"
-  ? "hosted-demo"
-  : process.env.UB_DEPLOYMENT_MODE === "hosted-private"
-    ? "hosted-private"
-    : process.env.RENDER
-      ? "hosted-private"
-      : "local";
-const runtimeMode: RuntimeMode = deploymentMode === "hosted-demo"
-  ? "demo"
-  : deploymentMode === "hosted-private"
-    ? "private-hosted"
-    : "local";
-await mkdir(demoWorkspace, { recursive: true });
-await mkdir(safeDirectory, { recursive: true });
-
-const store = new AtomicProjectStore(resolve(dataDirectory, "project.json"));
-try {
-  await access(store.path);
-} catch {
-  await store.initialize(createProject(process.cwd()));
-}
-const sessionToken = process.env.UB_SESSION_TOKEN ?? randomBytes(32).toString("base64url");
-const accessPassword = process.env.UB_ACCESS_PASSWORD?.trim();
-if (process.env.NODE_ENV === "production" && runtimeMode !== "demo" && !accessPassword) {
-  throw new Error("UB_ACCESS_PASSWORD is required in production.");
-}
-const workflow = new WorkflowService(store);
-const connection = new ConnectionService({
-  dataDir: dataDirectory,
-  deploymentMode,
-  envBaseUrl: baseUrl,
-  envUsername: process.env.OPENCODE_USERNAME,
-  envPassword: process.env.OPENCODE_PASSWORD,
+const config = loadConfig();
+const log = createLogger({
+  redact: { hideLocalPaths: config.hideLocalPaths },
 });
-await connection.load();
-await markInterruptedRuns(workflow);
-const experience = new ExperienceService(workflow, store, new OpenCodeSpiritGuide(() => connection.clientOptions()), { safeDirectory, demoWorkspace, engine: connection });
-const sessions = new SessionActionsService(connection, () => workflow.get());
+
+const dataRoot = await canonicalizeDirectoryRoot(config.dataDirectory);
+const demoWorkspace = await canonicalizeDirectoryRoot(config.demoWorkspace, { allowedParent: dataRoot.real });
+const spiritWorkspace = await canonicalizeDirectoryRoot(config.spiritWorkspace, { allowedParent: dataRoot.real });
+await assertWorkspaceContains(dataRoot.real, demoWorkspace.real);
+await assertWorkspaceContains(dataRoot.real, spiritWorkspace.real);
+
+const store = new AtomicProjectStore(config.statePath, {
+  backups: config.retention.backups,
+  corruptFiles: config.retention.corruptFiles,
+  backupMaxAgeDays: config.retention.backupMaxAgeDays,
+});
+const workflow = new WorkflowService(store, { retention: config.retention });
+let storeReady = true;
+let startupRecovery: { recovered: number } | null = null;
+
+try {
+  const loaded = await store.load();
+  if (loaded.corruptPath) {
+    log.warn("state_recovered_from_backup", {
+      source: loaded.source,
+      quarantinePath: loaded.quarantinePath,
+      migrated: loaded.migrated,
+    });
+  }
+  if (loaded.migrated) {
+    log.info("state_migrated", { fromVersion: loaded.fromVersion });
+  }
+  const runtimeMetadata = await workflow.ensureRuntimeMetadata(config.mode, demoWorkspace.real);
+  if (runtimeMetadata.updated) log.info("runtime_metadata_updated", { mode: config.mode });
+  startupRecovery = await workflow.recoverAfterRestart();
+} catch (error) {
+  if (error instanceof StateError && error.code === "STATE_NOT_INITIALIZED") {
+    await store.initialize(createProject(demoWorkspace.real, config.mode, { demoWorkspace: true }));
+    log.info("state_initialized", { mode: config.mode });
+  } else {
+    storeReady = false;
+    log.error("state_unavailable", {
+      code: error instanceof StateError ? error.code : "STATE_CORRUPT",
+      message: error instanceof Error ? error.message : "Project state could not be loaded.",
+    });
+  }
+}
+if (startupRecovery?.recovered) {
+  log.warn("interrupted_operations_marked_unknown", { count: startupRecovery.recovered });
+}
+
+// The hosted demo is deterministic and read-only. It never constructs an
+// OpenCode connection, guide, session service, or provider credential path.
+const connection = config.mode === "hosted-demo"
+  ? null
+  : new ConnectionService({
+      dataDir: config.dataDirectory,
+      deploymentMode: config.mode === "private-hosted" ? "hosted-private" : "local",
+      envBaseUrl: config.opencode.baseUrl,
+      envUsername: config.opencode.username,
+      envPassword: config.opencode.password,
+      security: {
+        mode: config.mode,
+        allowInsecureRemote: config.opencode.allowInsecureRemote,
+        allowedHosts: config.opencode.allowedHosts,
+        allowedPorts: config.opencode.allowedPorts,
+        allowPrivateNetwork: config.opencode.allowPrivateNetwork,
+        requestTimeoutMs: config.opencode.requestTimeoutMs,
+        maxResponseBytes: config.opencode.maxResponseBytes,
+      },
+    });
+if (connection) await connection.load();
+
+const experience = connection
+  ? new ExperienceService(
+      workflow,
+      store,
+      new OpenCodeSpiritGuide(() => connection.clientOptions(), {
+        guideTimeoutMs: config.limits.guideTimeoutMs,
+        makerTimeoutMs: config.limits.makerTimeoutMs,
+        maxSessionTokens: config.limits.maxSessionTokens,
+        maxSessionCostUsd: config.limits.maxSessionCostUsd,
+      }),
+      {
+        safeDirectory: spiritWorkspace.real,
+        demoWorkspace: demoWorkspace.real,
+        budgets: {
+          guideTimeoutMs: config.limits.guideTimeoutMs,
+          makerTimeoutMs: config.limits.makerTimeoutMs,
+          nodeCheckTimeoutMs: config.limits.nodeCheckTimeoutMs,
+          maxSessionTokens: config.limits.maxSessionTokens,
+          maxSessionCostUsd: config.limits.maxSessionCostUsd,
+        },
+        redact: { hideLocalPaths: config.hideLocalPaths },
+        redactPrompts: config.redactPrompts,
+        mode: config.mode,
+        engine: connection,
+      },
+    )
+  : undefined;
+
+const sessions = connection
+  ? new SessionActionsService(connection, () => workflow.get())
+  : undefined;
 
 const app = createApp({
   service: workflow,
-  sessionToken,
+  sessionToken: config.sessionToken,
   experience,
-  connection,
+  connection: connection ?? undefined,
   sessions,
-  mode: runtimeMode,
-  access: runtimeMode !== "demo" && accessPassword ? {
-    username: process.env.UB_ACCESS_USERNAME?.trim() || "unfinished-business",
-    password: accessPassword,
-  } : undefined,
+  access: config.access ?? undefined,
+  security: httpSecurityFromConfig(config),
+  runtime: publicRuntimeConfig(config),
+  logger: log,
+  mode: config.mode === "hosted-demo" ? "demo" : config.mode === "private-hosted" ? "private-hosted" : "local",
 });
 
 const webRoot = resolve("dist/web");
@@ -80,62 +139,80 @@ const contentTypes: Record<string, string> = {
   ".svg": "image/svg+xml",
   ".json": "application/json",
   ".woff2": "font/woff2",
+  ".woff": "font/woff",
+  ".ttf": "font/ttf",
+  ".png": "image/png",
+  ".avif": "image/avif",
+  ".webp": "image/webp",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".ico": "image/x-icon",
+  ".txt": "text/plain; charset=utf-8",
 };
 
 try {
-  await access(resolve(webRoot, "index.html"));
+  await access(join(webRoot, "index.html"));
+  const realWebRoot = await realpath(webRoot);
   app.get("*", async (context) => {
     if (context.req.path.startsWith("/api")) return context.notFound();
-    const requested = context.req.path === "/" ? "index.html" : decodeURIComponent(context.req.path).replace(/^\/+/, "");
-    const file = resolve(webRoot, requested);
-    if (!file.startsWith(`${webRoot}${sep}`) && file !== resolve(webRoot, "index.html")) return context.notFound();
+    let requested: string;
     try {
-      const body = await readFile(file);
-      return context.body(body, 200, { "content-type": contentTypes[extname(file)] ?? "application/octet-stream" });
+      requested = decodeURIComponent(context.req.path);
     } catch {
-      const index = await readFile(resolve(webRoot, "index.html"));
-      return context.body(index, 200, { "content-type": "text/html; charset=utf-8" });
+      return context.json({ code: "INVALID_PATH", message: "The requested path is not valid.", retryable: false }, 400);
     }
+    if (requested.split("/").some((part) => part.startsWith("."))) return context.notFound();
+    let file: string | null = null;
+    try {
+      file = await resolveStaticFile(realWebRoot, requested);
+    } catch (error) {
+      if (error instanceof WorkspacePolicyError) return context.notFound();
+      throw error;
+    }
+    if (!file) {
+      // The workshop has client-side routes (/demo, /workshop). Only an HTML
+      // navigation may fall back to the shell; arbitrary paths stay 404.
+      if (!(context.req.header("accept") ?? "").includes("text/html")) {
+        return context.notFound();
+      }
+      file = join(realWebRoot, "index.html");
+    }
+    const body = await readFile(file);
+    const isHtml = extname(file) === ".html";
+    context.header("content-type", contentTypes[extname(file)] ?? "application/octet-stream");
+    context.header("cache-control", isHtml ? "no-cache" : "public, max-age=31536000, immutable");
+    return context.body(body);
   });
 } catch {
-  // API-only until the browser bundle has been built.
+  log.warn("web_bundle_missing", { message: "API-only until dist/web is built." });
 }
 
-export const server = serve({ fetch: app.fetch, hostname, port }, ({ address, port: boundPort }) => {
-  console.log(`Unfinished Business listening on http://${address}:${boundPort}`);
+export const server = serve({ fetch: app.fetch, hostname: config.hostname, port: config.port }, ({ address, port: boundPort }) => {
+  log.info("server_listening", {
+    mode: config.mode,
+    address,
+    port: boundPort,
+    stateReady: storeReady,
+    authRequired: Boolean(config.access),
+  });
 });
 server.on("error", (error: NodeJS.ErrnoException) => {
   if (error.code === "EADDRINUSE") {
-    console.error(`Port ${port} is already in use. Set PORT or UB_PORT to a free port.`);
+    log.error("port_in_use", { port: config.port });
     process.exitCode = 1;
     return;
   }
-  throw error;
+  log.error("server_error", { code: error.code ?? "UNKNOWN" });
+  process.exitCode = 1;
 });
 
-/**
- * A process restart cannot know whether an in-flight native session finished.
- * Preserve the operation as UNKNOWN for explicit reconciliation rather than
- * silently marking it failed, succeeded, or replaying the prompt.
- */
-async function markInterruptedRuns(workflowService: WorkflowService): Promise<void> {
-  const project = await workflowService.get();
-  const interrupted = project.operations.filter((operation) => operation.status === "QUEUED" || operation.status === "RUNNING");
-  if (interrupted.length === 0) return;
-  await workflowService.executeLatest("startup:interrupted-runs", { count: interrupted.length }, (current) => {
-    const next = structuredClone(current);
-    for (const operation of next.operations) {
-      if (operation.status !== "QUEUED" && operation.status !== "RUNNING") continue;
-      operation.status = "UNKNOWN";
-      operation.result = "The application restarted while this native run was in flight. Reconcile the OpenCode session before another attempt.";
-      operation.finishedAt = new Date().toISOString();
-    }
-    next.transcript.push({
-      id: randomUUID(),
-      spirit: "system",
-      text: "A process restart left a native run unknown. It was not repeated.",
-      createdAt: new Date().toISOString(),
-    });
-    return refreshNextAction(next);
-  });
+let shuttingDown = false;
+function shutdown(signal: NodeJS.Signals): void {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  log.info("server_stopping", { signal });
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 10_000).unref();
 }
+process.once("SIGTERM", () => shutdown("SIGTERM"));
+process.once("SIGINT", () => shutdown("SIGINT"));

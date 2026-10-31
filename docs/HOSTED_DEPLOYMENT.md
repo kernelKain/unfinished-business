@@ -1,139 +1,167 @@
 # Hosted and private deployment
 
-**Status:** Phase 7 adds the public hosted-demo behavior. `render.yaml` still defines the private hosted instance; no public URL is asserted by this document.
-**Last updated:** 2026-10-31.
+**Status:** Deployment procedure reviewable; no deployment or public URL authorized or asserted.
+**Owner:** Engineering/deployment.
+**Last verified:** 2026-10-31 by static Blueprint/config review and a local hosted-demo smoke run.
 
-## What a hosted instance is
+## Two hosted shapes
 
-A hosted instance serves the same build as local mode:
+| Shape | Mode | Public? | OpenCode | Persistence | Template |
+|---|---|---|---|---|---|
+| Deterministic demo | `hosted-demo` | Yes, read-only | None | No visitor state | `render.demo.yaml` |
+| Private workshop | `private-hosted` | Password-protected | Loopback child | Private persistent disk | `render.yaml` |
 
-- `/` — the landing page.
-- `/demo` — the deterministic walkthrough, clearly labeled as a scripted fixture.
-- `/workshop` — the real four-stage workshop.
-- `/api/*` — the validated local API.
+Both serve the same build:
 
-The instance is **private**: it requires HTTP basic authentication for everything except `/api/health`. The OpenCode server binds to loopback inside the same container. The workshop uses the server's isolated data directory, never a visitor's local repository.
+- `/` — landing page;
+- `/demo` — labeled deterministic walkthrough;
+- `/workshop` — real workshop (read-only notice in demo mode);
+- `/api/*` — validated API.
 
-A hosted instance is **not**:
+A hosted instance is **not** a public sandbox, a remote mount of a visitor's checkout, proof of free-model availability, or a substitute for the local real-execution demonstration.
 
-- a public sandbox for arbitrary code execution;
-- a remote mount of the visitor's checkout;
-- proof that a free model route is available;
-- a substitute for the real local workflow when demonstrating actual execution.
+## Hosted demo behavior
 
-## Public hosted demo
-
-`UB_DEPLOYMENT_MODE=hosted-demo` serves the public guided example without OpenCode, provider credentials, a repository, a session token, or user-specific persistence:
+`UB_DEPLOYMENT_MODE=hosted-demo` serves the public guided example without OpenCode, provider credentials, a repository, a session token, or visitor persistence:
 
 | Behavior | Hosted demo |
 |---|---|
-| Routes | `/`, `/demo`, `/workshop` are public; `/api/health` and `/api/mode` are public |
+| Routes | `/`, `/demo`, `/workshop` public; `/api/health` and `/api/mode` public |
 | API reads | `/api/project` and `/api/export` return the versioned fixture |
 | API writes | Every non-GET `/api/*` request returns `403 DEMO_READ_ONLY` before a body is parsed |
 | Session token | `/api/session` returns `403`; no token is issued |
-| OpenCode | `/api/opencode/*` returns `403`; no server is contacted |
-| Connection | `/api/connection` returns a read-only `hosted-demo` status with no engine address |
-| Repository | None. The fixture workspace is `demo://campus-umbrella-relay` |
-| Persistence | No visitor state is written; reloading returns the same sample |
+| OpenCode | `/api/opencode/*` is unavailable; no connection object is constructed |
+| Connection | `/api/connection` returns a read-only demo status with no engine address |
+| Repository | None. Fixture workspace is `demo://campus-umbrella-relay` |
+| Persistence | No visitor state is written; reload returns the same sample |
 | Inference | Zero model/provider calls |
-| Reset | The demo's Reset control changes only client playback state |
+| Reset | Changes only client playback state |
 
-The `/demo` page is fully usable without credentials. The `/workshop` route in this mode shows a read-only notice and clean exits to the guided example or local setup. The server rejection is independent of the UI, so bypassing the browser cannot reach a mutation.
+Do not set `UB_ACCESS_PASSWORD` or start `render-start.ts` for the demo. Use `npm start` with `UB_DEPLOYMENT_MODE=hosted-demo`; `render.demo.yaml` does that on a free service. The server rejection is independent of the UI.
 
-A public hosted demo should not set `UB_ACCESS_PASSWORD` or start `render-start.ts` (which starts OpenCode). Use `npm start` with `UB_DEPLOYMENT_MODE=hosted-demo`. The optional `render.demo.yaml` template does exactly that on a free service; the private hosted instance in `render.yaml` remains `hosted-private` and requires basic auth. Deploying either template is a separate, explicit action.
+### Local review of the demo
 
-## Render configuration
+```bash
+npm run build
+UB_DEPLOYMENT_MODE=hosted-demo \
+UB_HOST=127.0.0.1 \
+UB_PORT=4319 \
+UB_DATA_DIR=/tmp/opencode/ub-demo-smoke \
+node --import tsx src/server/start.ts
+```
 
-`render.yaml` defines:
+Then verify:
+
+```bash
+curl -s http://127.0.0.1:4319/api/health
+curl -s http://127.0.0.1:4319/api/project
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:4319/api/session          # 403
+curl -s -X POST -H 'content-type: application/json' \
+  -d '{"actionId":"demo","expectedRevision":0}' \
+  http://127.0.0.1:4319/api/runs                                                   # 403 DEMO_READ_ONLY
+```
+
+The Phase 9 smoke run passed these checks and confirmed `/demo` returns HTML.
+
+## Private hosted configuration
+
+`render.yaml` defines one paid Linux x64 Node web service:
 
 | Setting | Value/behavior |
 |---|---|
 | Runtime | Node 22.14 |
+| Plan | `0.5c-512mb`; persistent disk required |
 | Build | `npm ci && npm run typecheck && npm test && npm run build` |
 | Start | `npm run start:render` |
-| Health check | `/api/health` (public) |
-| Disk | 1 GB mounted at `/var/data` |
+| Health check | `/api/health` (public, minimal) |
+| Disk | 1 GB at `/var/data` |
 | Host binding | `UB_HOST=0.0.0.0` |
-| Deployment policy | `UB_DEPLOYMENT_MODE=hosted-private` |
+| Deployment mode | `UB_DEPLOYMENT_MODE=private-hosted` |
 | Data | `UB_DATA_DIR=/var/data/unfinished-business` |
 | Access | `UB_ACCESS_USERNAME` + generated `UB_ACCESS_PASSWORD` |
+| Session token | Generated `UB_SESSION_TOKEN` |
 | OpenCode | Generated `OPENCODE_PASSWORD`; loopback `http://127.0.0.1:4096` |
 | OpenCode storage | `/var/data/xdg-data`, `/var/data/xdg-config` |
-| Sentry | DSN, auth token, and environment supplied as secrets/sync-false values |
+| Origin policy | `RENDER_EXTERNAL_HOSTNAME` supplies the public HTTPS origin |
+| Sentry | DSNs and auth token supplied as sync-false secrets |
 
-`npm run start:render` starts the pinned OpenCode binary on loopback, starts the Hono server, and shuts both down together. If OpenCode exits unexpectedly, the app exits instead of pretending the engine is healthy.
+`npm run start:render` starts the pinned OpenCode baseline binary on loopback, then the Hono server. It forwards termination to both and exits if OpenCode exits unexpectedly. It does not require a build tool on the runtime disk; the binary is pinned in the lockfile.
 
-The hosted service is **not compatible with Render's free plan**; it needs a persistent disk and enough memory for the OpenCode runtime.
+The private service is **not compatible with Render's free plan** because it needs a persistent disk and enough memory for OpenCode.
 
-### Deployment modes
+## Environment variables
 
-| Mode | Connection editing | Credentials | Intended use |
-|---|---|---|---|
-| `local` | Browser can edit the URL and enter the server password in memory | `OPENCODE_PASSWORD` optional | Local development |
-| `hosted-private` | Browser configuration is read-only | URL/password managed by the environment/secret store | Password-protected private instance |
-| `hosted-demo` | Read-only | No provider-key prompt, no OpenCode, no session token, no visitor persistence | A public deterministic sample with the guided example |
-
-The dashboard does not expose the OpenCode server password or provider keys. Provider accounts belong in OpenCode's credential store. In `hosted-demo`, an unconnected provider is an honest empty catalog, not an error to fake.
-
-## Required secrets and values
-
-Set these in the Render dashboard or your deployment secret store. Never commit them.
+Canonical mode is `UB_DEPLOYMENT_MODE` (`local`, `private-hosted`, `hosted-demo`). `UB_MODE` remains a compatibility alias; the legacy `hosted-private` spelling maps to `private-hosted`.
 
 | Variable | Required | Notes |
 |---|---|---|
-| `UB_ACCESS_PASSWORD` | Yes in production | The server refuses to start without it when `NODE_ENV=production`. |
+| `UB_DEPLOYMENT_MODE` | Yes on Render | `private-hosted` for `render.yaml`; `hosted-demo` for `render.demo.yaml`. |
+| `UB_HOST` | Yes on Render | `0.0.0.0` behind the proxy. Local mode must stay loopback. |
+| `UB_PUBLIC_URL` | Private hosted | Explicit HTTPS origin. Render derives it from `RENDER_EXTERNAL_HOSTNAME`. |
+| `UB_ALLOWED_HOSTS` / `UB_ALLOWED_ORIGINS` | Optional | Additional comma-separated host/origin entries. The public URL host/origin is added automatically. |
+| `UB_TRUST_PROXY` | Hosted | Defaults to true in hosted modes; trust `X-Forwarded-*` only behind a controlled proxy. |
+| `UB_ACCESS_PASSWORD` | Private hosted | Basic Auth password; the server refuses to start without it. |
 | `UB_ACCESS_USERNAME` | Recommended | Defaults to `unfinished-business`. |
-| `UB_DEPLOYMENT_MODE` | Recommended | `local`, `hosted-private`, or `hosted-demo`; Render uses `hosted-private`. |
-| `OPENCODE_PASSWORD` | Yes on Render | `render-start.ts` requires it and passes it to OpenCode. |
-| `UB_SESSION_TOKEN` | Recommended | Generated by Render; protects mutations in addition to basic auth. |
-| `SENTRY_DSN` | Optional | Server telemetry. |
-| `VITE_SENTRY_DSN` | Optional | Browser telemetry. |
-| `SENTRY_AUTH_TOKEN` | Required when uploading source maps in a Render build | The Vite config fails the build if `RENDER` is set without it. |
-| `SENTRY_RELEASE` | Recommended with auth token | Must match the browser release. |
-| `OPENCODE_BASE_URL` | Default `http://127.0.0.1:4096` | Keep loopback. |
+| `UB_SESSION_TOKEN` | Private hosted | Required; generated by Render. |
+| `UB_DATA_DIR` | Yes | Dedicated persistent directory, e.g. `/var/data/unfinished-business`. |
+| `OPENCODE_BASE_URL` | Yes | Keep `http://127.0.0.1:4096` for the private child. Remote targets require HTTPS + allowlist. |
+| `OPENCODE_PASSWORD` | Private hosted | Required by `render-start.ts`; passed to OpenCode as both `OPENCODE_PASSWORD` and `OPENCODE_SERVER_PASSWORD`. |
+| `OPENCODE_DATA_HOME` / `OPENCODE_CONFIG_HOME` | Private hosted | XDG paths on the persistent disk. |
+| `UB_OPENCODE_ALLOWED_HOSTS` | Remote only | Explicit HTTPS host allowlist. |
+| `UB_OPENCODE_ALLOWED_PORTS` | Optional | Comma-separated port allowlist. |
+| `UB_OPENCODE_ALLOW_PRIVATE_NETWORK` | Rare | Only when a private network target is intended. |
+| `SENTRY_DSN` / `VITE_SENTRY_DSN` | Optional | Public project identifiers, not auth tokens. |
+| `SENTRY_AUTH_TOKEN` | Source maps only | Build secret; never `VITE_`-prefixed or committed. |
+| `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_URL` | Source maps only | Sentry project/region configuration. |
 
-Render generates `UB_ACCESS_PASSWORD`, `UB_SESSION_TOKEN`, and `OPENCODE_PASSWORD` if `generateValue: true` remains in `render.yaml`.
+Do not set `SENTRY_RELEASE` manually on Render; both server and browser derive `unfinished-business@<RENDER_GIT_COMMIT>`.
 
-## Deployment checklist
+## Reviewable deployment procedure
 
-1. Connect the repository and create the service from `render.yaml`.
-2. Confirm the persistent disk is mounted at `/var/data` and is not the build directory.
-3. Set the Sentry secrets if monitoring is enabled; otherwise ensure the build does not have a partial Sentry auth configuration.
-4. Deploy and wait for `/api/health` to return `{"status":"ok"}`.
-5. Open the service URL and confirm the browser asks for the access credentials.
-6. Confirm the landing page and `/demo` load before authenticating? They do **not**; only `/api/health` is public. Authenticate first.
-7. Open `/workshop`, confirm the engine badge, and verify that no paid model is configured.
-8. Confirm `/api/session` is usable only after basic authentication, and that mutations still require the session token.
-9. Check logs for OpenCode startup failure, missing password, or a missing disk.
-10. Do not label the deployment as a public demo or a remote repository reader.
+No step below was executed in Phase 9. Deployment is a separate authorized action.
+
+1. Push the release commit to the intended repository. Do not push from this worktree without authorization.
+2. In Render, create a Blueprint from `render.yaml` (private) or `render.demo.yaml` (public demo).
+3. Review the service plan, region, disk mount, health check, and generated secrets before applying.
+4. For the private service, supply the Sentry DSNs and optional auth token. Confirm the build fails rather than deploys without source maps when `SENTRY_AUTH_TOKEN` is present and required.
+5. Apply. Confirm the disk is mounted at `/var/data` and is not the build directory.
+6. Wait for `/api/health` to return `{"status":"ok","service":"unfinished-business"}`.
+7. For the private service, open the URL and sign in with `unfinished-business` and the generated `UB_ACCESS_PASSWORD`. Confirm HTTPS and the host/origin policy.
+8. For the demo, confirm `/api/session` is 403, `/api/project` returns the fixture, a mutation is `403 DEMO_READ_ONLY`, and `/api/engine` reports no OpenCode connection.
+9. For the private service, open `/workshop`, run a connection check, and confirm the engine status. Do not claim a model call succeeded until the provider actually returns one.
+10. Confirm logs contain correlation IDs but no passwords, prompts, bodies, provider keys, or local paths.
+11. Verify Sentry release/source-map association only when authorized credentials and a deployment exist. Check the event release matches the uploaded maps and deploy.
+12. Keep the public URL, deployment result, and any partner/competition claim out of documentation until separately verified.
 
 ## Security boundary
 
-- `UB_ACCESS_PASSWORD` is required in production; basic auth covers all routes except health.
-- `hosted-private` and `hosted-demo` reject browser connection edits; the URL/password must come from the environment.
-- `hosted-demo` rejects every non-GET `/api/*` request and does not issue a session token.
-- Mutating API routes require the browser-session token and an expected project revision.
-- The OpenCode server binds to `127.0.0.1`, not the public interface.
-- Discovery drops provider settings, headers, bodies, skill contents, and prompt text before the browser sees it.
-- Static serving is limited to `dist/web`; private state under `UB_DATA_DIR` is not served.
-- Model output is parsed as a proposal, not authority. It cannot approve a section or grant Maker scope.
+- Basic Auth covers every route except `/api/health` in private mode.
+- The hosted demo is public but read-only; it issues no session token.
+- Every protected API route in local/private modes requires the session token in addition to Basic Auth.
+- Mutations require `application/json`, an expected project revision, and a unique action ID.
+- Host/Origin/`Sec-Fetch-Site` checks, a request-size cap, per-client rate limit, and a non-blocking mutation gate apply.
+- The private OpenCode server binds to `127.0.0.1`; remote targets need explicit HTTPS allowlisting.
+- Static serving is contained to `dist/web`; private state is never served.
+- Provider credentials stay inside OpenCode.
+- Model output is a proposal, not authority; it cannot approve a section or grant Maker scope.
 - App approval cannot override a native OpenCode denial.
-- The hosted demo is fixture data; it does not call a model.
 
 ## Rollback and operations
 
-- Roll back by redeploying a previous commit or Render deploy; the persistent disk keeps project metadata across deploys.
-- If the disk is lost, the project state is lost. Do not silently recreate a corrupt current snapshot; the store preserves the previous valid snapshot and reports corruption.
-- If OpenCode exits, the process exits. Restart the service rather than serving a misleading healthy workshop.
+- Redeploy a previous commit or Render deploy. The persistent disk keeps project metadata across normal deploys.
+- If the disk is lost, project state is lost. Preserve `project.json.previous`, `backups/`, and corrupt files when diagnosing.
+- If OpenCode exits, the wrapper exits rather than serving a misleading healthy workshop. Restart the service.
 - Rotate `UB_ACCESS_PASSWORD`, `OPENCODE_PASSWORD`, and `UB_SESSION_TOKEN` together if credentials leak.
+- A public demo needs no backup; it stores no visitor state.
+- See [OPERATIONS_AND_RECOVERY.md](OPERATIONS_AND_RECOVERY.md) for the failure matrix and recovery procedure.
 
-## What the landing page may say
+## Approved and prohibited claims
 
 Approved:
 
 > A hosted instance can show the deterministic walkthrough or run a private, password-protected workshop on the server's own isolated demo workspace.
 
-> Password protection and a loopback OpenCode server are required for a hosted instance.
+> Password protection and a loopback OpenCode server are required for the private instance.
 
 > Hosted execution is not a public sandbox; the sample is labeled as a sample.
 
@@ -145,4 +173,4 @@ Not approved:
 
 > “Free model access is guaranteed.”
 
-> Any live URL, user count, award, or endorsement that has not been verified.
+> Any live URL, user count, award, sponsor endorsement, deployment result, or competition result that has not been verified.

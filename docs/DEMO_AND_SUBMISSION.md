@@ -1,7 +1,8 @@
 # Demo and submission guidance
 
-**Status:** Phase 7 deterministic guided demo implemented and locally verified. Independent acceptance, final video, article, and submission packaging remain separate work.
-**Last updated:** 2026-10-31.
+**Status:** Deterministic guided demo and release evidence complete. A real recorded video, published article, and submission remain pending explicit authorization.
+**Owner:** Demo/submission.
+**Last verified:** 2026-10-31 (18 visual/accessibility tests; 111 unit/integration tests).
 
 ## Two different demos
 
@@ -81,6 +82,13 @@ It cannot call `/api/*`, cannot change a live project snapshot, cannot start or 
 | “Reset is safe for live state” | Allowed with the exact scope: reset changes only the demo fixture. |
 
 Every simulated operation, evidence row, diff, and finding carries a visible `Demo data` chip or a fixture source label. The Run Inspector receives the same operation/evidence/capability shapes as the live workshop.
+
+## Phase 9 evidence boundary
+
+- The fixture, reset isolation, schema drift, 90-second timing, tab inspection, and no-network behavior are covered by `tests/demo.test.ts` and `tests/visual/demo.spec.ts`.
+- The hosted demo was smoke-tested locally: fixture project, no session token, `DEMO_READ_ONLY` mutation, no engine, and a rendered `/demo`.
+- The last real native inference recorded in this repository remains the Experience-phase umbrella-relay run, which produced a real Maker diff and a failing `node --test`; Witness recorded the failure. Phase 9 did not repeat live inference.
+- No video file, public hosted URL, published article, or submission receipt exists. Do not claim one.
 
 ## Exact claims
 

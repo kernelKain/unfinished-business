@@ -1,5 +1,9 @@
 import type { ModelRef } from "../workflow/model.ts";
-import { createNativeClient, type NativeClientOptions } from "../opencode/client.ts";
+import {
+  assertEngineReady,
+  createNativeClient,
+  type NativeClientOptions,
+} from "../opencode/client.ts";
 import {
   setOpenCodeResult,
   traceChatOperation,
@@ -12,10 +16,14 @@ export interface SpokenResult {
   messageId: string | null;
   text: string;
   cost: number;
+  tokens?: { input: number; output: number; reasoning: number; cache?: { read: number; write: number } };
 }
 
 export interface PerformedResult extends SpokenResult {
   diff: string;
+  outcome?: "succeeded" | "failed" | "interrupted" | "running" | "unknown";
+  pendingPermission?: boolean;
+  timedOut?: boolean;
 }
 
 export interface SessionContext {
@@ -32,8 +40,47 @@ export interface SpiritGuide {
   speak(input: SessionContext & { role: "oracle" | "architect" | "witness" }): Promise<SpokenResult>;
   perform(input: SessionContext & { role: "maker" }): Promise<PerformedResult>;
   inspect(sessionId: string, context: { conversationId: string; role: "oracle" | "architect" | "maker" | "witness" }): Promise<"running" | "succeeded" | "failed" | "unknown">;
-  interrupt(sessionId: string): Promise<boolean>;
+  interrupt?(sessionId: string): Promise<boolean>;
 }
+
+export interface GuideBudgets {
+  guideTimeoutMs: number;
+  makerTimeoutMs: number;
+  maxSessionTokens: number;
+  maxSessionCostUsd: number;
+}
+
+export type GuideOptions = NativeClientOptions & { budgets?: Partial<GuideBudgets> };
+
+export class NativeBudgetError extends Error {
+  readonly code = "BUDGET_EXCEEDED";
+  constructor(message: string) {
+    super(message);
+    this.name = "NativeBudgetError";
+  }
+}
+
+export class NativeTimeoutError extends Error {
+  readonly code = "NATIVE_TIMEOUT";
+  constructor(message: string) {
+    super(message);
+    this.name = "NativeTimeoutError";
+  }
+}
+
+export class NativeSessionError extends Error {
+  constructor(readonly code: "EMPTY_RESPONSE" | "MODEL_CHANGED" | "NATIVE_FAILED", message: string) {
+    super(message);
+    this.name = "NativeSessionError";
+  }
+}
+
+const defaultBudgets: GuideBudgets = {
+  guideTimeoutMs: 90_000,
+  makerTimeoutMs: 180_000,
+  maxSessionTokens: 200_000,
+  maxSessionCostUsd: 0,
+};
 
 const readOnlyPermissions = [
   { action: "edit", resource: "*", effect: "deny" as const },
@@ -47,34 +94,102 @@ const makerPermissions = [
   { action: "edit", resource: "*", effect: "allow" as const },
 ];
 
+function timed<T>(label: string, timeoutMs: number, work: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new NativeTimeoutError(`${label} did not finish within ${Math.round(timeoutMs / 1000)} seconds.`)), timeoutMs);
+    timer.unref?.();
+    work.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error) => { clearTimeout(timer); reject(error); },
+    );
+  });
+}
+
+function tokenTotal(tokens: SpokenResult["tokens"]): number {
+  if (!tokens) return 0;
+  return Math.max(0, tokens.input)
+    + Math.max(0, tokens.output)
+    + Math.max(0, tokens.reasoning)
+    + Math.max(0, tokens.cache?.read ?? 0)
+    + Math.max(0, tokens.cache?.write ?? 0);
+}
+
+function withSessionId(error: unknown, sessionId: string): unknown {
+  if (error && typeof error === "object") {
+    try {
+      Object.assign(error, { nativeSessionId: sessionId });
+    } catch {
+      // Some platform errors are frozen; the caller still records an unknown outcome.
+    }
+  }
+  return error;
+}
+
 function assertSelectedModel(
   selected: ModelRef,
   actual: { providerID: string; id: string; variant?: string } | undefined,
 ): void {
   if (!actual) return;
   if (actual.providerID !== selected.providerID || actual.id !== selected.id) {
-    throw new Error(`Native session left the selected model ${selected.providerID}/${selected.id}.`);
+    throw new NativeSessionError(
+      "MODEL_CHANGED",
+      `Native session left the selected model ${selected.providerID}/${selected.id}. No substitute model is allowed.`,
+    );
   }
-  // OpenCode reports "default" when no explicit variant was selected. A user
-  // variant must still be the one this application requested.
   if (selected.variant && actual.variant && actual.variant !== "default" && actual.variant !== selected.variant) {
-    throw new Error(`Native session left the selected variant "${selected.variant}".`);
+    throw new NativeSessionError("MODEL_CHANGED", `Native session left the selected variant "${selected.variant}".`);
   }
 }
 
 export class OpenCodeSpiritGuide implements SpiritGuide {
-  constructor(private readonly options: NativeClientOptions | (() => NativeClientOptions)) {}
+  private readonly budgets: GuideBudgets;
+  private readiness: { at: number; version: string } | null = null;
+
+  constructor(
+    private readonly options: NativeClientOptions | (() => NativeClientOptions),
+    budgets: Partial<GuideBudgets> = {},
+  ) {
+    this.budgets = { ...defaultBudgets, ...budgets };
+  }
 
   private client() {
     const options = typeof this.options === "function" ? this.options() : this.options;
     return createNativeClient(options);
   }
 
+  private optionsNow(): NativeClientOptions {
+    return typeof this.options === "function" ? this.options() : this.options;
+  }
+
+  private async ready(): Promise<void> {
+    if (this.readiness && Date.now() - this.readiness.at < 5_000) return;
+    const status = await assertEngineReady(this.optionsNow());
+    this.readiness = { at: Date.now(), version: status.serverVersion ?? "unknown" };
+  }
+
+  private assertBudget(
+    model: ModelRef,
+    info: {
+      model?: { providerID: string; id: string; variant?: string };
+      cost: number;
+      tokens?: SpokenResult["tokens"];
+    },
+  ): void {
+    assertSelectedModel(model, info.model);
+    if (info.cost > this.budgets.maxSessionCostUsd) {
+      throw new NativeBudgetError(`Native session reported cost above the configured budget (${this.budgets.maxSessionCostUsd}). No paid fallback is allowed.`);
+    }
+    const total = tokenTotal(info.tokens);
+    if (total > this.budgets.maxSessionTokens) {
+      throw new NativeBudgetError(`Native session used ${total} tokens, above the configured ${this.budgets.maxSessionTokens} token budget.`);
+    }
+  }
+
   private async openSession(
     role: "oracle" | "architect" | "maker" | "witness",
     input: SessionContext,
     permissions: Array<{ action: string; resource: string; effect: "allow" | "deny" | "ask" }>,
-  ) {
+  ): Promise<string> {
     if (input.sessionId) {
       input.onSession?.(input.sessionId);
       return input.sessionId;
@@ -98,79 +213,106 @@ export class OpenCodeSpiritGuide implements SpiritGuide {
   }
 
   async speak(input: SessionContext & { role: "oracle" | "architect" | "witness" }): Promise<SpokenResult> {
+    await this.ready();
     return traceChatOperation(input.role, input.conversationId, input.model, async (span) => {
       const sessionId = await this.openSession(input.role, input, readOnlyPermissions);
-      const generated = await this.client().session.generate({ sessionID: sessionId, prompt: input.prompt });
-      let text = generated.text?.trim() ?? "";
-      if (text.length < 80) {
-        await this.client().session.prompt({ sessionID: sessionId, text: input.prompt });
-        await Promise.race([
-          this.client().session.wait({ sessionID: sessionId }),
-          new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error("Native spirit timed out before it became idle.")), 90_000);
-          }),
-        ]);
-        const listed = await this.client().message.list({ sessionID: sessionId, type: "assistant" });
-        const messages = Array.isArray(listed) ? listed : listed.data;
-        text = messages.flatMap((message) => message.type === "assistant" ? message.content : [])
-          .flatMap((part) => part.type === "text" ? [part.text] : [])
-          .join("\n")
-          .trim();
+      try {
+        // One request, one possible side effect. A short reply is parsed or
+        // rejected; it is never silently re-prompted.
+        const generated = await timed("Native spirit", this.budgets.guideTimeoutMs,
+          this.client().session.generate({ sessionID: sessionId, prompt: input.prompt }));
+        const text = generated.text?.trim() ?? "";
+        if (!text) throw new NativeSessionError("EMPTY_RESPONSE", "Native session returned no assistant text.");
+        const info = await this.client().session.get({ sessionID: sessionId });
+        this.assertBudget(input.model, info);
+        setOpenCodeResult(span, { sessionId, cost: info.cost, model: input.model });
+        return { sessionId, messageId: null, text, cost: info.cost, tokens: info.tokens };
+      } catch (error) {
+        throw withSessionId(error, sessionId);
       }
-      const info = await this.client().session.get({ sessionID: sessionId });
-      assertSelectedModel(input.model, info.model);
-      if (!text) throw new Error("Native session returned no assistant text.");
-      setOpenCodeResult(span, { sessionId, cost: info.cost, model: input.model });
-      return { sessionId, messageId: null, text, cost: info.cost };
     });
   }
 
   async perform(input: SessionContext & { role: "maker" }): Promise<PerformedResult> {
+    await this.ready();
     return traceChatOperation("maker", input.conversationId, input.model, async (span) => {
       const sessionId = await this.openSession("maker", input, makerPermissions);
-      const prompted = await this.client().session.prompt({ sessionID: sessionId, text: input.prompt });
-      let timedOut = false;
-      await Promise.race([
-        this.client().session.wait({ sessionID: sessionId }),
-        new Promise<void>((resolve) => {
-          setTimeout(() => {
-            timedOut = true;
-            resolve();
-          }, 180_000);
-        }),
-      ]);
-      const info = await this.client().session.get({ sessionID: sessionId });
-      assertSelectedModel(input.model, info.model);
-      const diff = await traceToolOperation("maker", input.conversationId, input.model, "opencode.session.diff", async (toolSpan) => {
-        const result = await this.client().session.diff({ sessionID: sessionId });
-        setOpenCodeResult(toolSpan, { sessionId, model: input.model });
-        toolSpan.setAttribute("opencode.diff.file_count", result.length);
-        return result;
-      });
-      const summary = diff.length
-        ? diff.map((file) => `${file.status} ${file.file} (+${file.additions}/-${file.deletions})`).join("\n")
-        : timedOut
-          ? "Native Maker run timed out before it became idle, without a file diff."
-          : "Native session finished without a file diff.";
-      const messageId = typeof prompted.id === "string" ? prompted.id : null;
-      setOpenCodeResult(span, { sessionId, messageId, cost: info.cost, model: input.model });
-      return { sessionId, messageId, text: summary, diff: summary, cost: info.cost };
-    });
-  }
-
-  async inspect(sessionId: string, context: { conversationId: string; role: "oracle" | "architect" | "maker" | "witness" }): Promise<"running" | "succeeded" | "failed" | "unknown"> {
-    return traceToolOperation(context.role, context.conversationId, null, "opencode.session.inspect", async (span) => {
-      const info = await this.client().session.get({ sessionID: sessionId });
-      setOpenCodeResult(span, { sessionId, cost: info.cost, model: null });
-      if (info.outcome === "succeeded") return "succeeded";
-      if (info.outcome === "failed" || info.outcome === "interrupted") return "failed";
-      if (!info.time.idle) return "running";
-      return "unknown";
+      try {
+        const prompted = await this.client().session.prompt({ sessionID: sessionId, text: input.prompt });
+        let timedOut = false;
+        let timer: NodeJS.Timeout | undefined;
+        try {
+          await Promise.race([
+            this.client().session.wait({ sessionID: sessionId }),
+            new Promise<void>((resolve) => {
+              timer = setTimeout(() => {
+                timedOut = true;
+                resolve();
+              }, this.budgets.makerTimeoutMs);
+              timer.unref?.();
+            }),
+          ]);
+        } finally {
+          if (timer) clearTimeout(timer);
+        }
+        const info = await this.client().session.get({ sessionID: sessionId });
+        if (info.outcome === "succeeded" || info.outcome === "failed" || info.outcome === "interrupted") timedOut = false;
+        this.assertBudget(input.model, info);
+        const diff = await traceToolOperation("maker", input.conversationId, input.model, "opencode.session.diff", async (toolSpan) => {
+          const result = await this.client().session.diff({ sessionID: sessionId });
+          setOpenCodeResult(toolSpan, { sessionId, model: input.model });
+          toolSpan.setAttribute("opencode.diff.file_count", result.length);
+          return result;
+        });
+        const summary = diff.length
+          ? diff.map((file) => `${file.status} ${file.file} (+${file.additions}/-${file.deletions})`).join("\n")
+          : timedOut
+            ? "Native Maker run timed out before it became idle, without a file diff."
+            : "Native session finished without a file diff.";
+        const messageId = typeof prompted.id === "string" ? prompted.id : null;
+        let pendingPermission = false;
+        if (timedOut) {
+          try {
+            const requests = await this.client().permission.request.list({ location: { directory: input.workspace } });
+            pendingPermission = requests.data.some((request) => request.sessionID === sessionId);
+          } catch {
+            pendingPermission = false;
+          }
+        }
+        setOpenCodeResult(span, { sessionId, messageId, cost: info.cost, model: input.model });
+        return {
+          sessionId,
+          messageId,
+          text: summary,
+          diff: summary,
+          cost: info.cost,
+          tokens: info.tokens,
+          outcome: info.outcome ?? (timedOut ? "running" : "succeeded"),
+          pendingPermission,
+          timedOut,
+        };
+      } catch (error) {
+        throw withSessionId(error, sessionId);
+      }
     });
   }
 
   async interrupt(sessionId: string): Promise<boolean> {
     const result = await this.client().session.interrupt({ sessionID: sessionId });
     return Boolean(result.interrupted);
+  }
+
+  async inspect(sessionId: string, context: { conversationId: string; role: "oracle" | "architect" | "maker" | "witness" }): Promise<"running" | "succeeded" | "failed" | "unknown"> {
+    return traceToolOperation(context.role, context.conversationId, null, "opencode.session.inspect", async (span) => {
+      try {
+        const info = await this.client().session.get({ sessionID: sessionId });
+        setOpenCodeResult(span, { sessionId, cost: info.cost, model: null });
+        if (info.outcome === "succeeded") return "succeeded";
+        if (info.outcome === "failed" || info.outcome === "interrupted") return "failed";
+        return info.time.idle ? "unknown" : "running";
+      } catch {
+        return "unknown";
+      }
+    });
   }
 }

@@ -1,25 +1,27 @@
 # Local setup
 
-**Verified:** 2026-10-31 on Linux with Node 22.22.1, npm 9.2.0, and the pinned OpenCode 2.0.32 binary. This guide is the source for the landing page's setup tabs.
+**Status:** Verified local path.
+**Owner:** Engineering.
+**Last verified:** 2026-10-31 on Linux with Node 22.22.1, npm 9.2.0, and the pinned OpenCode 2.0.32 binary. This guide is the source for the landing page's setup tabs.
 
 ## What you get
 
-- The landing page at `http://127.0.0.1:5173/` (Vite).
-- The real workshop at `http://127.0.0.1:5173/workshop`.
-- The deterministic demo at `http://127.0.0.1:5173/demo`.
-- The API on `http://127.0.0.1:4200`.
+- Landing page at `http://127.0.0.1:5173/` (Vite).
+- Real workshop at `http://127.0.0.1:5173/workshop`.
+- Deterministic demo at `http://127.0.0.1:5173/demo`.
+- API on `http://127.0.0.1:4200`.
 - OpenCode on `http://127.0.0.1:4096`.
 
-The browser app does not receive the OpenCode password. The local API connects to OpenCode over loopback.
+The browser app does not receive provider credentials or the OpenCode password. The local API connects to OpenCode over loopback.
 
 ## Prerequisites
 
-- Linux (the first release target), Node **22.14+**, npm.
-- A supported OpenCode 2.x server. This repository pins `@opencode/cli-linux-x64-baseline@2.0.32`.
+- Linux (first release target), Node **22.14+**, npm.
+- A supported OpenCode 2.x server. The repository pins `@opencode/cli-linux-x64-baseline@2.0.32`.
 - A free-model route that answers on your OpenCode account. The intended route is `opencode/deepseek-v4.1-flash-free`; availability is time-limited and not guaranteed.
-- The repository checkout with `npm ci` completed.
+- A writable `UB_DATA_DIR` whose demo/spirit child directories stay inside that root. Do not point it at `/`, your home, the repository root, or a broad system directory.
 
-No paid inference fallback is configured. Do not add one silently.
+No paid inference fallback is configured.
 
 ## 1. Install
 
@@ -27,7 +29,7 @@ No paid inference fallback is configured. Do not add one silently.
 npm ci
 ```
 
-The lockfile pins React 19, Vite 8, Motion 14, the OpenCode 2.0.32 CLI, and the Sentry packages. `npm ci` is reproducible; do not substitute `npm install` when verifying a release.
+The lockfile pins React 19, Vite 8, Motion 14, Playwright, the OpenCode 2.0.32 CLI, and Sentry. `npm ci` is the reproducible install; use it when verifying a release.
 
 ## 2. Create a local environment file (optional)
 
@@ -35,24 +37,25 @@ The lockfile pins React 19, Vite 8, Motion 14, the OpenCode 2.0.32 CLI, and the 
 cp .env.example .env
 ```
 
-`.env` is optional for local work: the first-run connection panel can hold the OpenCode server password in memory. Use `.env` for non-interactive starts and repeatable settings. `.env` is gitignored. Set only what you need:
+`.env` is gitignored and optional for local work: the first-run connection panel can hold the OpenCode server password in memory. Set only what you need:
 
 ```dotenv
+UB_DEPLOYMENT_MODE=local
 OPENCODE_BASE_URL=http://127.0.0.1:4096
 OPENCODE_PASSWORD=
 UB_PORT=4200
 UB_HOST=127.0.0.1
 UB_DATA_DIR=.unfinished-business
-UB_DEPLOYMENT_MODE=local
 ```
 
-`UB_DEPLOYMENT_MODE` must be `local` for browser connection editing. `hosted-private` and `hosted-demo` make connection configuration read-only and are covered in `docs/HOSTED_DEPLOYMENT.md`.
+`UB_DEPLOYMENT_MODE` is canonical (`local`, `private-hosted`, or `hosted-demo`). The legacy `UB_MODE` alias is accepted, but new setups should use `UB_DEPLOYMENT_MODE`.
 
 - `OPENCODE_PASSWORD` must match the password printed by `opencode serve`, or the fixed `OPENCODE_SERVER_PASSWORD` you chose. Leave it blank only if your local server has no password.
-- `UB_SESSION_TOKEN` may be left blank; the server generates one for the local browser session.
-- `UB_DATA_DIR` is gitignored and stores project metadata plus the isolated demo and spirit workspaces.
+- `UB_SESSION_TOKEN` may be blank; the server generates one for the local browser session.
+- `UB_DATA_DIR` stores project metadata plus the isolated demo and spirit workspaces. It is gitignored.
+- Do not put provider API keys in `.env`. Provider accounts belong inside OpenCode.
 
-Sentry values are optional for local work. Do not put a Sentry auth token or any secret in a committed file.
+The security and budget variables in `.env.example` have safe defaults. Review them before changing timeouts, request limits, retention, or redaction.
 
 ## 3. Start OpenCode (terminal 1)
 
@@ -68,14 +71,9 @@ If you already have a supported global OpenCode installation, this is equivalent
 opencode serve --hostname 127.0.0.1 --port 4096
 ```
 
-Verified in this environment:
+OpenCode prints a generated server password. Copy it into `OPENCODE_PASSWORD` or enter it in the first-run wizard. Do not commit it.
 
-```text
-opencode v2.0.32
-serve --help: --hostname, --port, --cors, --service, --stdio
-```
-
-A full model call was not repeated during the Phase 4 interface work. Verify the free route on your own account before claiming a live run.
+A full model call was not repeated during the Phase 9 gate. The Phase 9 compatibility probe verified server version, catalog access, and disposable session create/read/remove without inference.
 
 ## 4. Start the API (terminal 2)
 
@@ -101,7 +99,16 @@ Expected:
 {"status":"ok","service":"unfinished-business"}
 ```
 
-`npm run dev` deliberately does **not** use Node's `--watch` mode, because the pinned Node version tries to watch a missing `.env` and exits. If you have created `.env` and want reloads, use:
+All other API reads require the browser session token. The browser obtains it from `/api/session` automatically. For manual curl checks:
+
+```bash
+TOKEN=$(curl -s http://127.0.0.1:4200/api/session | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).token')
+curl -H "x-ub-session-token: $TOKEN" http://127.0.0.1:4200/api/project
+```
+
+`/api/session` is loopback-only in local mode. Do not paste tokens into logs or screenshots.
+
+`npm run dev` deliberately does **not** use Node's `--watch` mode by default, because the pinned Node version tries to watch a missing `.env` and exits. If you have created `.env` and want reloads:
 
 ```bash
 npm run dev:watch
@@ -115,17 +122,17 @@ npm run dev:web
 
 Open `http://127.0.0.1:5173/`. Vite proxies `/api` to `http://127.0.0.1:4200` (or `UB_PORT`).
 
-The engine pill in the workshop header reflects `/api/connection`; it shows **OpenCode connected** only after the server answers, the major version is compatible, the catalog is readable, and no warning remains. `degraded`, `authentication_required`, `incompatible_version`, `unavailable`, and `not_configured` each carry a diagnostic and a repair action.
+The engine pill reflects `/api/connection`; it shows **OpenCode connected** only after the server answers, the major version is compatible, the catalog is readable, and no warning remains. `degraded`, `authentication_required`, `incompatible_version`, `unavailable`, and `not_configured` each carry a diagnostic and a repair action.
 
-If OpenCode is reachable but no model is selected, `/workshop` opens the first-run connection/model panel. If OpenCode is unavailable, the workshop stays visible with the error and an **Open setup** action; it never invents a connection or a model.
+If OpenCode is reachable but no model is selected, `/workshop` opens the first-run connection/model panel. If OpenCode is unavailable, the workshop stays visible with the error and an **Open setup** action; it never invents a connection or model.
 
 ### First-run model selection
 
 1. Start OpenCode and note the server password.
 2. Enter the URL (`http://127.0.0.1:4096`) and password in the wizard. The password is held in memory; it is not written to project JSON, browser storage, logs, or Sentry.
 3. Provider accounts are connected inside OpenCode with `/connect`; the app never asks for provider API keys.
-4. The wizard lists only models that OpenCode reports as available, including free/paid/unknown pricing, context/output limits, modalities, tools, and reported variants.
-5. Choose a model and, only if reported, a variant. The selection is stored per project and recorded in Maker operation/evidence records.
+4. The wizard lists only models OpenCode reports as available, including free/paid/unknown pricing, limits, modalities, tools, and reported variants.
+5. Choose a free or local model and, only if reported, a variant. Paid/unpriced remote models cannot be selected.
 6. If the catalog later changes, the app blocks a Maker run until a currently reported model is selected.
 
 ## 6. Build and serve one process
@@ -137,13 +144,15 @@ npm start
 
 Then open `http://127.0.0.1:4200/`. The built app and API share the same server. `npm start` does not start OpenCode; keep the OpenCode server running separately.
 
-## What "local mode" does and does not touch
+## What local mode does and does not touch
 
-- Maker's bounded edit targets the isolated demo workspace under `UB_DATA_DIR`, not your repository checkout.
-- Project metadata and evidence references live under `UB_DATA_DIR`.
+- Maker's bounded edit targets `UB_DATA_DIR/demo-workspace`, not your repository checkout.
+- Project metadata, backups, and evidence references live under `UB_DATA_DIR`.
 - Native transcripts and sessions stay in OpenCode.
 - The browser has no filesystem or shell endpoint.
 - App approvals constrain the workflow; they cannot override an OpenCode tool denial.
+- The Node check is a bounded child process, not an OS sandbox.
+- Arbitrary repository mounting, multi-user isolation, and remote browser-to-local pairing are not implemented.
 
 ## Troubleshooting
 
@@ -154,7 +163,7 @@ Stop the previous process or set `UB_PORT` to a free port. Vite reads `UB_PORT` 
 ### The engine badge says unreachable
 
 1. Confirm OpenCode is listening: `curl http://127.0.0.1:4096/`.
-2. Check the normalized state and diagnostic: `curl http://127.0.0.1:4200/api/connection`.
+2. Check `/api/connection` with the session token.
 3. Confirm `OPENCODE_BASE_URL` matches.
 4. Confirm `OPENCODE_PASSWORD` matches the server. The wizard uses Basic auth with OpenCode's fixed `opencode` username.
 5. Restart the API after changing `.env`.
@@ -165,11 +174,11 @@ OpenCode rejected the application connection. Enter the OpenCode server password
 
 ### No models are reported
 
-Connect a provider inside OpenCode with `/connect`, choose a model there with `/models`, then re-check the connection. A hosted demo may legitimately show no models. The app does not fabricate a catalog or assume a fixed model.
+Connect a provider inside OpenCode with `/connect`, choose a model with `/models`, then re-check the connection. The app does not fabricate a catalog. The hosted demo is a different mode and has no engine at all.
 
 ### The selected model disappeared
 
-The app blocks a Maker run until a currently reported model is selected. Reopen the OpenCode panel, choose an available model, and save it. An in-flight run keeps its own recorded model.
+The app blocks a Maker run until a currently reported model is selected. Reopen the OpenCode panel, choose an available free/local model, and save it. An in-flight run keeps its own recorded model.
 
 ### The free model is unavailable
 
@@ -177,11 +186,19 @@ The route is time-limited and account-dependent. The app will not silently switc
 
 ### `npm run dev` exits immediately
 
-This repository's pinned Node needs the non-watch script without `.env`. Use `npm run dev`. If you need watch mode, create `.env` first and use `npm run dev:watch`.
+Use the non-watch script. If you need watch mode, create `.env` first and use `npm run dev:watch`.
 
-### Vite serves the page but API calls fail
+### A manual API request returns 403 `INVALID_SESSION`
 
-Confirm the API is running on 4200 (or the `UB_PORT` you set) and that Vite was started after the env value was available.
+API reads and writes need `x-ub-session-token`. Obtain it from `/api/session` on loopback. Do not disable the token check.
+
+### A state route returns `STATE_CORRUPT` or `STATE_BUSY`
+
+Do not delete `UB_DATA_DIR`. Inspect `project.json`, `.previous`, and `backups/`; use the previous snapshot or restore a backup after stopping the app. See [OPERATIONS_AND_RECOVERY.md](OPERATIONS_AND_RECOVERY.md).
+
+### A local or path error mentions a broad root
+
+Choose a dedicated child directory under a writable parent, not `/`, your home, `/tmp`, the repository root, or `/var/data` itself.
 
 ## Verification commands
 
@@ -190,12 +207,8 @@ npm run typecheck
 npm test
 npm run build
 npm run budget
-```
-
-The interface's full visual and accessibility check is:
-
-```bash
 npm run test:visual
+npm audit --omit=dev --audit-level=high
 ```
 
-It needs a Chromium executable. The config prefers `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, then system Chrome/Chromium, then Playwright's installed browser.
+The interface's full visual and accessibility check is `npm run test:visual`. It needs a Chromium executable. The config prefers `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, then system Chrome/Chromium, then Playwright's installed browser.

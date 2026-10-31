@@ -1,80 +1,107 @@
 # Implementation plan and phase record
 
-**Last updated:** 2026-10-31.
-**Current boundary:** Phase 7 complete and locally verified. Phase 8 has not started.
+**Status:** Phase 9 release-verification gate complete; publication/submission pending explicit authorization.
+**Owner:** Engineering.
+**Last verified:** 2026-10-31.
 
 ## Phase history
 
 | Phase | Outcome | State |
 |---|---|---|
-| Foundation | Node/Hono/React/Vite shell, atomic project store, shared contracts | Complete |
-| Staged workflow | Oracle, Architect, Maker, Witness transitions; exact-version approvals; dependency invalidation | Complete |
-| Guided experience | Real native edit path, recovery, Run Inspector data, evidence references | Complete |
-| OpenCode onboarding/discovery | First-run connection wizard, model/provider/agent discovery, model selection, sessions, permissions, usage, deployment modes | Complete and verified |
+| Foundation | Node/Hono/React/Vite shell, atomic project store, shared contracts, pinned OpenCode client | Complete and committed |
+| Staged workflow | Oracle, Architect, Maker, Witness transitions; exact-version approvals; dependency invalidation; idempotency; recovery | Complete and committed |
+| Guided experience | Native edit path, fresh Witness review, recovery, Run Inspector data, evidence references | Complete and committed |
+| OpenCode onboarding/discovery | First-run connection wizard, model/provider/agent discovery, model selection, sessions, permissions, usage | Complete and verified |
 | Ghostlight interface | Landing page, visual system, motion, spirit characters, deterministic demo, visual/accessibility tests | Complete and verified |
 | Hosted runtime modes | Hosted-demo/private-hosted distinction, read-only connection policy, deployment documentation | Complete and verified for the demo policy |
-| Phase 7 — Guided demo | Versioned fixture, guided playback, 90-second presentation, hosted-demo mutation rejection, reset isolation, docs/tests | Complete and locally verified |
+| Phase 7 — Guided demo | Versioned fixture, guided playback, 90-second presentation, mutation rejection, reset isolation | Complete and verified |
+| Phase 8 — Hardening | Modes, workspace/network policy, HTTP security, atomic schema v2, migration, retention, redaction, budgets, failure matrix | Complete and verified before Phase 9 |
+| Phase 9 — Release gate | Reconciled both lines, canonical docs, migration fixtures, full matrix, local/demo/OpenCode evidence, evidence index | Complete; final phase commit recorded by `git log -1` |
 
-## Phase 7 objective
+The guided-interface line (`origin/main` at `b2d2654`) and the hardening line (`origin/phase-8-hardening` at `8c50439`) both descended from `2205774`. Phase 9 integrates them rather than choosing one and losing the other. The release candidate therefore keeps the landing page, onboarding, deterministic demo, security middleware, state migration, retention, and recovery in one build.
 
-Make the product's value legible to a first-time visitor and a judge without requiring an OpenCode account, provider key, model quota, or repository. The example must use the real interface contracts, label every simulated result, and make reset incapable of touching live state.
-
-## Phase 7 work units
+## Phase 8 hardening units
 
 | Unit | Outcome | Evidence |
 |---|---|---|
-| P7-01 | Verify Phase 3 four-stage navigation and Phase 6 hosted-demo restrictions | Stage tabs preserved; `mode` added to `createApp`; demo rejects non-GET API requests |
-| P7-02 | Extract browser-safe production workflow schemas | `src/shared/workflow.ts`; server model re-exports them |
-| P7-03 | Define the versioned Campus Umbrella Relay fixture | `src/shared/demo.ts`; `campus-umbrella-relay@1` |
-| P7-04 | Add deterministic playback state | `src/web/demo/playback.ts`; pure reducer |
-| P7-05 | Build the guided example UI | `src/web/demo/DemoPage.tsx`; shared RunInspector, SpiritStageTabs, SpiritCharacter, StatusChip |
-| P7-06 | Add tab inspection, pause/resume/step/replay/reset | Four inspectable spirit tabs; reset isolation |
-| P7-07 | Add the 90-second presentation mode | `?presentation=1`; 10 beats × 9 seconds |
-| P7-08 | Add distinct actions | Try the example, Watch the guided workflow, Run live with OpenCode |
-| P7-09 | Enforce hosted-demo read-only behavior | `DEMO_READ_ONLY`; no session token; fixture project/export; demo connection status |
-| P7-10 | Add fixture/drift/playback/isolation/accessibility tests | `tests/demo.test.ts`, `tests/visual/demo.spec.ts` |
-| P7-11 | Update demo, product, UX, architecture, hosted, operations, decisions, changelog, README | This documentation set |
+| H1 modes/config | `local`, `hosted-demo`, `private-hosted`; fail-closed startup; explicit public origin in private mode | `config.ts`; `security.test.ts` |
+| H2 workspace/static | Broad-root rejection, realpath containment, private modes, traversal/symlink tests | `security/workspace.ts`; security tests |
+| H3 network | URL syntax, SSRF/DNS classification, remote allowlist, redirect refusal, timeout/response cap | `security/network.ts`; security tests |
+| H4 HTTP | Host/Origin/CSRF, Basic Auth, session token, content-type, size/rate/concurrency, SSE | `app.ts`; `http-hardening.test.ts` |
+| H5 persistence | Schema v2, migration, lock, fsync/rename, backups, quarantine, retention, restart recovery | `atomic-project-store.ts`; `store-hardening.test.ts` |
+| H6 experience | Timeout/budget classification, pending permission, unknown outcome, cancellation, redaction | `experience-hardening.test.ts`; `experience.test.ts` |
+| H7 documentation | Trust boundaries, operations, integration, setup, decisions | this documentation set |
 
-## Verification gate
+## Phase 9 release gate
 
-Run in this order:
+### Prerequisite reconciliation
+
+- Both predecessor lines were inspected at their actual commits; no missing MUST was hidden as documentation work.
+- The worktree was clean at `b2d2654` before integration. The completed hardening line was merged, conflicts were resolved by preserving both feature sets, and tests were updated only where the final behavior intentionally changed (async Maker runs, public read-only demo, canonical `UB_DEPLOYMENT_MODE`).
+- Backboard remains unavailable and is not claimed. Sentry live release/source-map/trace proof remains unavailable without authorized credentials. Entire session sharing remains a development record, not a runtime feature. These are pending partner-category claims, not product-release blockers; no category is claimed.
+
+### Work units
+
+| Unit | Outcome |
+|---|---|
+| R1 source reconciliation | Unified schema v2/migration, app pipeline, connection/discovery, worker runs, guide budgets, modes, web client token handling |
+| R2 verification matrix | Dependency install, typecheck, 111 tests, build, budget, visual/accessibility, migrations, local smoke, hosted-demo smoke, OpenCode compatibility probe, audit |
+| R3 documentation migration | Canonical docs, history moves, superseded notices, runtime prompt boundary, evidence index, release notes |
+| R4 handoff | Known limitations, post-release work, release note, no deployment/publication |
+
+### Verification results
+
+| Check | Result | Limitation |
+|---|---|---|
+| Clean install | PASS — `npm ci` | Network-backed registry; exact lockfile |
+| Typecheck | PASS | — |
+| Unit/integration tests | PASS — 111 | No live provider inference |
+| Production build | PASS | Vite reports a >500 KiB initial chunk warning; gzip budget passes |
+| Bundle/asset budget | PASS — 193.8 / 263.6 / 14.2 KiB gzip; hero 570.9 KiB; largest 86.7 KiB | Initial chunk warning remains |
+| Visual/accessibility suite | PASS — 18 Playwright tests | Chromium system binary; deterministic fixtures |
+| State migration | PASS — v1, guided v2 without mode/timestamps, hardening v2 without engine | Future versions are refused/preserved |
+| Maker run matrix | PASS — queue, 202, active inspection, duplicate, failure, timeout, permission, cancellation, reconciliation, restart | No live model call in Phase 9 |
+| OpenCode compatibility | PASS — server 2.0.32, catalog, disposable session create/read/remove | No inference; no provider account; no agents/commands in the empty test config |
+| Local fresh setup | PASS — health, mode, token, project, workshop route | OpenCode was not running during the local smoke |
+| Hosted demo | PASS — fixture project, no token, `DEMO_READ_ONLY`, no engine, `/demo` HTML | Preview only; no public deployment |
+| Navigation/approval gate | PASS — unit tests plus 18 visual tests | — |
+| Demo/reset isolation | PASS — fixture tests and Playwright request capture | — |
+| Recommendation fixtures | PASS — static policy fixtures and source/freshness test | Static guidance, not a live recommender |
+| Security/recovery | PASS — traversal, SSRF, origin, rate, size, redaction, corruption, disk, retention | Rate limiter is in-process |
+| Production dependency audit | PASS at `--audit-level=high`; 6 moderate advisories remain | Sentry bundler plugin, developer build path |
+| Sentry release/maps/traces | NOT RUN in Phase 9 | No authorized `SENTRY_AUTH_TOKEN`/deployment; config is statically reviewed |
+| Render/private-host validation | PASS — static Blueprint/env review | No live deployment was authorized |
+| Article/video/submission | NOT STARTED | Publication and submission are separate authorization |
+
+### Acceptance status
+
+- All MUST requirements have current evidence or an explicit limitation.
+- Canonical docs match routes, schema v2, environment variables, tested versions, modes, and UI terminology.
+- Legacy material is preserved under `docs/history/` with pointers.
+- Runtime prompts remain in `docs/prompts/`; implementation-phase material is not loaded as a runtime prompt.
+- Local setup is reproducible; hosted demo is safe and truthful; private hosting steps are reviewable.
+- No secrets or private traces were added to tracked files or public evidence.
+- Full tests/build pass and the worktree is clean after the phase commit.
+
+## Deferred and post-release work
+
+1. Shared multi-user isolation and remote browser-to-local pairing.
+2. Arbitrary repository connectors; the current release is demo-workspace bounded.
+3. Backboard R-CLI integration and any partner category claim based on it.
+4. Live Sentry release/source-map/trace verification with authorized credentials.
+5. Public hosted URL, recorded video, published article, and submission.
+6. A deliberate chunk-splitting improvement for the initial browser bundle if it grows.
+7. A resolved dependency advisory path without a breaking Sentry downgrade.
+
+## Verification commands
 
 ```bash
+npm ci
 npm run typecheck
 npm test
 npm run build
 npm run budget
 npm run test:visual
+npm audit --omit=dev --audit-level=high
+node scripts/preflight.mjs
 ```
-
-Observed results on 2026-10-31:
-
-| Check | Result |
-|---|---|
-| Typecheck | PASS |
-| Unit/integration/component tests | PASS — 73 tests |
-| Production build | PASS |
-| Budget | PASS — initial JS 193.1 KiB gzip, all JS 262.9 KiB, CSS 14.2 KiB, hero 570.9 KiB total, largest hero 86.7 KiB |
-| Playwright visual/accessibility suite | PASS — 18 tests |
-| Demo fixture validation | PASS — production `projectSchema`, operation/evidence/capability schemas, real section hashes |
-| Full playback | PASS — 10 beats, completed state, replay/reset |
-| Pause/resume/step/tab inspection | PASS |
-| Route refresh/presentation mode | PASS — `?presentation=1`; 90 seconds |
-| No network/inference/mutation requests | PASS — request capture in Playwright; source scan in node tests |
-| Hosted-demo mutation isolation | PASS — `403 DEMO_READ_ONLY`; live store unchanged |
-| Accessibility | PASS — skip link, live regions, progressbar, labeled controls, focus ring |
-| Narrow layout | PASS — 390px without horizontal overflow |
-
-## Exit criteria
-
-- A first-time visitor can complete and understand the example without OpenCode credentials.
-- The demo makes zero inference/provider calls and cannot mutate a live repository.
-- Simulated evidence is unmistakably labeled; the live session remains `NOT_RUN`.
-- Reset cannot affect live state.
-- The same UI contracts render live and demo runs.
-- A 90-second presentation path covers problem, four spirits, Maker progress, verification, and next step.
-- Automated checks and build pass.
-
-## Next boundary
-
-Stop at Phase 7. Phase 8 has not started and requires a new explicit instruction.

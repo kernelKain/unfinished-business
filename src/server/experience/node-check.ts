@@ -5,21 +5,44 @@ export interface NodeCheckResult {
   output: string;
 }
 
-export function runApprovedNodeCheck(workspace: string): Promise<NodeCheckResult> {
+/**
+ * The only application-owned command. It runs a dependency-free test file in the
+ * isolated demo workspace after an explicit Maker scope grant. It never inherits
+ * deployment secrets.
+ */
+export function runApprovedNodeCheck(workspace: string, timeoutMs = 30_000): Promise<NodeCheckResult> {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, ["--test"], {
       cwd: workspace,
       shell: false,
-      timeout: 30_000,
-      env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "" },
+      timeout: timeoutMs,
+      killSignal: "SIGKILL",
+      env: {
+        PATH: process.env.PATH ?? "",
+        HOME: process.env.HOME ?? "",
+        NODE_ENV: "test",
+        NO_COLOR: "1",
+      },
     });
     let output = "";
+    let finished = false;
     const append = (chunk: Buffer) => {
       if (output.length < 8_000) output += chunk.toString("utf8").slice(0, 8_000 - output.length);
     };
+    const finish = (result: NodeCheckResult) => {
+      if (finished) return;
+      finished = true;
+      resolve(result);
+    };
     child.stdout.on("data", append);
     child.stderr.on("data", append);
-    child.on("error", (error) => resolve({ code: null, output: error.message }));
-    child.on("close", (code) => resolve({ code, output: output.trim() || "The Node check produced no output." }));
+    child.on("error", (error) => finish({ code: null, output: error.message }));
+    child.on("close", (code, signal) => {
+      const suffix = signal ? `Terminated by ${signal}.` : "";
+      finish({
+        code,
+        output: [output.trim(), suffix].filter(Boolean).join("\n") || "The Node check produced no output.",
+      });
+    });
   });
 }

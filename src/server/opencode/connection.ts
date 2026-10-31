@@ -53,6 +53,8 @@ export interface ConnectionServiceOptions {
   envBaseUrl?: string;
   envUsername?: string;
   envPassword?: string;
+  /** Network-policy settings applied to every native request. */
+  security?: Omit<NativeClientOptions, "baseUrl" | "username" | "password">;
   clientFactory?: (options: NativeClientOptions) => NativeClientLike;
   now?: () => Date;
 }
@@ -161,6 +163,7 @@ export class ConnectionService {
     const baseUrl = this.settings.baseUrl ?? this.options.envBaseUrl?.trim();
     if (!baseUrl) throw new Error("OpenCode is not configured.");
     return {
+      ...this.options.security,
       baseUrl,
       username: this.settings.username,
       password: this.password,
@@ -232,7 +235,12 @@ export class ConnectionService {
     const username = options.username?.trim() || this.settings.username || "opencode";
     const password = options.password === undefined ? this.password : options.password.trim();
     if (options.password !== undefined) this.password = password || undefined;
-    const client = this.clientFactory({ baseUrl: validated.url, username, password });
+    const client = this.clientFactory({
+      ...this.options.security,
+      baseUrl: validated.url,
+      username,
+      password,
+    });
 
     let info: { version: string };
     try {
@@ -373,6 +381,7 @@ export class ConnectionService {
         && model.availability === "available",
       );
       if (match) {
+        assertFreeOrLocal(match);
         if (selection.variant && !match.variants.includes(selection.variant)) {
           throw new Error(`Variant "${selection.variant}" is not reported for ${match.key}.`);
         }
@@ -391,7 +400,7 @@ export class ConnectionService {
     if (!legacyModel) return null;
     const discovery = await this.discovery({ selected: null });
     const legacy = discovery.models.find((model) =>
-      model.key === legacyModel && model.availability === "available");
+      model.key === legacyModel && model.availability === "available" && isFreeOrLocal(model));
     return legacy ? { model: legacy, source: "legacy" } : null;
   }
 
@@ -402,6 +411,7 @@ export class ConnectionService {
       && candidate.availability === "available",
     );
     if (!match) throw new Error(`${model.providerID}/${model.id} is not an available model reported by OpenCode.`);
+    assertFreeOrLocal(match);
     if (model.variant && !match.variants.includes(model.variant)) {
       throw new Error(`Variant "${model.variant}" is not reported for ${match.key}. Reported variants: ${match.variants.join(", ") || "none"}.`);
     }
@@ -499,6 +509,14 @@ export class ConnectionService {
           message: `${match.name} is present but unavailable (${match.status}).`,
           repair: "Enable the model or provider inside OpenCode, or choose another model.",
         });
+      } else if (!isFreeOrLocal(match)) {
+        diagnostics.push({
+          code: "PAID_MODEL_BLOCKED",
+          severity: "error",
+          title: "Selected model is not free",
+          message: `${match.name} reports paid or unknown remote pricing. This release has no paid inference fallback.`,
+          repair: "Choose a free model or a local model. No paid call will be made.",
+        });
       } else if (selected.variant && !match.variants.includes(selected.variant)) {
         diagnostics.push({
           code: "VARIANT_UNAVAILABLE",
@@ -542,6 +560,20 @@ export class ConnectionService {
 
 function diagnosticWarnings(diagnostics: ConnectionStatus["diagnostics"]): boolean {
   return diagnostics.some((diagnostic) => diagnostic.severity === "warning");
+}
+
+function isFreeOrLocal(model: DiscoveredModel): boolean {
+  return model.pricing === "free" || model.local === true;
+}
+
+/**
+ * This release has no paid inference fallback. Local models are allowed because
+ * they do not create a provider charge. A paid or unknown remote model can be
+ * discovered and inspected but cannot be selected or used for a run.
+ */
+function assertFreeOrLocal(model: DiscoveredModel): void {
+  if (isFreeOrLocal(model)) return;
+  throw new Error("Paid or unpriced remote models are not enabled for this release. Choose a free model or a local model.");
 }
 
 export function safeErrorMessage(error: unknown): string {

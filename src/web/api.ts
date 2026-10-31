@@ -81,21 +81,37 @@ export class ApiError extends Error {
 }
 
 let sessionToken: string | null = null;
+let sessionUnavailable = false;
 
-async function token(): Promise<string> {
+/**
+ * The hosted demo deliberately issues no session token. A failed token request
+ * is not fatal for read-only requests; the server returns DEMO_READ_ONLY for
+ * mutations before looking at the token.
+ */
+async function token(): Promise<string | null> {
   if (sessionToken) return sessionToken;
-  const response = await fetch("/api/session");
-  if (!response.ok) throw new ApiError("The local workshop session could not be opened.", "SESSION", true);
-  const body = await response.json() as { token: string };
-  sessionToken = body.token;
-  return sessionToken;
+  if (sessionUnavailable) return null;
+  try {
+    const response = await fetch("/api/session");
+    if (!response.ok) {
+      sessionUnavailable = true;
+      return null;
+    }
+    const body = await response.json() as { token: string };
+    sessionToken = body.token;
+    return sessionToken;
+  } catch {
+    sessionUnavailable = true;
+    return null;
+  }
 }
 
 async function request<T>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
   const headers: Record<string, string> = {};
+  const currentToken = await token();
+  if (currentToken) headers["x-ub-session-token"] = currentToken;
   if (init?.body !== undefined) {
     headers["content-type"] = "application/json";
-    headers["x-ub-session-token"] = await token();
   }
   const response = await fetch(path, {
     method: init?.method ?? "GET",

@@ -13,13 +13,13 @@ export interface UsageMode {
 export const usageModes: readonly UsageMode[] = [
   {
     id: "hosted",
-    kicker: "Hosted demo or private deployment",
-    title: "A labeled sample with its own isolated workspace",
-    summary: "A hosted instance can show the deterministic walkthrough or run a private, password-protected workshop on the server's own isolated demo workspace.",
+    kicker: "Hosted demo or private hosted",
+    title: "A labeled public sample, or a protected private workshop",
+    summary: "The public demo runs the deterministic walkthrough with no OpenCode, token, or visitor state. A private instance adds Basic Auth, a private disk, and a loopback OpenCode server.",
     bullets: [
-      "Uses the server's demo workspace, never a visitor's local repository.",
-      "Password protection and a loopback OpenCode server are required for a hosted instance.",
-      "Hosted execution is not a public sandbox; the sample is labeled as a sample.",
+      "The public demo never uses a visitor's repository and rejects every mutation.",
+      "A private instance is password-protected and uses its own isolated demo workspace.",
+      "Neither path is a public execution sandbox; the sample is labeled.",
     ],
     cta: { label: "Walk through the fixture", href: "/demo" },
     tone: "spectral",
@@ -32,7 +32,7 @@ export const usageModes: readonly UsageMode[] = [
     bullets: [
       "Requires Node 22.14+ and a supported OpenCode 2.x server.",
       "Maker's edit in this release is bounded to an isolated demo workspace.",
-      "The browser receives a session token only from loopback; mutations are checked server-side.",
+      "API reads and mutations are checked server-side; the token is issued over loopback or after private-hosted sign-in.",
     ],
     cta: { label: "Read the local setup", href: "#local-setup" },
     tone: "amber",
@@ -195,6 +195,10 @@ export interface Recommendation {
   fit: string;
   path: string;
   permission: string;
+  /** Human-readable provenance for the recommendation. */
+  source: string;
+  /** ISO date the source/claim was last checked. */
+  verifiedAt: string;
 }
 
 export const recommendations: readonly Recommendation[] = [
@@ -203,18 +207,24 @@ export const recommendations: readonly Recommendation[] = [
     fit: "A small state model plus one verified test",
     path: "Node check + diff inspection",
     permission: "node --test runs only inside the isolated demo workspace; diff inspection stays read-only.",
+    source: "Current product capability catalog (TOOL_CATALOG.md)",
+    verifiedAt: "2026-10-31",
   },
   {
     idea: "Habit streak tracker",
     fit: "Same capability, no new install",
     path: "Keep the bounded Node check",
     permission: "No arbitrary shell, package install, or network tool is requested by this preview.",
+    source: "Current product capability catalog (TOOL_CATALOG.md)",
+    verifiedAt: "2026-10-31",
   },
   {
     idea: "Photo scavenger hunt",
     fit: "Needs asset handling outside the current scope",
     path: "Recommend a focused scope change first",
     permission: "Do not silently expand permissions; the plan and native capability set must change explicitly.",
+    source: "Current product capability catalog (TOOL_CATALOG.md)",
+    verifiedAt: "2026-10-31",
   },
 ] as const;
 
@@ -225,7 +235,7 @@ export const privacyPoints: readonly { title: string; body: string }[] = [
   },
   {
     title: "Loopback by default",
-    body: "Development binds the app and OpenCode to 127.0.0.1. A production deployment must set an access password and bind deliberately.",
+    body: "Development binds the app and OpenCode to 127.0.0.1. A private production deployment must set an access password and bind deliberately; the public demo has no OpenCode or user state.",
   },
   {
     title: "Server-checked mutations",

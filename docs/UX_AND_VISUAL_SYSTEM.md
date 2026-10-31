@@ -1,6 +1,8 @@
 # UX and visual system — Ghostlight Hacker Workshop
 
-**Status:** Implemented through the Phase 7 guided demo. Last updated 2026-10-31.
+**Status:** Implemented release candidate; Phase 9 reconciled modes, security copy, and source freshness.
+**Owner:** Interface/UX.
+**Last verified:** 2026-10-31.
 **Source of truth:** `src/web/styles.css`, `src/web/spirits.ts`, `src/web/components/`, `src/web/content/landing.ts`, `src/web/demo/`.
 
 ## 1. Theme
@@ -208,7 +210,7 @@ Status chips include a dot and text; color is never the only signal. `.status-ch
 - The server URL and password fields are clearly separated from provider credentials. The panel never asks for a provider API key.
 - Model options show the provider/model key, free/paid/unknown pricing, limits, modalities, tool support, and only the variants OpenCode reports.
 - The panel never auto-selects a fixed model. If the catalog changes, the run is blocked until a reported model is selected.
-- In `hosted-private` or `hosted-demo`, configuration is read-only and the panel explains that the deployment manages the connection.
+- In `private-hosted` or `hosted-demo`, configuration is read-only and the panel explains that the deployment manages the connection.
 - Visual treatment: onboarding card on the Ghostlight surface, amber current step, mint completed step, status chips with text.
 
 ### Advanced OpenCode panel
@@ -311,13 +313,13 @@ All four characters are hand-authored SVG in this repository. They are not gener
 
 | Metric | Budget | Measured (2026-10-31) | Status |
 |---|---|---|---|
-| Initial JS (gzip) | ≤ 220 KiB | 193.1 KiB | PASS |
-| All JS chunks (gzip) | ≤ 280 KiB | 262.9 KiB | PASS |
+| Initial JS (gzip) | ≤ 220 KiB | 193.8 KiB | PASS |
+| All JS chunks (gzip) | ≤ 280 KiB | 263.6 KiB | PASS |
 | CSS (gzip) | ≤ 15 KiB | 14.2 KiB | PASS |
 | All hero variants (total) | ≤ 640 KiB | 570.9 KiB | PASS |
 | Largest single hero file | ≤ 190 KiB | 86.7 KiB | PASS |
 
-The initial route is the landing page. Workshop and demo are lazy-loaded (54.9 KiB and 11.4 KiB gzip). The demo chunk includes the versioned fixture, playback reducer, and guided UI. The workshop chunk includes the connection/discovery wizard and advanced OpenCode panel. The hero transfers **34.7–58.2 KiB** as AVIF on a typical wide viewport and **30.9–49.1 KiB** as AVIF on mobile depending on pixel density; the total covers all breakpoints and formats, not one visit.
+The initial route is the landing page. Workshop and demo are lazy-loaded (54.9 KiB and 11.5 KiB gzip). The demo chunk includes the versioned fixture, playback reducer, and guided UI. The workshop chunk includes the connection/discovery wizard and advanced OpenCode panel. The hero transfers **34.7–58.2 KiB** as AVIF on a typical wide viewport and **30.9–49.1 KiB** as AVIF on mobile depending on pixel density; the total covers all breakpoints and formats, not one visit.
 
 ### Rules
 
@@ -338,3 +340,13 @@ npm run test:visual
 ```
 
 `npm run test:visual` requires a Chromium browser. It prefers `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, then a system Chrome/Chromium, then Playwright's installed browser. Snapshots live in `tests/visual/snapshots/`.
+
+## 9. Phase 9 release copy and boundary states
+
+- Local mode copy says Maker edits the isolated demo workspace, not an arbitrary repository. The mode descriptor no longer claims workspace selection.
+- Hosted-demo copy says there is no OpenCode, provider, session token, visitor persistence, or repository. `/workshop` is a read-only notice with exits to `/demo` and local setup.
+- Private-hosted copy says the URL, password, and secrets are environment-managed; the browser cannot edit them.
+- API copy distinguishes invalid session token, invalid origin, rate limit, concurrent mutation, request too large, stale revision, unknown native outcome, pending permission, and corrupt/busy state.
+- Recommendation previews carry source and `verifiedAt` metadata. They describe only current capabilities and never imply an install, paid model, arbitrary shell, or approval.
+- Evidence and Run Inspector labels keep fixture results separate from live `NOT_RUN`/native results. No color or animation is the only status signal.
+- The final accessibility matrix covers keyboard focus, dialog Escape, setup-tab arrow keys, 200% text zoom, 390px/wide layouts, overflow, reduced motion, contrast, and relevant screen-reader/live-region semantics.

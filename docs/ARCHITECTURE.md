@@ -1,6 +1,8 @@
 # Architecture — Unfinished Business
 
-**Status:** Implemented through the Phase 7 guided demo. Last updated 2026-10-31.
+**Status:** Implemented release candidate; Phase 9 reconciled the guided interface with Phase 8 hardening.
+**Owner:** Engineering.
+**Last verified:** 2026-10-31 against `111` unit/integration tests, `18` visual/accessibility tests, the production build, budget, and local/hosted-demo smoke runs.
 
 ## 1. System shape
 
@@ -10,35 +12,34 @@ Browser
   ├─ /demo        deterministic walkthrough (lazy chunk)
   └─ /workshop    real workshop (lazy chunk)
         │
-        │ fetch /api/*  (same origin; mutations carry x-ub-session-token)
+        │ same-origin fetch /api/*
+        │ Basic Auth in hosted modes; x-ub-session-token on protected API routes
         ▼
 Hono server (src/server/app.ts)
-  ├─ /api/health                 public
-  ├─ /api/connection             connection state + discovery summary
-  ├─ /api/connection/check       read-only connection/discovery check
-  ├─ /api/connection/configure   local only; server URL + in-memory password
-  ├─ /api/engine/selection       persist a discovered model/variant
-  ├─ /api/opencode/*             project-owned sessions, permissions, usage
+  ├─ /api/health                 public, minimal
   ├─ /api/mode                   public mode descriptor
-  ├─ /api/project                current snapshot or demo fixture
-  ├─ /api/messages               stage messages
-  ├─ /api/approvals              product + Maker scope
-  ├─ /api/sections/*             revisions + exact-version approvals
-  ├─ /api/runs/*                 Maker run, cancel, reconcile
-  ├─ /api/export                 approved plan + drafts
-  └─ static dist/web             SPA fallback for non-API paths
+  ├─ /api/session                token issue (loopback/local, Basic Auth/private)
+  ├─ /api/runtime                effective limits/retention
+  ├─ /api/engine                 connection/engine summary
+  ├─ /api/connection*            check, configure (local only), reset
+  ├─ /api/opencode/*             discovery, project-owned sessions, permissions, usage
+  ├─ /api/engine/selection       persist a discovered free/local model
+  ├─ /api/project, /api/export   snapshot/approved plan; workspace path omitted
+  ├─ /api/events                 authenticated bounded SSE snapshots
+  ├─ /api/messages, /api/approvals, /api/sections/*
+  ├─ /api/runs*                  queue, inspect, cancel, reconcile
+  └─ static dist/web             contained SPA fallback for HTML navigation
         │
         ▼
-OpenCode 2.x server over loopback
-  ├─ discovered model catalog
-  ├─ native tools and permissions
-  ├─ sessions/transcripts
+OpenCode 2.x server over loopback (or an explicit allowlisted remote)
+  ├─ model/provider/agent discovery
+  ├─ native tools, permissions, sessions, interruption
   └─ isolated demo workspace
 ```
 
-Unfinished Business never implements a second agent loop, inference client, general command executor, or transcript store. OpenCode owns those. The app owns workflow state, approvals, dependency invalidation, evidence references, and the interface.
+Unfinished Business never implements a second agent loop, inference client, general command executor, or transcript store. OpenCode owns those. The app owns workflow state, approvals, dependency invalidation, evidence references, security policy, and the interface.
 
-## 2. Frontend routing
+## 2. Frontend routing and bundles
 
 `src/web/routes.ts` is the pure route resolver:
 
@@ -49,149 +50,144 @@ Unfinished Business never implements a second agent loop, inference client, gene
 | `/workshop` | `workshop` | Lazy `WorkshopPage` |
 | anything else | `landing` | Landing fallback |
 
-`src/web/App.tsx` reads `window.location.pathname`, listens for `popstate`, updates `document.title` and `document.documentElement.dataset.route`, and scrolls to the top on route change. Navigations are ordinary anchors, so they work without a client router and the server's SPA fallback can serve `index.html`.
+`src/web/App.tsx` reads `window.location.pathname`, listens for `popstate`, updates `document.title` and `document.documentElement.dataset.route`, and scrolls to the top on route change. Navigations are ordinary anchors, so they work without a client router.
 
-The workshop and demo are split with `React.lazy`. Measured production chunks:
+Measured production chunks (2026-10-31):
 
-- initial `index-*.js`: 193.1 KiB gzip;
+- initial `index-*.js`: 193.8 KiB gzip;
 - `WorkshopPage-*.js`: 54.9 KiB gzip (includes onboarding/discovery UI);
-- `DemoPage-*.js`: 11.4 KiB gzip (includes the versioned fixture and playback reducer);
+- `DemoPage-*.js`: 11.5 KiB gzip;
 - `SpiritStageTabs-*.js`: 3.5 KiB gzip;
 - CSS: 14.2 KiB gzip.
 
-The workshop keeps its existing Phase 3 structure: four-stage navigation, plan outline, working document, activity/evidence rail. The visual layer changed; the stage and approval semantics did not.
+The workshop keeps four-stage navigation, plan outline, working document, and activity/evidence rail. The visual layer changed; stage and approval semantics did not.
 
 ## 3. Static serving and assets
 
 `src/server/index.ts` serves `dist/web` when it exists:
 
-- `/` → `index.html`.
-- real files → their content type.
-- unknown non-API paths → `index.html` (SPA fallback).
-- `/api/*` is never served from disk.
-- Path resolution is checked against the `dist/web` root to prevent traversal.
-- Private state under `UB_DATA_DIR` is outside the static root and is never served.
+- `/` and HTML navigations → `index.html`;
+- real files → their content type, with long-lived caching;
+- unknown non-HTML paths → 404, not a 200 HTML fallback;
+- `/api/*` is never served from disk;
+- paths are resolved through `realpath` and must stay under `dist/web`;
+- private state under `UB_DATA_DIR` is never in the static root.
 
-Public hero assets are produced by `scripts/build-hero-assets.py`:
+Public hero assets are produced by `scripts/build-hero-assets.py` into `public/assets/hero/`; Vite copies them into `dist/web/assets/hero/`. The `<picture>` element selects portrait/wide crops and carries explicit dimensions.
 
-```text
-assets/source/hero-ghostlight-workshop.webp   (master, not shipped)
-        │
-        ├─ public/assets/hero/hero-ghostlight-wide-{1920,1280,768}.{avif,webp}
-        ├─ public/assets/hero/hero-ghostlight-wide-{1280,768}.jpg
-        └─ public/assets/hero/hero-ghostlight-portrait-{900,600}.{avif,webp}
-```
-
-Vite copies `public/` to `dist/web/`, so production URLs are `/assets/hero/...`. The `<picture>` element selects the portrait crop below 720px and wide crops above it. Explicit width/height and CSS aspect ratios prevent layout shift.
-
-## 4. Frontend modules
+## 4. Server modules
 
 | Path | Responsibility |
 |---|---|
-| `src/web/App.tsx` | Route switch, lazy loading, page title |
-| `src/web/routes.ts` | Pure path resolution and titles |
-| `src/web/landing/` | Hero, usage modes, spirit roster, deterministic teaser, setup, privacy, FAQ, final CTA |
-| `src/web/demo/` | Guided playback, fixture workspace, diff/check, Witness findings, all-state gallery, recovery states |
-| `src/shared/demo.ts` | Versioned browser-safe fixture, beats, diff, verification, Witness findings |
-| `src/shared/workflow.ts` | Browser-safe production workflow schemas shared by server, UI, and fixture tests |
-| `src/shared/modes.ts` | Runtime-mode descriptors and capability truth table |
-| `src/web/workshop/` | Real Oracle/Architect/Maker/Witness workflow, connection state, active-run polling |
-| `src/web/onboarding.tsx` | First-run connection check and model/variant selection |
-| `src/web/opencode-panel.tsx` | Advanced discovered capability, session, permission, usage, and revert controls |
-| `src/web/components/SpiritCharacter.tsx` | Original inline SVG characters and state classes |
-| `src/web/components/RunInspector.tsx` | Native runs, evidence ledger, permission boundary |
-| `src/web/components/SpiritStageTabs.tsx` | Semantic four-stage navigation |
-| `src/web/components/SectionCard.tsx` | Outline cards and empty state |
-| `src/web/components/SetupCommandTabs.tsx` | Accessible command tabs |
-| `src/web/components/SetupDialog.tsx` | Native `<dialog>` setup help |
-| `src/web/components/Brand.tsx` | Brand mark and type lockup |
-| `src/web/spirits.ts` | Spirit profiles and state labels |
-| `src/web/content/landing.ts` | Landing copy, fixtures, recommendations, FAQ |
-| `src/web/setup.ts` | Tested setup command data |
-| `src/web/styles.css` | Tokens, components, character states, responsive and accessibility rules |
+| `src/server/app.ts` | HTTP pipeline, route validation, mode enforcement, SSE, error mapping |
+| `src/server/index.ts` | Startup, config, canonical workspaces, static serving, graceful shutdown |
+| `src/server/config.ts` | Mode/env parsing, secure defaults, limits, retention, public runtime descriptor |
+| `src/server/security/network.ts` | OpenCode URL policy, SSRF/DNS checks, redirect refusal, timeout, response cap |
+| `src/server/security/workspace.ts` | Broad-root rejection, realpath containment, private file modes, static containment |
+| `src/server/security/limits.ts` | Rate limiter, concurrency gates, async lock, constant-time token compare |
+| `src/server/security/redaction.ts` | Text/error/unknown/Sentry/log redaction |
+| `src/server/observability/logger.ts` | Structured JSON logs with correlation IDs |
+| `src/server/store/atomic-project-store.ts` | Lock, atomic write, fsync, backups, quarantine, migration |
+| `src/server/workflow/` | Schema v2, transitions, idempotency, retention, restart recovery |
+| `src/server/opencode/client.ts` | Safe client, version/auth/model readiness |
+| `src/server/opencode/connection.ts` | Connection settings, discovery, model resolution |
+| `src/server/opencode/sessions.ts` | Project-owned session/permission/usage controls |
+| `src/server/experience/guide.ts` | Four role sessions, timeouts, budgets, interruption |
+| `src/server/experience/service.ts` | Oracle/Architect/Maker/Witness orchestration |
+| `src/server/experience/runs.ts` | In-process Maker run coordinator |
+| `src/server/experience/telemetry.ts` | Metadata-only Sentry spans |
+| `src/server/prompts/loader.ts` | Loads complete runtime procedures from `docs/prompts/` |
+| `src/shared/` | Browser-safe workflow, OpenCode, mode, and demo contracts |
 
-The landing and demo import only browser-safe modules. `WorkshopProject` is a type-only import from `src/web/api.ts`; no server module enters the client bundle.
+## 5. Deployment modes
 
-## 5. Connection, discovery, and deployment modes
+`UB_DEPLOYMENT_MODE` is canonical: `local`, `hosted-demo`, `private-hosted`. `UB_MODE` is accepted as a compatibility alias; the legacy `hosted-private` spelling maps to `private-hosted`. If unset, Render/production defaults to `private-hosted`; local development defaults to `local`.
 
-`ConnectionService` (`src/server/opencode/connection.ts`) owns the OpenCode server URL, optional in-memory Basic-auth password, version check, and normalized discovery. `src/shared/opencode.ts` validates the browser-safe connection and discovery shapes.
+| Mode | Listener | Access control | OpenCode | Persistence |
+|---|---|---|---|---|
+| `local` | loopback only | optional Basic Auth; session token always | separate loopback server, browser-editable URL | `UB_DATA_DIR` |
+| `private-hosted` | `0.0.0.0` behind proxy | Basic Auth required; session token required | loopback child | private persistent disk |
+| `hosted-demo` | `0.0.0.0` | public; mutation read-only; no token issued | none | visitor state not stored |
 
-- `local` allows browser connection editing and loopback HTTP.
-- `hosted-private` manages the URL/credentials in the environment and makes browser configuration read-only.
-- `hosted-demo` is read-only and may legitimately show no models until a provider is connected inside OpenCode.
+Local mode refuses a non-loopback bind. Private-hosted requires an explicit public URL/host for origin checks, plus `UB_ACCESS_PASSWORD` and `UB_SESSION_TOKEN`. The hosted demo deliberately requires neither and stays read-only.
 
-Discovery normalizes providers, models, agents, roles, permissions, commands, skills, MCP servers, formatter/LSP presence, capabilities, and usage. Provider settings, headers, request bodies, skill contents, and prompt text are dropped before leaving the server. Provider API keys never enter Unfinished Business; only the OpenCode server Basic-auth password may be held in memory. See `docs/OPENCODE_INTEGRATION.md`.
+## 6. Request pipeline and authorization
 
-Connection states are `not_configured`, `checking`, `connected`, `authentication_required`, `incompatible_version`, `unavailable`, and `degraded`. Every non-connected state carries at least one diagnostic with a repair action. The UI never replaces a failed check with an optimistic connected state.
+1. Optional Sentry middleware.
+2. Correlation ID (`x-request-id`) and structured logger fields.
+3. Security headers with a restrictive CSP; HSTS is disabled in local mode.
+4. Host allowlist and `OPTIONS`/Origin/`Sec-Fetch-Site` policy.
+5. Optional HTTP Basic Auth for every route except `/api/health`.
+6. Hosted-demo mutation rejection before body parsing (`403 DEMO_READ_ONLY`).
+7. Rate limit per trusted client; request-size cap; JSON content type for mutations.
+8. Non-blocking mutation concurrency gate; separate bounded SSE gate.
+9. Session-token check for every protected API route in local/private modes. `/api/session` and `/api/mode` are the only unauthenticated API reads besides health.
+10. Route validation, workflow lock, state write.
+11. Error mapping with stable code, retryability, operation ID, request ID, and redacted message.
 
-## 6. State and evidence flow
+The browser session token is issued only over loopback in local mode or after Basic Auth in private mode. It is compared in constant time. It is not persisted in browser storage.
 
-The API contract for workflow mutations is unchanged from Phase 3:
+## 7. State, evidence, and recovery
 
-- Every mutation sends `actionId` and `expectedRevision`.
-- Browser mutations require `x-ub-session-token`, issued by `/api/session` over loopback (or after basic auth in a hosted deployment).
-- Approvals target an exact section version and hash.
-- A revision supersedes the old approval and invalidates dependent sections.
-- Maker requires all current sections approved plus a separate scope grant.
-- Runs are recorded as operations; unknown runs are reconciled, not repeated.
-- Evidence records an observed native result; a missing result is an empty state.
+Schema v2 is the single current shape. It includes approvals, action idempotency, operations, evidence, transcript, drafts, native session references, engine selection, mode, demo-workspace metadata, and timestamps. Migration accepts:
 
-The Run Inspector is read-only. The only write it can trigger is the existing reconcile action for an unknown operation. It cannot approve, retry, or grant permission.
+- v1 fixed-model snapshots;
+- guided-interface v2 snapshots with engine selection but no mode/timestamps;
+- hardening-line v2 snapshots with mode/timestamps but no engine selection.
 
-## 7. Workflow authorization is unchanged
+Operational rules:
 
-Phase 4 and Phase 7 did not change:
+- every mutation sends `actionId` and `expectedRevision`;
+- duplicate action IDs return the existing result; a different payload is a conflict;
+- approvals target an exact section version and hash;
+- revisions invalidate only transitive dependent sections/approvals;
+- Maker requires every current section approved plus a separate scope grant;
+- a run moves `QUEUED → RUNNING → WAITING_PERMISSION → SUCCEEDED/FAILED/CANCELLED/UNKNOWN`;
+- startup marks in-flight work `UNKNOWN`; reconciliation reads native state and never replays automatically;
+- evidence records an observed native result/fingerprint; a missing result is an empty state.
 
-- session-token checks;
-- basic-auth behavior;
-- revision conflicts;
-- exact-version approval checks;
-- Maker scope gating;
-- native permission authority;
-- atomic project storage.
+`AtomicProjectStore` acquires a cross-process lock, writes a private temp file, fsyncs, renames, keeps `.previous` and rolling `backups/`, quarantines corrupt current files, and prunes bounded retention. A corrupt current with no valid previous returns `STATE_CORRUPT`; it never silently resets.
 
-The setup dialog and landing page are instructions only. Opening them does not assert that OpenCode is reachable.
+## 8. Demo fixture boundaries
 
-## 8. Demo fixture boundaries and schema reuse
-
-The deterministic demo is a **browser-bundled fixture**, not a server response and not a parallel UI:
+The deterministic demo is a browser-bundled fixture, not a server response and not a parallel UI:
 
 ```text
 src/shared/workflow.ts   production Zod schemas + types
         │
-        ├─ src/server/workflow/model.ts  hashing, persistence, transitions
-        ├─ src/shared/demo.ts            versioned fixture (project, beats, diff, check, findings)
+        ├─ src/server/workflow/model.ts  hashing, migration, persistence helpers
+        ├─ src/shared/demo.ts            versioned fixture + playback beats
         └─ src/web/demo/DemoPage.tsx     playback + shared components
                     │
-                    ├─ RunInspector (same operation/evidence/capability shapes as /workshop)
-                    ├─ SpiritStageTabs (interactive inspect variant)
+                    ├─ RunInspector
+                    ├─ SpiritStageTabs (inspect variant)
                     ├─ SpiritCharacter / StatusChip / Brand
-                    └─ playback reducer (pure; no API calls)
+                    └─ pure playback reducer (no API calls)
 ```
 
-- `src/shared/demo.ts` has no `node:`, `fetch`, `process.env`, `Date.now`, or `Math.random` imports. It can render without a server or provider.
-- `tests/demo.test.ts` parses the fixture project with `projectSchema` and each operation/evidence/capability with the production schemas. A contract change fails the demo test instead of silently drifting.
-- Section hashes are real SHA-256 hashes of the fixed content; the test recomputes them.
-- Every fixture operation/evidence result is visibly labeled. The live native session remains `NOT_RUN`.
-- The demo route is lazy-loaded and separate from `/workshop`, so live project state cannot accidentally use fixture data.
+`src/shared/demo.ts` has no `node:`, `fetch`, `process.env`, `Date.now`, or `Math.random`. Tests parse the fixture with the production schemas and recompute section hashes. Every fixture result is labeled; the live session remains `NOT_RUN`.
 
-### Hosted-demo enforcement
+In `hosted-demo` mode the server independently returns the fixture from `/api/project` and `/api/export`, returns a read-only connection status, rejects `/api/session` and every non-GET `/api/*` request, and never constructs an OpenCode connection.
 
-`createApp` receives the runtime mode. In `demo` mode:
+## 9. Trust boundaries and residual risks
 
-- `GET /api/mode` returns the public demo descriptor.
-- `GET /api/project` and `GET /api/export` return the versioned fixture.
-- `GET /api/connection` returns a read-only demo status with no engine address.
-- Every non-GET `/api/*` request is rejected with `DEMO_READ_ONLY` before a body is parsed.
-- `/api/session` is rejected; no session token is issued.
-- `/api/opencode/*` is rejected; no native session or provider path is reachable.
-- The UI shows a read-only notice on `/workshop` and offers the guided example or local setup as exits.
+| Boundary | Enforced controls |
+|---|---|
+| Browser → app | Host/Origin/CSRF policy, Basic Auth in hosted modes, constant-time session token, JSON content type, request-size cap, rate/concurrency limits |
+| App → disk | Canonical roots, traversal/symlink rejection, regular-file checks, `0700` directories, `0600` files, lock, fsync, previous snapshot, backups, quarantine |
+| App → OpenCode | URL syntax, loopback default, HTTPS and explicit host allowlist for remote, optional port allowlist, DNS/IP classification, redirect refusal, timeout, response cap, version/auth/model readiness |
+| OpenCode → provider | Native credentials, permissions, sessions; the app never reads provider keys |
+| App → Sentry | Collection disabled, event/breadcrumb scrubbing, metadata-only spans, no prompts/tool args/results/local paths |
+| App → export | Approved-only plan, redacted drafts, limitation metadata, no workspace path |
 
-The hosted demo therefore makes zero inference/provider calls and cannot mutate a live repository. The server still rejects mutations independently of the browser UI.
+Residual risks:
 
-## 9. Why the demo is separate
-
-The deterministic demo renders fixture data with visible “demo data” labels. It exists because a first-time visitor should understand the interface before installing an engine, and because visual regression tests need stable states that do not depend on a model call. It is a separate route so the real workshop cannot accidentally use fixture data.
+1. **No shared-host isolation.** This is a trusted single-project tool, not a multi-tenant sandbox. The Node check is not seccomp/container isolation.
+2. **No remote repository connector.** `private-hosted` can point at an allowlisted OpenCode server but does not add multi-tenant isolation or a remote browser-to-local pairing flow.
+3. **Local process trust.** Any process running as the same OS user can read the data directory and local credentials.
+4. **Provider facts are incomplete.** Free-model availability, quota, and billing are controlled by OpenCode/provider. Elapsed-time and session-token limits are enforced where reported; a tool-call budget is not claimed.
+5. **Telemetry is best-effort.** Sentry delivery failure does not block the workshop. Live release/source-map/trace verification needs authorized credentials.
+6. **Dependency audit gap.** Six moderate `glob`/`minimatch` advisories are reachable through the Sentry bundler plugin during developer builds. The production audit at `--audit-level=high` passes; the suggested fix is a breaking Sentry downgrade.
 
 ## 10. Not in this architecture
 

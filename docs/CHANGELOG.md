@@ -1,5 +1,74 @@
 # Changelog
 
+**Status:** Current release history.
+**Owner:** Engineering.
+**Last verified:** 2026-10-31.
+
+## 2026-10-31 — Phase 9 release verification and documentation migration
+
+### Added
+
+- Phase 8 security/persistence hardening integrated with the guided interface, onboarding, and deterministic demo.
+- Canonical documentation set: product brief, architecture, implementation plan, OpenCode integration, local setup, hosted deployment, tool catalog, UX/visual system, operations/recovery, demo/submission, decisions, changelog.
+- `docs/EVIDENCE.md` requirements-to-evidence index and `docs/RELEASE_NOTES.md`.
+- Migration coverage for schema v1 and both supported v2 shapes.
+- Recommendation source/freshness metadata and test.
+- Local/hosted-demo smoke evidence and an OpenCode 2.0.32 compatibility probe with no inference.
+
+### Changed
+
+- Unified `UB_DEPLOYMENT_MODE` as canonical; legacy `UB_MODE` remains an alias.
+- Protected API reads now require the browser session token in local/private modes; the public hosted demo remains token-free and read-only.
+- Maker runs are asynchronous and use `UNKNOWN`/`WAITING_PERMISSION` rather than silently retrying.
+- Paid or unpriced remote models are discoverable but not selectable.
+- Canonical docs now match the merged routes, schema v2, environment variables, modes, and verified test counts.
+
+### Fixed
+
+- Reconciled contradictory mode/auth behavior between the two completed lines.
+- Corrected local-mode copy that implied arbitrary repository or workspace selection.
+- Removed dead/duplicated demo beat row and updated stale verification figures.
+- Preserved both corrupt-state and guided-demo recovery paths.
+
+### Verification
+
+- `npm ci`, `npm run typecheck`, `npm test` (111), `npm run build`, `npm run budget`, `npm run test:visual` (18), and `npm audit --omit=dev --audit-level=high` pass.
+- Local smoke: health, mode, token, project, and workshop route pass.
+- Hosted-demo smoke: fixture project, no token, `DEMO_READ_ONLY` mutation, no engine, and `/demo` HTML pass.
+- OpenCode compatibility: server 2.0.32, catalog, disposable session create/read/remove; no prompt/model call.
+
+### Not in this entry
+
+- No deployment, public URL, domain registration, credit claim, publication, video, article, or submission.
+- No live Sentry release/source-map/trace verification.
+- No Backboard integration or partner-category claim.
+- No shared multi-user isolation or remote browser-to-local pairing.
+
+## 2026-10-31 — Security, persistence, and operations hardening (Phase 8)
+
+### Added
+
+- Explicit `local`, `hosted-demo`, and `private-hosted` modes with fail-closed startup validation.
+- Canonical workspace roots, broad-root rejection, traversal/symlink checks, private modes, and static containment.
+- OpenCode URL/SSRF/DNS/redirect/timeout/response-size policy and readiness gate.
+- Host/Origin/`Sec-Fetch-Site`, Basic Auth, constant-time session token, JSON content type, request-size cap, rate limit, concurrency gate, and bounded SSE.
+- State schema v2 with timestamps, mode/demo metadata, migration, backups, corrupt quarantine, cross-process lock, disk-failure mapping, and startup recovery.
+- Centralized redaction, structured logs, retention, budgets, and `/api/runtime`/`/api/events`.
+- Security/recovery tests for the above.
+
+### Changed
+
+- Protected API reads require the session token.
+- Unknown/timeout/permission outcomes are explicit and never replayed automatically.
+- Provider/model readiness and error classification are visible before mutation.
+
+### Residual risks
+
+- No shared-host isolation; the Node check is not an OS sandbox.
+- Remote connectors and multi-tenant isolation remain deferred.
+- Six moderate `glob`/`minimatch` advisories remain reachable through the Sentry bundler plugin during developer builds; the production audit at high severity passes.
+
+
 ## 2026-10-31 — Guided deterministic demo (Phase 7)
 
 ### Added

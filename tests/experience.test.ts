@@ -293,7 +293,7 @@ test("approved sections compile, Maker runs asynchronously, and Witness reads a 
   assert.equal(review.status, 200);
   const witnessed = await review.json();
   assert.equal(witnessed.project.witnessDrafts.length, 3);
-  const exported = await (await app.request("/api/export")).json();
+  const exported = await (await app.request("/api/export", { headers })).json();
   assert.match(exported.plan, /Approved control/);
   assert.equal(exported.drafts[0].title, "Findings");
   assert.match(exported.limitation, /not a submitted article/);

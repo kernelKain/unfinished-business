@@ -12,6 +12,7 @@ import {
   demoEvidence,
   demoOperations,
   faqs,
+  recommendations,
   usageModes,
 } from "../src/web/content/landing.ts";
 import { resolveRoute } from "../src/web/routes.ts";
@@ -68,12 +69,23 @@ test("usage modes are described truthfully and never claim local repository acce
   const copy = text(html);
 
   for (const mode of usageModes) assert.ok(copy.includes(mode.title), `missing mode ${mode.id}`);
-  assert.match(copy, /Hosted execution is not a public sandbox/);
-  assert.match(copy, /never a visitor's local repository/);
+  assert.match(copy, /public demo never uses a visitor's repository and rejects every mutation/);
+  assert.match(copy, /private instance is password-protected/);
+  assert.match(copy, /Neither path is a public execution sandbox/);
   assert.match(copy, /Your machine, your OpenCode server, your session/);
-  assert.match(copy, /Password protection and a loopback OpenCode server are required/);
+  assert.doesNotMatch(copy, /Password protection and a loopback OpenCode server are required for a hosted instance/);
   assert.doesNotMatch(copy, /trusted by|10,000|award-winning|used by \d/i);
   assert.doesNotMatch(copy, /remote access to your local repository/i);
+});
+
+test("recommendation fixtures carry source freshness and stay inside current capabilities", () => {
+  assert.ok(recommendations.length >= 3);
+  for (const recommendation of recommendations) {
+    assert.ok(recommendation.source.length > 8, recommendation.idea);
+    assert.match(recommendation.verifiedAt, /^\d{4}-\d{2}-\d{2}$/);
+    assert.doesNotMatch(recommendation.path, /paid model|arbitrary shell|remote repository/i);
+    assert.doesNotMatch(recommendation.permission, /auto-?approve|install silently/i);
+  }
 });
 
 test("the four spirits each expose distinct roles and states", () => {

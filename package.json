@@ -22,6 +22,7 @@
     "test:permissions": "node --import tsx --test tests/native-permissions.test.ts",
     "test:workflow": "node --import tsx --test tests/workflow.test.ts",
     "test:recovery": "node --import tsx --test tests/recovery.test.ts",
+    "test:security": "node --import tsx --test tests/security.test.ts tests/http-hardening.test.ts tests/store-hardening.test.ts tests/experience-hardening.test.ts",
     "diagnose:opencode": "node --import tsx scripts/opencode-live-diagnostic.ts",
     "test:connection": "node --import tsx --test tests/connection.test.ts tests/migration.test.ts tests/onboarding.test.ts",
     "test:runs": "node --import tsx --test tests/runs.test.ts tests/sessions.test.ts",
