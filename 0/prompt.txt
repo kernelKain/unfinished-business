@@ -1,0 +1,93 @@
+# Phase 9 prompt — Complete release verification and migrate documentation
+
+Implement only Phase 9 of the Unfinished Business roadmap. This is the release-quality gate: reconcile implementation and documentation, run the complete verification matrix, archive superseded material safely, and prepare an evidence-backed handoff. Do not add substantial new features during this phase.
+
+## Prerequisite
+
+Verify Phases 0–8 are either complete or explicitly scoped out by an approved decision. A missing MUST behavior is a blocker, not documentation work to hide.
+
+## Outcome
+
+The repository has one coherent product story, canonical and accurate setup/architecture/operations documentation, tested local and hosted-demo paths, a reviewable private-hosted procedure, complete evidence, and no unidentified worktree changes.
+
+## Reconcile implementation first
+
+- Inspect repository instructions, branch/HEAD, full worktree status, recent phase commits/handoffs, manifests, generated assets, source, tests, deployment configuration, and every active document.
+- Build a requirements-to-evidence matrix for Maker reliability, OpenCode onboarding/controls, navigation, landing/theme, recommendations, modes, demo, security, accessibility, and documentation.
+- Classify every item as verified, failed, unavailable, deferred by approved decision, or blocked. Do not convert missing proof into a pass.
+- Fix release-blocking defects and documentation mismatches only. Route material new features back to the relevant phase.
+
+## Full verification matrix
+
+Run and record:
+
+- clean dependency install where safe and reproducible;
+- typecheck, full unit/integration tests, production build, and dependency audit;
+- state migration from supported prior schema fixtures;
+- Maker queue/events/reconnect/restart/interrupt/unknown-outcome matrix;
+- OpenCode authentication, discovery, unavailable model/provider, permissions, and session controls using deterministic tests plus an authorized live smoke test when available;
+- local fresh setup and main journey;
+- hosted demo journey with proof of no inference/repository mutation;
+- static Render/private-host validation and live deployment only if separately authorized;
+- four-stage navigation and approval-gate regression;
+- deterministic demo and reset isolation;
+- recommendation policy fixtures and source freshness;
+- keyboard, focus, reduced motion, contrast, text zoom, narrow/wide layout, overflow, and relevant screen-reader semantics;
+- security, redaction, retention, backup, corruption, SSRF/path, origin, and rate-limit tests;
+- bundle/asset performance budgets;
+- Sentry release/source-map/trace checks only in environments with authorized credentials.
+
+Capture command, revision, environment, result, and limitation. Do not publish secrets, private transcripts, or unrestricted local paths in evidence.
+
+## Documentation requirements and migration
+
+Make these canonical and accurate:
+
+- `README.md`
+- `docs/PRODUCT_BRIEF.md`
+- `docs/ARCHITECTURE.md`
+- `docs/IMPLEMENTATION_PLAN.md`
+- `docs/OPENCODE_INTEGRATION.md`
+- `docs/LOCAL_SETUP.md`
+- `docs/HOSTED_DEPLOYMENT.md`
+- `docs/TOOL_CATALOG.md`
+- `docs/UX_AND_VISUAL_SYSTEM.md`
+- `docs/OPERATIONS_AND_RECOVERY.md`
+- `docs/DEMO_AND_SUBMISSION.md`
+- `docs/DECISIONS.md`
+- `docs/CHANGELOG.md`
+
+Then:
+
+- Compare legacy documents against canonical content line by line for unique facts and provenance.
+- Move genuinely superseded documents into `docs/history/` using Git-aware moves when possible.
+- Add a short superseded notice and pointer where stable incoming links may still matter.
+- Do not archive the four runtime stage prompts. If they are renamed to clearer names, update loaders, tests, links, provenance, and migration notes atomically:
+  - `ORACLE_PRODUCT_DISCOVERY.md`
+  - `ARCHITECT_ENGINEERING_PLAN.md`
+  - `MAKER_BUILD_AND_VERIFY.md`
+  - `WITNESS_DEMO_AND_SUBMISSION.md`
+- Keep this implementation prompt pack separate from runtime prompt discovery.
+- Remove obsolete active claims, duplicated setup steps, stale model constants, and dead links.
+- Add document status/owner/last-verified metadata where it improves maintenance.
+- Ensure every user-visible behavior has a setup, operation, recovery, or limitation reference.
+
+## Release and submission handoff
+
+- Prepare a concise release note from the changelog.
+- Create an evidence index linking screenshots, demo script, test reports, architecture diagram, OpenCode proof, and selected partner proof.
+- Verify challenge/category claims against actual meaningful usage. Do not claim a partner category for installation alone.
+- Keep publication, submission, deployment, domain registration, credit claiming, account changes, and public transcript sharing pending unless explicitly authorized.
+- Record known limitations and post-release work, especially shared multi-user hosting and remote browser-to-local pairing.
+
+## Acceptance
+
+- All MUST requirements have current evidence or the release is explicitly blocked.
+- Canonical docs match implemented routes, schemas, environment variables, versions, modes, and UI terminology.
+- Legacy material is preserved under history or deliberately retained with an ownership note; no unique user decision is lost.
+- Runtime prompts and implementation prompts cannot be confused by loaders or users.
+- Local setup is reproducible; hosted demo is safe and truthful; private hosting steps are reviewable.
+- No secrets/private traces are in tracked files or public evidence.
+- Full tests/build pass and the worktree contains no unidentified changes.
+
+Finish with the required phase handoff. Report `BUILD_COMPLETE — READY_FOR_FINAL_REVIEW` only when every release criterion is actually satisfied. Do not deploy, publish, push, or submit without separate explicit authorization.
