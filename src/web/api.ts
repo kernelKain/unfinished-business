@@ -94,10 +94,33 @@ export interface WorkshopProject {
     id: string;
     title: string;
     order: number;
+    dependencies: string[];
     content: string;
     version: number;
     hash: string;
     status: "NOT_STARTED" | "DRAFT" | "APPROVED" | "STALE";
+    candidateRevisions: Array<{
+      id: string;
+      version: number;
+      content: string;
+      hash: string;
+      status: "PENDING" | "ACCEPTED" | "REJECTED" | "SUPERSEDED";
+      sourceOperationId: string | null;
+      createdAt: string;
+      baseVersion: number;
+      baseHash: string;
+      summary: string;
+      requestedChange: string;
+      decidedAt: string | null;
+    }>;
+  }>;
+  approvals: Array<{
+    id: string;
+    sectionId: string;
+    version: number;
+    hash: string;
+    approvedAt: string;
+    staleReason: string | null;
   }>;
   transcript: Array<{ id: string; spirit: string; text: string }>;
   operations: Array<{
@@ -292,10 +315,18 @@ export function sendMessage(
   intent: "clarify" | "draft" | "question" | "witness",
   text: string,
   proceedWithAssumptions = false,
+  sectionId: string | null = null,
 ) {
-  return request<ActionResult>("/api/messages", {
+  return request<RevisionRequestResult>("/api/messages", {
     method: "POST",
-    body: { actionId: crypto.randomUUID(), expectedRevision: project.revision, intent, text, proceedWithAssumptions },
+    body: {
+      actionId: crypto.randomUUID(),
+      expectedRevision: project.revision,
+      intent,
+      text,
+      proceedWithAssumptions,
+      ...(sectionId ? { sectionId } : {}),
+    },
   });
 }
 
@@ -340,10 +371,30 @@ export function approveSection(project: WorkshopProject, version: number, hash: 
   });
 }
 
-export function reviseSection(project: WorkshopProject, sectionId: string, content: string) {
-  return request<ActionResult>(`/api/sections/${sectionId}/revisions`, {
+export interface RevisionRequestResult extends Partial<ActionResult> {
+  project: WorkshopProject;
+  duplicate?: boolean;
+  accepted?: boolean;
+}
+
+export function requestSectionRevision(project: WorkshopProject, sectionId: string, changeRequest: string) {
+  return request<RevisionRequestResult>(`/api/sections/${sectionId}/revisions`, {
     method: "POST",
-    body: { actionId: crypto.randomUUID(), expectedRevision: project.revision, content },
+    body: { actionId: crypto.randomUUID(), expectedRevision: project.revision, request: changeRequest },
+  });
+}
+
+export function acceptSectionRevision(project: WorkshopProject, sectionId: string, candidateId: string) {
+  return request<ActionResult>(`/api/sections/${sectionId}/revisions/${encodeURIComponent(candidateId)}/accept`, {
+    method: "POST",
+    body: { actionId: crypto.randomUUID(), expectedRevision: project.revision },
+  });
+}
+
+export function rejectSectionRevision(project: WorkshopProject, sectionId: string, candidateId: string) {
+  return request<ActionResult>(`/api/sections/${sectionId}/revisions/${encodeURIComponent(candidateId)}/reject`, {
+    method: "POST",
+    body: { actionId: crypto.randomUUID(), expectedRevision: project.revision },
   });
 }
 

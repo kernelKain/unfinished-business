@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { sanitizeGeneratedMarkdown } from "../../shared/markdown.ts";
+import { validateSectionContent } from "../../shared/section-contracts.ts";
 import {
   contentHash,
   projectSchema,
@@ -8,6 +10,7 @@ import {
 } from "./model.ts";
 
 export class WorkflowConflict extends Error {}
+export class SectionContractError extends WorkflowConflict {}
 
 function clone(project: Project): Project {
   return structuredClone(project);
@@ -28,16 +31,19 @@ function dependentsOf(project: Project, sectionId: string): Set<string> {
   return affected;
 }
 
-export function reviseSection(project: Project, sectionId: string, content: string): Project {
+/**
+ * Applies accepted content to a section and invalidates its own approval plus
+ * every transitive dependent approval. This is the only place a section's
+ * current draft changes.
+ */
+function applySectionContent(project: Project, sectionId: string, content: string, version: number): Project {
   const next = clone(project);
   const section = next.sections.find((item) => item.id === sectionId);
   if (!section) throw new WorkflowConflict(`Unknown section: ${sectionId}`);
-  const hash = contentHash(content);
-  if (section.hash === hash && section.version > 0) return next;
 
   section.content = content;
-  section.hash = hash;
-  section.version += 1;
+  section.hash = contentHash(content);
+  section.version = version;
   section.status = "DRAFT";
 
   const affected = dependentsOf(next, sectionId);
@@ -49,6 +55,127 @@ export function reviseSection(project: Project, sectionId: string, content: stri
       approval.staleReason = `${section.title} changed`;
     }
   }
+  return next;
+}
+
+/**
+ * Internal/test convenience for seeding a current draft. User-facing routes
+ * never call this: they generate a candidate and accept it explicitly.
+ */
+export function reviseSection(project: Project, sectionId: string, content: string): Project {
+  const section = project.sections.find((item) => item.id === sectionId);
+  if (!section) throw new WorkflowConflict(`Unknown section: ${sectionId}`);
+  if (section.hash === contentHash(content) && section.version > 0) return clone(project);
+  return projectSchema.parse(refreshNextAction(applySectionContent(project, sectionId, content, section.version + 1)));
+}
+
+/**
+ * Records an Architect candidate without touching the current draft. A new
+ * candidate supersedes any earlier pending candidate for the same section.
+ */
+export function recordSectionCandidate(
+  project: Project,
+  sectionId: string,
+  input: {
+    content: string;
+    summary: string;
+    requestedChange: string;
+    sourceOperationId: string | null;
+  },
+): Project {
+  const next = clone(project);
+  const section = next.sections.find((item) => item.id === sectionId);
+  if (!section) throw new WorkflowConflict(`Unknown section: ${sectionId}`);
+  const content = sanitizeGeneratedMarkdown(input.content);
+  const validation = validateSectionContent(sectionId, content);
+  if (!validation.ok) {
+    throw new SectionContractError(
+      `The proposed ${section.title} section does not satisfy its content contract: ${validation.errors.join(" ")}`,
+    );
+  }
+  const hash = contentHash(content);
+  if (hash === section.hash && section.version > 0) {
+    throw new WorkflowConflict("The proposed revision is identical to the current draft.");
+  }
+  const now = new Date().toISOString();
+  for (const candidate of section.candidateRevisions) {
+    if (candidate.status === "PENDING") {
+      candidate.status = "SUPERSEDED";
+      candidate.decidedAt = now;
+    }
+  }
+  const version = section.version + 1;
+  section.candidateRevisions.push({
+    id: randomUUID(),
+    version,
+    content,
+    hash,
+    status: "PENDING",
+    sourceOperationId: input.sourceOperationId,
+    createdAt: now,
+    baseVersion: section.version,
+    baseHash: section.hash,
+    summary: input.summary.slice(0, 4_000),
+    requestedChange: input.requestedChange.slice(0, 8_000),
+    decidedAt: null,
+  });
+  rememberTranscript(next, "architect", `Prepared proposed revision v${version} for ${section.title}. The current draft is unchanged.`);
+  return projectSchema.parse(refreshNextAction(next));
+}
+
+/**
+ * Accepts a pending candidate. This is deliberately separate from approval:
+ * the section becomes a DRAFT at the candidate version and still needs an
+ * exact-version approval.
+ */
+export function acceptSectionCandidate(project: Project, sectionId: string, candidateId: string): Project {
+  const next = clone(project);
+  const section = next.sections.find((item) => item.id === sectionId);
+  if (!section) throw new WorkflowConflict(`Unknown section: ${sectionId}`);
+  const candidate = section.candidateRevisions.find((item) => item.id === candidateId);
+  if (!candidate) throw new WorkflowConflict("That proposed revision is not in this section.");
+  if (candidate.status !== "PENDING") throw new WorkflowConflict("Only a pending proposed revision can be accepted.");
+  if (section.version !== candidate.baseVersion || section.hash !== candidate.baseHash) {
+    throw new WorkflowConflict("The section changed after this candidate was generated. Request a new revision.");
+  }
+  const validation = validateSectionContent(sectionId, candidate.content);
+  if (!validation.ok) {
+    throw new SectionContractError(
+      `The proposed ${section.title} section no longer satisfies its content contract: ${validation.errors.join(" ")}`,
+    );
+  }
+  const now = new Date().toISOString();
+  const applied = applySectionContent(next, sectionId, candidate.content, candidate.version);
+  const accepted = applied.sections.find((item) => item.id === sectionId);
+  const acceptedCandidate = accepted?.candidateRevisions.find((item) => item.id === candidateId);
+  if (!accepted || !acceptedCandidate) throw new WorkflowConflict("The proposed revision could not be applied.");
+  acceptedCandidate.status = "ACCEPTED";
+  acceptedCandidate.decidedAt = now;
+  for (const other of accepted.candidateRevisions) {
+    if (other.id !== candidateId && other.status === "PENDING") {
+      other.status = "SUPERSEDED";
+      other.decidedAt = now;
+    }
+  }
+  rememberTranscript(
+    applied,
+    "system",
+    `Accepted proposed revision v${candidate.version} for ${section.title}. The section is a draft and still needs separate approval.`,
+  );
+  return projectSchema.parse(refreshNextAction(applied));
+}
+
+/** Discards a pending candidate. The current draft and approvals are untouched. */
+export function rejectSectionCandidate(project: Project, sectionId: string, candidateId: string): Project {
+  const next = clone(project);
+  const section = next.sections.find((item) => item.id === sectionId);
+  if (!section) throw new WorkflowConflict(`Unknown section: ${sectionId}`);
+  const candidate = section.candidateRevisions.find((item) => item.id === candidateId);
+  if (!candidate) throw new WorkflowConflict("That proposed revision is not in this section.");
+  if (candidate.status !== "PENDING") throw new WorkflowConflict("Only a pending proposed revision can be discarded.");
+  candidate.status = "REJECTED";
+  candidate.decidedAt = new Date().toISOString();
+  rememberTranscript(next, "system", `Discarded proposed revision v${candidate.version} for ${section.title}. The current draft is unchanged.`);
   return projectSchema.parse(refreshNextAction(next));
 }
 

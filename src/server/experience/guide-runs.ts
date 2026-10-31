@@ -4,18 +4,17 @@ import type { ExpectedOutput, ModelRef, OperationPhase, Project } from "../../sh
 import { refreshNextAction, type Operation } from "../workflow/model.ts";
 import { WorkflowService } from "../workflow/service.ts";
 import {
+  recordSectionCandidate,
   rememberSession,
   rememberTranscript,
   recordOracleProposal,
   recordWitnessDrafts,
-  reviseSection,
 } from "../workflow/transitions.ts";
 import { PHASE_DETAIL, type SpiritGuide } from "./guide.ts";
 import { setProgress, writeProgress } from "./progress.ts";
 import { classifyNativeError, failureIsUncertain, providerErrorFor } from "./failures.ts";
 import {
   extractJsonObject,
-  formatSectionDraft,
   oracleReplySchema,
   sectionReplySchema,
   witnessReplySchema,
@@ -48,6 +47,8 @@ export interface ReplyApplyContext {
   sessionId: string;
   /** Native message id of a recovered late reply, if known. */
   messageId?: string | null;
+  /** The user's original change request, retained with the candidate for audit. */
+  requestedChange?: string;
 }
 
 /**
@@ -242,7 +243,11 @@ export class GuideRunCoordinator {
     reply: ValidatedReply,
     sessionId: string,
   ): Promise<string> {
-    const context: ReplyApplyContext = { redact: (value) => this.redacted(value), sessionId };
+    const context: ReplyApplyContext = {
+      redact: (value) => this.redacted(value),
+      sessionId,
+      requestedChange: input.userText,
+    };
     const result = await this.options.workflow.executeLatest(
       `run:${input.operationId}:apply`,
       { operationId: input.operationId },
@@ -383,12 +388,22 @@ export function applyValidatedReply(
       : `Oracle saved the intake and asked ${reply.reply.questions.length} focused question(s).`;
   } else if (reply.intent === "draft") {
     if (!operation.sectionId) throw new Error("A recovered draft names its target section.");
-    const content = context.redact(formatSectionDraft(reply.reply));
-    const revised = reviseSection(structuredClone(project), operation.sectionId, content);
-    rememberSession(revised, "architect", context.sessionId);
-    rememberTranscript(revised, "architect", content);
-    next = revised;
-    resultText = "Draft stored as the current section version.";
+    const content = context.redact(reply.reply.content);
+    const summary = context.redact(reply.reply.summary || "Architect revision prepared for review.");
+    const candidateProject = recordSectionCandidate(structuredClone(project), operation.sectionId, {
+      content,
+      summary,
+      requestedChange: context.redact(context.requestedChange ?? ""),
+      sourceOperationId: operationId,
+    });
+    rememberSession(candidateProject, "architect", context.sessionId);
+    next = candidateProject;
+    const candidate = next.sections
+      .find((section) => section.id === operation.sectionId)
+      ?.candidateRevisions.findLast((item) => item.status === "PENDING");
+    resultText = candidate
+      ? `Architect proposed revision v${candidate.version} for review. The current section was not changed.`
+      : "Architect revision prepared for review. The current section was not changed.";
   } else {
     next = recordWitnessDrafts(structuredClone(project), [
       { title: "Findings", content: context.redact(reply.reply.findings) },
@@ -465,7 +480,8 @@ export function validateReply(
         ok: true,
         intent: "draft",
         reply: {
-          content: prose.slice(0, 12_000),
+          content: prose.slice(0, 24_000),
+          summary: "The Architect returned prose without a structured summary. Review the proposed revision before accepting it.",
           recommendation: "The Architect returned prose. Review the draft before approval.",
           tradeoff: "Separate recommendation and tradeoff fields were not returned.",
         },

@@ -448,7 +448,7 @@ const projectSections = sectionIds.map((id, index) => ({
 }));
 
 const demoProject: Project = {
-  schemaVersion: 6,
+  schemaVersion: 7,
   id: "demo-campus-umbrella-relay",
   revision: 14,
   mode: "hosted-demo",

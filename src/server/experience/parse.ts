@@ -85,9 +85,10 @@ export const oracleReplySchema = z.object({
 });
 
 export const sectionReplySchema = z.object({
-  content: z.string().min(1).max(12_000),
-  recommendation: z.string().min(1).max(2_000),
-  tradeoff: z.string().min(1).max(2_000),
+  content: z.string().min(1).max(24_000),
+  summary: z.string().min(1).max(2_000),
+  recommendation: z.string().max(2_000).optional().default(""),
+  tradeoff: z.string().max(2_000).optional().default(""),
 });
 
 export const witnessReplySchema = z.object({
@@ -95,7 +96,3 @@ export const witnessReplySchema = z.object({
   limitations: z.string().min(1).max(4_000),
   draftNotes: z.string().min(1).max(8_000),
 });
-
-export function formatSectionDraft(reply: z.infer<typeof sectionReplySchema>): string {
-  return `${reply.content}\n\nRecommendation: ${reply.recommendation}\n\nTradeoff: ${reply.tradeoff}`;
-}

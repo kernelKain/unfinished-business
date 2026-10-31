@@ -4,6 +4,29 @@
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
+## 2026-11-01 — Upgrade Phase 4 reviewable generated revisions
+
+### Added
+
+- Section-specific content contracts for all eight Architect sections: required topics, detail guidance, dependencies, risk/decision requirements, acceptance criteria, and required headings.
+- Candidate revisions with base version/hash, summary, requested change, decision time, and `PENDING`/`ACCEPTED`/`REJECTED`/`SUPERSEDED` status.
+- Review surface with complete Markdown preview, unified/side-by-side line diff, accept, request-another, and discard controls.
+- Safe Markdown parser/renderer for headings, paragraphs, lists, emphasis, links, tables, and fenced code.
+- Section selection, pending badges, contract details, revision/approval history, and improved reading typography/spacing/empty states.
+- Schema v7 with explicit v1–v6 migration.
+
+### Changed
+
+- `POST /api/sections/:id/revisions` now accepts a change request and queues an Architect candidate instead of replacing section text.
+- Acceptance applies a candidate only when its base version/hash still matches; the section becomes `DRAFT` and affected downstream approvals become `STALE`.
+- Approval remains a separate exact-version action after acceptance.
+- CSS budget deliberately raised from 15 to 18 KiB for the new review, Markdown, and diff surfaces.
+
+### Not in this entry
+
+- No raw HTML execution, full CommonMark support, or automatic candidate acceptance.
+- No live provider inference, deployment, publication, or submission.
+
 ## 2026-11-01 — Upgrade Phase 3 project intake and guided discovery
 
 ### Added

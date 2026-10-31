@@ -54,13 +54,13 @@ Unfinished Business never implements a second agent loop, inference client, gene
 
 `src/web/App.tsx` reads `window.location.pathname`, listens for `popstate`, updates `document.title` and `document.documentElement.dataset.route`, and scrolls to the top on route change. Navigations are ordinary anchors, so they work without a client router.
 
-Measured production chunks after Phase 3 (2026-11-01):
+Measured production chunks after Phase 4 (2026-11-01):
 
-- initial `index-*.js`: 194.9 KiB gzip;
-- `WorkshopPage-*.js`: 58.7 KiB gzip (includes source onboarding/discovery UI);
+- initial `index-*.js`: 195.0 KiB gzip;
+- `WorkshopPage-*.js`: 66.8 KiB gzip (includes source onboarding, discovery, revision review, safe Markdown, and diffs);
 - `DemoPage-*.js`: 12.5 KiB gzip;
 - `SpiritStageTabs-*.js`: 3.6 KiB gzip;
-- CSS: 14.8 KiB gzip.
+- CSS: 16.2 KiB gzip (budget deliberately raised to 18 KiB for the review surfaces).
 
 The workshop keeps four-stage navigation, plan outline, working document, and activity/evidence rail. Provider failures render as a dedicated card with what happened, saved-work state, repair action, retry/change-model controls, and technical disclosure. The Run Inspector retains a compact provider-error line even after the card is dismissed. The visual layer changes did not alter stage and approval semantics.
 
@@ -91,7 +91,7 @@ Public hero assets are produced by `scripts/build-hero-assets.py` into `public/a
 | `src/server/project-sources.ts` | Source selection, local-path validation, remote URL policy, confirmation-gated managed import |
 | `src/server/observability/logger.ts` | Structured JSON logs with correlation IDs |
 | `src/server/store/atomic-project-store.ts` | Lock, atomic write, fsync, backups, quarantine, migration |
-| `src/server/workflow/` | Schema v6, explicit v1–v5 migration, transitions, idempotency, retention, restart recovery |
+| `src/server/workflow/` | Schema v7, explicit v1–v6 migration, candidate transitions, idempotency, retention, restart recovery |
 | `src/server/opencode/client.ts` | Safe client, version/auth/model readiness |
 | `src/server/opencode/connection.ts` | Connection settings, discovery, model access policy and resolution |
 | `src/server/opencode/provider-errors.ts` | Classifies provider failures into safe, actionable categories |
@@ -101,7 +101,9 @@ Public hero assets are produced by `scripts/build-hero-assets.py` into `public/a
 | `src/server/experience/runs.ts` | In-process Maker run coordinator |
 | `src/server/experience/telemetry.ts` | Metadata-only Sentry spans |
 | `src/server/prompts/loader.ts` | Loads complete runtime procedures from `docs/prompts/` |
-| `src/shared/` | Browser-safe workflow, OpenCode, mode, and demo contracts |
+| `src/shared/` | Browser-safe workflow, OpenCode, mode, and demo contracts; section content contracts; safe Markdown parser; line diff |
+| `src/web/components/Markdown.tsx` | Safe React renderer for the Markdown subset (no raw HTML) |
+| `src/web/components/RevisionReview.tsx`, `RevisionDiff.tsx` | Candidate summary, full revision preview, unified/side-by-side diff, accept/reject/request-another controls |
 
 ## 5. Deployment modes
 
@@ -133,13 +135,15 @@ The browser session token is issued only over loopback in local mode or after Ba
 
 ## 7. State, evidence, and recovery
 
-Schema v6 is the single current shape. It preserves the v5 run-recovery record and adds explicit project-source and Oracle discovery state:
+Schema v7 is the single current shape. It preserves the v6 project-source and Oracle discovery record and makes Architect revisions reviewable:
 
 - project source metadata for new work, validated local repositories, confirmation-gated managed remote imports, saved work, and the deterministic demo;
 - field-level Oracle intake for intended user, problem, desired outcome, deadline/event, must-have and optional features, budget, privacy, platforms, repository condition, non-goals, and unresolved questions, with answer provenance and update timestamps;
 - structured project memory buckets for answers, facts, user decisions, assumptions, constraints, and risks; corrections supersede prior entries instead of erasing history;
 - Oracle replies with `questions` or `proposal` mode, no more than three explained questions, known constraints, structured proposals, unresolved risks, and a recommended next action;
-- candidate section revisions that remain separate from the approved/current section;
+- candidate section revisions that remain separate from the approved/current section, with their base version/hash, requested change, human summary, decision time, and `PENDING`/`ACCEPTED`/`REJECTED`/`SUPERSEDED` status;
+- a server-side content contract for each of the eight Architect sections: required topics, detail guidance, dependencies, risk and decision requirements, acceptance criteria, and required headings. Validation is structural (headings, paragraphs, list/table items, topic coverage, dependency acknowledgement) and never relies on word count alone;
+- safe Markdown rendering and line diffs shared by the server validator, the review surface, and tests;
 - model access mode (`ALL_ACCESSIBLE` or `FREE_OR_LOCAL_ONLY`), privacy preference, first paid/unknown-price acceptance timestamp, and optional budget limits;
 - operation observation/application metadata and late-result-safe states;
 - a nullable structured provider error on operations: category, human explanation, saved-work status, repair action, retryability, and redacted technical references;
@@ -155,9 +159,10 @@ Migration accepts:
 - hardening-line v2 snapshots with mode/timestamps but no engine selection;
 - v3 snapshots with `requireFreeOrLocal`, a nonnegative cost budget, and no provider error;
 - v4 snapshots without the new operation metadata;
-- v5 snapshots without the Phase 3 source/intake/memory shape.
+- v5 snapshots without the Phase 3 source/intake/memory shape;
+- v6 snapshots whose candidates predate the base-version, summary, requested-change, and decision-time fields.
 
-Migration is deterministic and idempotent. Missing legacy timestamps use the documented epoch sentinel `1970-01-01T00:00:00.000Z`; migration never reads the wall clock or generates IDs. Legacy saved projects become confirmed saved-work sources, legacy Oracle summary/questions become structured intake, and old memory entries remain intact. Legacy `UNKNOWN` operations become `ABANDONED` with their result and native references intact, and every migrated non-terminal operation receives a deterministic `AWAITING_RECONCILIATION` progress marker with the sentinel timestamp so old unknown runs remain reconcilable. A v6 document round-trips through JSON and schema validation without changing.
+Migration is deterministic and idempotent. Missing legacy timestamps use the documented epoch sentinel `1970-01-01T00:00:00.000Z`; migration never reads the wall clock or generates IDs. Legacy saved projects become confirmed saved-work sources, legacy Oracle summary/questions become structured intake, and old memory entries remain intact. Legacy `UNKNOWN` operations become `ABANDONED` with their result and native references intact, and every migrated non-terminal operation receives a deterministic `AWAITING_RECONCILIATION` progress marker with the sentinel timestamp so old unknown runs remain reconcilable. A v7 document round-trips through JSON and schema validation without changing.
 
 Operational rules:
 
@@ -168,7 +173,12 @@ Operational rules:
 - every mutation sends `actionId` and `expectedRevision`;
 - duplicate action IDs return the existing result; a different payload is a conflict;
 - approvals target an exact section version and hash;
-- revisions invalidate only transitive dependent sections/approvals;
+- a change request queues an Architect run that records a `PENDING` candidate; it never writes the current draft. A new request supersedes an earlier pending candidate;
+- a candidate is validated against its section contract before it is stored. The review surface shows the summary, the requested change, the complete revised Markdown, and a unified or side-by-side line diff;
+- `POST /api/sections/:id/revisions/:candidateId/accept` applies the candidate only when the section still matches the candidate's base version/hash; the section becomes `DRAFT` at the candidate version and every transitive dependent approval becomes `STALE`;
+- `POST /api/sections/:id/revisions/:candidateId/reject` marks the candidate `REJECTED` and changes no draft or approval;
+- accepting a revision is not approval: the section still requires a separate exact-version approval;
+- section versions, candidate decisions, and approval records are retained for audit;
 - Maker requires every current section approved plus a separate scope grant;
 - operation states are `QUEUED`, `RUNNING`, `WAITING_PERMISSION`, `COMPLETED_UNAPPLIED`, `SUCCEEDED`, `FAILED`, `CANCELLED`, and `ABANDONED`;
 - `COMPLETED_UNAPPLIED` means a native result was observed or stored but has not (yet) been validated and applied exactly once;

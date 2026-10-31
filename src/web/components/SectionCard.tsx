@@ -1,18 +1,32 @@
 import type { WorkshopProject } from "../api.ts";
 import { StatusChip } from "./StatusChip.tsx";
 
-export function SectionCard({ section, current }: { section: WorkshopProject["sections"][number]; current: boolean }) {
+export function SectionCard({
+  section,
+  current,
+  selected,
+  onSelect,
+}: {
+  section: WorkshopProject["sections"][number];
+  current: boolean;
+  selected?: boolean;
+  onSelect?: () => void;
+}) {
+  const pending = section.candidateRevisions.some((candidate) => candidate.status === "PENDING");
   return (
-    <li className="section-card" data-status={section.status} data-current={current ? "true" : undefined}>
-      <span className="section-order" aria-hidden="true">{String(section.order).padStart(2, "0")}</span>
-      <span className="section-copy">
-        <span className="section-title">{section.title}</span>
-        <span className="section-meta">
-          <StatusChip status={section.status} />
-          <span className="meta">v{section.version}</span>
+    <li className="section-card" data-status={section.status} data-current={current ? "true" : undefined} data-selected={selected ? "true" : undefined}>
+      <button className="section-select" type="button" onClick={onSelect} aria-current={selected ? "true" : undefined}>
+        <span className="section-order" aria-hidden="true">{String(section.order).padStart(2, "0")}</span>
+        <span className="section-copy">
+          <span className="section-title">{section.title}</span>
+          <span className="section-meta">
+            <StatusChip status={section.status} />
+            <span className="meta">v{section.version}</span>
+            {pending ? <span className="section-pending">Proposed v{section.version + 1}</span> : null}
+          </span>
         </span>
-      </span>
-      {current ? <span className="section-flag">Current</span> : null}
+        {current ? <span className="section-flag">Current</span> : null}
+      </button>
     </li>
   );
 }

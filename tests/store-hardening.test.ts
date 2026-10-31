@@ -53,7 +53,7 @@ test("migrates a v1 snapshot to the current schema without resetting content", (
   const migrated = migrateProject(legacy);
   assert.equal(migrated.migrated, true);
   assert.equal(migrated.fromVersion, 1);
-  assert.equal(migrated.project.schemaVersion, 6);
+  assert.equal(migrated.project.schemaVersion, 7);
   assert.equal(migrated.project.mode, "local");
   assert.equal(migrated.project.demoWorkspace, true);
   assert.equal(projectSchema.parse(migrated.project).revision, current.revision);

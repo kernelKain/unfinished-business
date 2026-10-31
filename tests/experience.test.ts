@@ -10,7 +10,9 @@ import { ExperienceService } from "../src/server/experience/service.ts";
 import { AtomicProjectStore } from "../src/server/store/atomic-project-store.ts";
 import { createProject, refreshNextAction } from "../src/server/workflow/model.ts";
 import { WorkflowService } from "../src/server/workflow/service.ts";
+import { reviseSection } from "../src/server/workflow/transitions.ts";
 import { confirmNewProjectSource, oracleProposalReply } from "./fixtures/oracle-replies.ts";
+import { compliantSectionDraft } from "./fixtures/section-drafts.ts";
 
 const model: DiscoveredModel = {
   key: "opencode/flint-40b-free",
@@ -256,26 +258,28 @@ test("a malformed architect reply leaves the section unchanged", async () => {
   assert.equal(after.sections[0].status, "NOT_STARTED");
 });
 
-test("a prose architect reply is stored as an unapproved draft", async () => {
+test("a prose architect reply that misses the content contract leaves the section unchanged", async () => {
   const prose = "Keep a ledger of pooled umbrellas, with a checkout time, a due time, and a return scan. ".repeat(3);
   const { app, store } = await workshop(guide([prose]));
   const project = (await new WorkflowService(store).execute("product", { kind: "product" }, 0, (current) => {
     current.product = { status: "APPROVED", proposal: "Track found items.", openQuestions: [] };
     return refreshNextAction(current);
   })).project;
+  const before = project.sections[0];
   const response = await app.request("/api/messages", {
     method: "POST",
     headers,
     body: JSON.stringify({ actionId: "prose", expectedRevision: project.revision, intent: "draft", text: "Draft the control section." }),
   });
   assert.equal(response.status, 202);
-  const body = { project: await waitFor(async () => {
+  const failed = await waitFor(async () => {
     const state = (await store.load()).state;
-    return state.sections[0].status === "DRAFT" ? state : null;
-  }) };
-  assert.equal(body.project.sections[0].status, "DRAFT");
-  assert.match(body.project.sections[0].content, /pooled umbrellas/);
-  assert.notEqual(body.project.sections[0].status, "APPROVED");
+    return state.operations.at(-1)?.status === "FAILED" ? state : null;
+  });
+  assert.equal(failed.sections[0].status, before.status);
+  assert.equal(failed.sections[0].content, before.content);
+  assert.equal(failed.sections[0].candidateRevisions.length, 0);
+  assert.match(failed.operations.at(-1)?.result ?? "", /content contract/i);
 });
 
 test("the same action does not call the spirit twice", async () => {
@@ -322,17 +326,12 @@ test("approved sections compile, Maker runs asynchronously, and Witness reads a 
   })).project;
 
   for (const section of [...project.sections]) {
-    const revised = await app.request(`/api/sections/${section.id}/revisions`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        actionId: `revise-${section.id}`,
-        expectedRevision: project.revision,
-        content: `Approved ${section.id} for a campus lost-and-found.`,
-      }),
-    });
-    assert.equal(revised.status, 200);
-    project = (await revised.json()).project;
+    project = (await workflow.execute(
+      `revise-${section.id}`,
+      { content: `Approved ${section.id} for a campus lost-and-found.` },
+      project.revision,
+      (current) => reviseSection(current, section.id, `Approved ${section.id} for a campus lost-and-found.`),
+    )).project;
     const current = project.sections.find((item) => item.id === section.id);
     assert.ok(current);
     const approved = await app.request(`/api/sections/${section.id}/approve`, {
@@ -400,4 +399,66 @@ test("approved sections compile, Maker runs asynchronously, and Witness reads a 
   assert.equal(exported.drafts[0].title, "Findings");
   assert.match(exported.limitation, /not a submitted article/);
   assert.equal(exported.engine.model.id, "flint-40b-free");
+});
+
+test("a change request creates a reviewable candidate and never overwrites the draft", async () => {
+  const draft = compliantSectionDraft("control", "Add a clearer non-goal and tighten the acceptance condition.");
+  const { app, store } = await workshop(guide([
+    JSON.stringify({
+      content: draft,
+      summary: "Clarified the non-goal and made the acceptance condition testable.",
+      recommendation: "Keep the scope narrow.",
+      tradeoff: "A narrower scope defers optional ideas.",
+    }),
+  ]));
+  const project = (await new WorkflowService(store).execute("product", { kind: "product" }, 0, (current) => {
+    current.product = { status: "APPROVED", proposal: "Track found items.", openQuestions: [] };
+    return refreshNextAction(current);
+  })).project;
+  const before = project.sections[0];
+
+  const requested = await app.request("/api/sections/control/revisions", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      actionId: "change-request",
+      expectedRevision: project.revision,
+      request: "Add a clearer non-goal and tighten the acceptance condition.",
+    }),
+  });
+  assert.equal(requested.status, 202);
+  const queued = await requested.json();
+  assert.equal(queued.accepted, true);
+  assert.equal(queued.project.sections[0].content, before.content);
+
+  await waitFor(async () => {
+    const state = (await store.load()).state;
+    return state.sections[0].candidateRevisions.some((candidate) => candidate.status === "PENDING")
+      && state.operations.at(-1)?.status === "SUCCEEDED"
+      ? state
+      : null;
+  });
+  // The coordinator writes a final terminal notice after applying the reply.
+  // Let that settle so the acceptance request uses the persisted revision.
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const withCandidate = (await store.load()).state;
+  const section = withCandidate.sections[0];
+  const pending = section.candidateRevisions.find((candidate) => candidate.status === "PENDING")!;
+  assert.equal(section.content, before.content, "the current draft is untouched");
+  assert.equal(section.status, "NOT_STARTED");
+  assert.equal(pending.requestedChange, "Add a clearer non-goal and tighten the acceptance condition.");
+  assert.match(pending.summary, /non-goal/);
+
+  const accepted = await app.request(`/api/sections/control/revisions/${pending.id}/accept`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ actionId: "accept-change", expectedRevision: withCandidate.revision }),
+  });
+  const acceptBody = await accepted.json();
+  assert.equal(accepted.status, 200, JSON.stringify(acceptBody));
+  const after = acceptBody;
+  assert.equal(after.project.sections[0].content, pending.content);
+  assert.equal(after.project.sections[0].status, "DRAFT");
+  assert.equal(after.project.sections[0].version, 1);
+  assert.equal(after.project.approvals.length, 0);
 });

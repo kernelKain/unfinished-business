@@ -29,6 +29,7 @@ import {
   projectV3Schema,
   projectV4Schema,
   projectV5Schema,
+  projectV6Schema,
   sectionSchema,
   sectionStatusSchema,
   transcriptEntrySchema,
@@ -75,6 +76,7 @@ export {
   projectV3Schema,
   projectV4Schema,
   projectV5Schema,
+  projectV6Schema,
   sectionSchema,
   sectionStatusSchema,
   transcriptEntrySchema,
@@ -90,7 +92,7 @@ export {
   type SpiritRole,
 };
 
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 export const MIGRATION_TIMESTAMP = "1970-01-01T00:00:00.000Z";
 
 export class UnsupportedSchemaVersionError extends Error {
@@ -150,7 +152,7 @@ export function createProject(
   }));
   const now = options?.now ?? new Date().toISOString();
   return refreshNextAction(projectSchema.parse({
-    schemaVersion: 6,
+    schemaVersion: 7,
     id: randomUUID(),
     revision: 0,
     mode,
@@ -340,15 +342,42 @@ function migrateMemory(memory: { facts: Array<Record<string, unknown>>; decision
 }
 
 /**
- * Reads every supported prior shape as schema v6.
+ * Adds explicit review metadata to candidates written before schema v7.
+ * No timestamp is invented: the legacy created time is preserved and the
+ * decision time stays null until a real accept/reject transition.
+ */
+function migrateCandidateRevisions(
+  candidates: Array<{
+    id: string;
+    version: number;
+    content: string;
+    hash: string;
+    status: "PENDING" | "ACCEPTED" | "REJECTED" | "SUPERSEDED";
+    sourceOperationId: string | null;
+    createdAt: string;
+  }>,
+) {
+  return candidates.map((candidate) => ({
+    ...candidate,
+    baseVersion: Math.max(0, candidate.version - 1),
+    baseHash: "",
+    summary: candidate.status === "PENDING"
+      ? "Legacy candidate preserved from an earlier schema; request a fresh revision before accepting."
+      : "Legacy candidate preserved from an earlier schema.",
+    requestedChange: "",
+    decidedAt: null,
+  }));
+}
+
+/**
+ * Reads every supported prior shape as schema v7.
  *
  * The guided-interface line wrote v2 with engine selection but no mode or
  * timestamps. The hardening line wrote v2 with mode/timestamps but no engine.
  * Both v2 variants are accepted through explicit deterministic defaults. A v1
- * fixed-model project preserves that legacy identity for discovery. Schema v6
- * preserves v5 run-observability metadata and migrates the earlier source,
- * intake, product, and memory placeholders into guided-discovery records.
- * Operations with no recorded progress keep
+ * fixed-model project preserves that legacy identity for discovery. Schema v7
+ * preserves v6 guided-discovery state and adds candidate base/summary/decision
+ * metadata. Operations with no recorded progress keep
  * a deterministic AWAITING_RECONCILIATION marker when their status could still
  * be recovered, so old unknown operations remain reconcilable. No migration
  * step reads the wall clock, generates an ID, or deletes history.
@@ -380,7 +409,7 @@ export function migrateProject(raw: unknown): MigrationResult {
     const product = legacy.product;
     const project = projectSchema.parse({
       ...legacy,
-      schemaVersion: 6,
+      schemaVersion: 7,
       mode,
       demoWorkspace: "demoWorkspace" in legacy ? legacy.demoWorkspace ?? true : true,
       createdAt,
@@ -439,8 +468,12 @@ export function migrateProject(raw: unknown): MigrationResult {
     const legacy = projectV3Schema.parse(source);
     const project = projectSchema.parse({
       ...legacy,
-      schemaVersion: 6,
+      schemaVersion: 7,
       product: { ...legacy.product, structuredProposal: null },
+      sections: legacy.sections.map((section) => ({
+        ...section,
+        candidateRevisions: migrateCandidateRevisions(section.candidateRevisions),
+      })),
       source: migrateSource(legacy.source, legacy.mode, legacy.workspace, legacy.updatedAt),
       oracleIntake: migrateIntake(legacy.oracleIntake, legacy.updatedAt),
       memory: migrateMemory(legacy.memory),
@@ -477,8 +510,12 @@ export function migrateProject(raw: unknown): MigrationResult {
     const legacy = projectV4Schema.parse(source);
     const project = projectSchema.parse({
       ...legacy,
-      schemaVersion: 6,
+      schemaVersion: 7,
       product: { ...legacy.product, structuredProposal: null },
+      sections: legacy.sections.map((section) => ({
+        ...section,
+        candidateRevisions: migrateCandidateRevisions(section.candidateRevisions),
+      })),
       source: migrateSource(legacy.source, legacy.mode, legacy.workspace, legacy.updatedAt),
       oracleIntake: migrateIntake(legacy.oracleIntake, legacy.updatedAt),
       memory: migrateMemory(legacy.memory),
@@ -498,8 +535,12 @@ export function migrateProject(raw: unknown): MigrationResult {
     const legacy = projectV5Schema.parse(source);
     const project = projectSchema.parse({
       ...legacy,
-      schemaVersion: 6,
+      schemaVersion: 7,
       product: { ...legacy.product, structuredProposal: null },
+      sections: legacy.sections.map((section) => ({
+        ...section,
+        candidateRevisions: migrateCandidateRevisions(section.candidateRevisions),
+      })),
       source: migrateSource(legacy.source, legacy.mode, legacy.workspace, legacy.updatedAt),
       oracleIntake: migrateIntake(legacy.oracleIntake, legacy.updatedAt),
       memory: migrateMemory(legacy.memory),
@@ -509,6 +550,19 @@ export function migrateProject(raw: unknown): MigrationResult {
       })),
     });
     return { project, fromVersion: 5, migrated: true };
+  }
+
+  if (version === 6) {
+    const legacy = projectV6Schema.parse(source);
+    const project = projectSchema.parse({
+      ...legacy,
+      schemaVersion: 7,
+      sections: legacy.sections.map((section) => ({
+        ...section,
+        candidateRevisions: migrateCandidateRevisions(section.candidateRevisions),
+      })),
+    });
+    return { project, fromVersion: 6, migrated: true };
   }
 
   const missingDefaults = !("source" in source)
@@ -584,7 +638,10 @@ export function refreshNextAction(project: Project): Project {
   }
   if (current) {
     project.stage = "ARCHITECT";
-    project.nextAction = `${current.status === "DRAFT" || current.status === "STALE" ? "Review" : "Draft"} ${current.title}`;
+    const pending = current.candidateRevisions.find((candidate) => candidate.status === "PENDING");
+    project.nextAction = pending
+      ? `Review the proposed revision for ${current.title}`
+      : `${current.status === "DRAFT" || current.status === "STALE" ? "Review" : "Draft"} ${current.title}`;
     return project;
   }
   if (project.makerScope.status !== "GRANTED") {

@@ -2,7 +2,7 @@
 
 **Status:** Implemented release candidate.
 **Owner:** Operations/engineering.
-**Last verified:** 2026-11-01; schema v6 migration, source onboarding/import safety, Oracle memory, run observability/recovery, provider-budget enforcement, corruption, restart, and hosted-demo isolation covered by tests.
+**Last verified:** 2026-11-01; schema v7 migration, source onboarding/import safety, Oracle memory, candidate revisions, run observability/recovery, provider-budget enforcement, corruption, restart, and hosted-demo isolation covered by tests.
 
 The application is a single-process Node service with one writer and one active project. It is not a multi-tenant service.
 
@@ -67,7 +67,7 @@ Recovery rules:
 - Current invalid, previous valid → copy the current bytes to `project.json.corrupt-*`, use the previous snapshot, and log the recovery. The corrupt original remains.
 - Both invalid → refuse to reset. State routes return `STATE_CORRUPT`; health stays minimal.
 - Newer schema version → refuse and preserve. Do not downgrade.
-- Schema v1, either supported v2 shape, schema v3, schema v4, or schema v5 → deterministically migrate on read; the next successful write persists canonical schema v6.
+- Schema v1, either supported v2 shape, schema v3, schema v4, schema v5, or schema v6 → deterministically migrate on read; the next successful write persists canonical schema v7. Candidate revisions retain their content, base version/hash, summary, requested change, decision time, and status across migration.
 
 Migration policy:
 

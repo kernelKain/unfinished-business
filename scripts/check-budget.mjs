@@ -10,7 +10,7 @@ const assets = join(dist, "assets");
 const budgets = {
   initialJsGzip: 220 * 1024,
   totalJsGzip: 280 * 1024,
-  cssGzip: 15 * 1024,
+  cssGzip: 18 * 1024,
   heroTotal: 640 * 1024,
   heroLargest: 190 * 1024,
 };

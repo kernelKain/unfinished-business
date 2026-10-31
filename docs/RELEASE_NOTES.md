@@ -1,9 +1,24 @@
 # Release notes — Unfinished Business release candidate
 
 **Date:** 2026-11-01
-**Status:** Upgrade Phase 3 implemented; deployment, publication, and submission remain outside this phase.
+**Status:** Upgrade Phase 4 implemented; deployment, publication, and submission remain outside this phase.
 
 ## What changed
+
+### Upgrade Phase 4 — reviewable generated revisions
+
+- Architect output is now a **proposed revision**, never an immediate overwrite. “Request changes” queues an Architect run; the current draft stays visible until the user accepts the candidate.
+- Every Architect section has a **content contract**: required topics, detail guidance, dependencies, risk and decision requirements, acceptance criteria, and required headings. Validation is structural and topic-based, so padded word count alone cannot pass.
+- The review surface shows the candidate summary, the requested change, the **complete revised Markdown**, and a **unified or side-by-side diff**. Wide screens default to side-by-side; narrow screens stack the two sides with labels.
+- **Accept**, **Request another revision**, and **Discard** are explicit. A new request supersedes an earlier pending candidate; a candidate whose base version changed cannot be accepted.
+- **Accepting is not approval.** Acceptance replaces the draft and marks the section `DRAFT`; the exact-version approval remains a separate action. Accepting an upstream revision marks only transitive dependent approvals stale.
+- Generated Markdown is rendered safely: headings, paragraphs, lists, emphasis, links, tables, and code work; raw HTML/script is never executed and unsafe link protocols are reduced to their labels.
+- Schema **v7** records candidate base version/hash, summary, requested change, decision time, and status. Explicit v1–v6 migration preserves older projects and candidate history.
+- Reading width, typography, spacing, empty/loading states, section selection, contract details, and revision/approval history were improved.
+- Phase 4 tests cover all eight contracts, candidate creation/rejection/acceptance, stale approvals, base-version conflicts, Markdown sanitization/rendering, and both diff layouts.
+- Verification passes: typecheck, **179 tests**, production build, all five bundle/asset budgets (CSS deliberately raised to 18 KiB), and the existing visual/accessibility suite.
+
+Known limits: the Markdown subset is intentionally small (not full CommonMark); contract validation checks structure and topic coverage, not prose quality; visual snapshots do not yet capture a live candidate state.
 
 ### Upgrade Phase 3 — project intake and guided discovery
 
@@ -39,13 +54,15 @@ Known limits: remote import supports public unauthenticated HTTPS repositories o
 
 ## Verification
 
-- Typecheck, **150 tests**, production build, budget, and the **18 visual/accessibility tests** pass.
-- New Phase 2 tests cover: live progress visibility, late Oracle response reconciliation, section 06 Architect timeout recovery, late Maker diff adoption with check evidence, duplicate-reconciliation protection, permission-waiting behavior, cancellation against late replies, restart-reconnect reconciliation, retry lineage and gates, mark-abandoned, and migration of old unknown operations into recoverable state.
-- No provider credentials or live/private model output were used; all provider failure fixtures are synthetic.
+- Typecheck, **179 tests**, production build, budget, and the **18 visual/accessibility tests** pass.
+- Phase 4 tests cover: all eight section contracts, padded-word rejection, candidate creation/supersede, accept/reject, acceptance-versus-approval separation, transitive stale approvals, base-version conflicts, safe Markdown rendering/sanitization, and unified/side-by-side diff consistency.
+- No provider credentials or live/private model output were used; all provider and section fixtures are synthetic.
 
 ## Known limitations
 
 - Trusted single-project tool, not a multi-tenant sandbox.
+- Section review supports a small safe Markdown subset, not full CommonMark or raw HTML. Contract validation checks structure and topic coverage, not prose quality.
+- Visual snapshots do not yet capture a live pending-candidate state; the review surface is covered by component/server-render and transition tests.
 - Maker edits only the isolated demo workspace; no arbitrary repository connector.
 - Live progress uses bounded polling of OpenCode endpoints; the SSE event stream is not consumed yet (see `docs/ARCHITECTURE.md`).
 - "Open in OpenCode" focuses this app's OpenCode panel; it does not drive a remote OpenCode UI.
@@ -57,4 +74,4 @@ Known limits: remote import supports public unauthenticated HTTPS repositories o
 
 ## Next actions
 
-1. Begin the next upgrade phase only from the committed and pushed Phase 2 state.
+1. Begin the next upgrade phase only from the committed and pushed Phase 4 state.

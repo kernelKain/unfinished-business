@@ -4,8 +4,10 @@ import { motion, useReducedMotion } from "motion/react";
 import type { ConnectionStatus } from "../../shared/opencode.ts";
 import type { ProviderErrorDetails } from "../../shared/workflow.ts";
 import { modeDescriptor } from "../../shared/modes.ts";
+import { sectionContract } from "../../shared/section-contracts.ts";
 import {
   abandonRun,
+  acceptSectionRevision,
   ApiError,
   approveProduct,
   approveSection,
@@ -17,7 +19,8 @@ import {
   loadExport,
   loadProject,
   reconcileRun,
-  reviseSection,
+  rejectSectionRevision,
+  requestSectionRevision,
   retryRun,
   runMaker,
   selectProjectSource,
@@ -25,7 +28,9 @@ import {
   type WorkshopProject,
 } from "../api.ts";
 import { Brand } from "../components/Brand.tsx";
+import { Markdown } from "../components/Markdown.tsx";
 import { ProviderErrorCard } from "../components/ProviderErrorCard.tsx";
+import { RevisionReview } from "../components/RevisionReview.tsx";
 import { RunInspector } from "../components/RunInspector.tsx";
 import { SectionCard, EmptyState } from "../components/SectionCard.tsx";
 import { SpiritCharacter, type SpiritState } from "../components/SpiritCharacter.tsx";
@@ -41,6 +46,7 @@ export function WorkshopPage() {
   const [text, setText] = useState("");
   const [scope, setScope] = useState("Build the approved plan in the isolated demo workspace and leave a passing Node test.");
   const [change, setChange] = useState("");
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [slow, setSlow] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +86,11 @@ export function WorkshopPage() {
     }, 1_500);
     return () => window.clearInterval(timer);
   }, [activeRun?.id]);
+
+  useEffect(() => {
+    if (!project || selectedSectionId) return;
+    if (project.currentSectionId) setSelectedSectionId(project.currentSectionId);
+  }, [project, selectedSectionId]);
 
   async function act(work: () => Promise<{ project: WorkshopProject }>) {
     setBusy(true);
@@ -122,7 +133,8 @@ export function WorkshopPage() {
     );
   }
 
-  const section = project.sections.find((item) => item.id === project.currentSectionId) ?? null;
+  const currentSection = project.sections.find((item) => item.id === project.currentSectionId) ?? null;
+  const section = project.sections.find((item) => item.id === selectedSectionId) ?? currentSection;
   const abandoned = project.operations.find((item) => item.status === "ABANDONED") ?? null;
   const profile = stageSpirit(project.stage);
   const characterState = spiritStateFor(project, section);
@@ -215,7 +227,13 @@ export function WorkshopPage() {
               <div className="progress-track" aria-hidden="true"><span style={{ width: `${(approved / project.sections.length) * 100}%` }} /></div>
               <ol className="section-list">
                 {project.sections.map((item) => (
-                  <SectionCard key={item.id} section={item} current={item.id === project.currentSectionId} />
+                  <SectionCard
+                    key={item.id}
+                    section={item}
+                    current={item.id === project.currentSectionId}
+                    selected={item.id === section?.id}
+                    onSelect={() => setSelectedSectionId(item.id)}
+                  />
                 ))}
               </ol>
             </section>
@@ -333,6 +351,7 @@ export function WorkshopPage() {
                   <ArchitectPanel
                     project={project}
                     section={section}
+                    isCurrent={section.id === project.currentSectionId}
                     change={change}
                     setChange={setChange}
                     text={text}
@@ -340,6 +359,17 @@ export function WorkshopPage() {
                     busy={busy}
                     act={act}
                     reduceMotion={reduceMotion}
+                    onRequestChange={(request) => void act(async () => {
+                      const result = await requestSectionRevision(project, section.id, request);
+                      setChange("");
+                      return result;
+                    })}
+                    onAcceptCandidate={(candidateId) => void act(() => acceptSectionRevision(project, section.id, candidateId))}
+                    onRejectCandidate={(candidateId) => void act(() => rejectSectionRevision(project, section.id, candidateId))}
+                    onRequestAnother={() => {
+                      setChange("");
+                      document.getElementById("architect-change")?.focus();
+                    }}
                   />
                 ) : null}
                 {project.stage === "ARCHITECT" && !section ? (
@@ -640,6 +670,7 @@ function OraclePanel(props: {
 function ArchitectPanel(props: {
   project: WorkshopProject;
   section: WorkshopProject["sections"][number];
+  isCurrent: boolean;
   change: string;
   setChange: (value: string) => void;
   text: string;
@@ -647,37 +678,86 @@ function ArchitectPanel(props: {
   busy: boolean;
   reduceMotion: boolean | null;
   act: (work: () => Promise<{ project: WorkshopProject }>) => Promise<void>;
+  onRequestChange: (request: string) => void;
+  onAcceptCandidate: (candidateId: string) => void;
+  onRejectCandidate: (candidateId: string) => void;
+  onRequestAnother: () => void;
 }) {
+  const pending = props.section.candidateRevisions.findLast((candidate) => candidate.status === "PENDING") ?? null;
+  const history = [...props.section.candidateRevisions].reverse();
+  const approvals = props.project.approvals.filter((approval) => approval.sectionId === props.section.id);
+  const contract = sectionContract(props.section.id);
   return (
     <section className="stage-panel" aria-labelledby="architect-panel-title">
       <div className="panel-intro">
         <span className="panel-icon"><ScrollText size={18} aria-hidden="true" /></span>
         <div>
           <h2 id="architect-panel-title">Architect: review one section</h2>
-          <p>Approve this exact version, or ask for a change. A revision makes the old approval stale.</p>
+          <p>Request changes to generate a candidate, inspect the complete diff, then accept or discard it. Approval is always a separate exact-version action.</p>
         </div>
         <div className="panel-badges">
           <StatusChip status={props.section.status} />
           <span className="meta">v{props.section.version}</span>
+          {!props.isCurrent ? <span className="meta">Reviewing an earlier section</span> : null}
         </div>
       </div>
       {props.section.status === "STALE" ? (
         <div className="warning-panel"><AlertTriangle size={18} aria-hidden="true" /><p>An upstream change marked this section stale. Review it again before approval counts.</p></div>
       ) : null}
-      <div className="reading prose section-reading">
-        {props.section.content || "This section has no draft yet."}
+      <div className="section-reading-head">
+        <h3>Current draft · v{props.section.version}</h3>
+        {props.section.status === "APPROVED" ? <Seal label="Section approved" reduceMotion={props.reduceMotion} /> : null}
       </div>
-      {props.section.status === "APPROVED" ? <Seal label="Section approved" reduceMotion={props.reduceMotion} /> : null}
+      {props.section.content ? (
+        <div className="reading section-reading">
+          <Markdown content={props.section.content} />
+        </div>
+      ) : (
+        <EmptyState title="No draft yet">Draft this section or describe the change you want. Nothing is written until you accept a proposed revision.</EmptyState>
+      )}
+      {pending ? (
+        <RevisionReview
+          sectionTitle={props.section.title}
+          currentContent={props.section.content}
+          candidate={pending}
+          busy={props.busy}
+          onAccept={() => props.onAcceptCandidate(pending.id)}
+          onReject={() => props.onRejectCandidate(pending.id)}
+          onRequestAnother={props.onRequestAnother}
+        />
+      ) : null}
       <div className="actions">
-        <button className="action" type="button" disabled={props.busy} onClick={() => void props.act(() => sendMessage(props.project, "draft", props.text.trim() || `Draft ${props.section.title}`))}>
-          Draft section
+        <button
+          className="action"
+          type="button"
+          disabled={props.busy || !props.isCurrent || Boolean(pending)}
+          onClick={() => void props.act(() => sendMessage(props.project, "draft", props.text.trim() || `Draft ${props.section.title}`, false, props.section.id))}
+        >
+          {props.section.content ? "Draft a fresh candidate" : "Draft section"}
         </button>
-        {props.section.status === "DRAFT" ? (
+        {props.section.status === "DRAFT" && props.isCurrent ? (
           <button className="action secondary" type="button" disabled={props.busy} onClick={() => void props.act(() => approveSection(props.project, props.section.version, props.section.hash, props.section.id))}>
-            Approve section
+            Approve this draft
           </button>
         ) : null}
+        {!props.isCurrent ? <span className="meta">Only the current section can be drafted or approved. You can still request a change on this section.</span> : null}
       </div>
+      {contract ? (
+        <details className="contract-card">
+          <summary>Section content contract</summary>
+          <p>{contract.detailGuidance}</p>
+          <div className="contract-grid">
+            <div>
+              <h4>Required topics</h4>
+              <ul>{contract.requiredTopics.map((topic) => <li key={topic.id}>{topic.label}</li>)}</ul>
+            </div>
+            <div>
+              <h4>Acceptance criteria</h4>
+              <ul>{contract.acceptanceCriteria.map((criterion) => <li key={criterion}>{criterion}</li>)}</ul>
+            </div>
+          </div>
+        </details>
+      ) : null}
       <div className="form-grid">
         <div>
           <label htmlFor="architect-question">Ask a question</label>
@@ -687,13 +767,54 @@ function ArchitectPanel(props: {
           </button>
         </div>
         <div>
-          <label htmlFor="architect-change">Replacement text for this section</label>
-          <textarea id="architect-change" value={props.change} onChange={(event) => props.setChange(event.target.value)} maxLength={8000} />
-          <button className="action secondary" type="button" disabled={props.busy || props.change.trim().length < 1} onClick={() => void props.act(() => reviseSection(props.project, props.section.id, props.change))}>
+          <label htmlFor="architect-change">Describe the change you want</label>
+          <textarea
+            id="architect-change"
+            value={props.change}
+            onChange={(event) => props.setChange(event.target.value)}
+            maxLength={8000}
+            placeholder="Keep the current structure, but add the failure-recovery path and tighten the acceptance criteria."
+          />
+          <button className="action secondary" type="button" disabled={props.busy || props.change.trim().length < 1} onClick={() => props.onRequestChange(props.change.trim())}>
             Request changes
           </button>
+          <p className="meta">This generates a proposed revision. The current draft is not replaced until you accept it.</p>
         </div>
       </div>
+      {(history.length || approvals.length) ? (
+        <details className="revision-history">
+          <summary>Revision and approval history · {history.length} proposed · {approvals.length} approved</summary>
+          {history.length ? (
+            <div>
+              <h4>Proposed revisions</h4>
+              <ol>
+                {history.map((candidate) => (
+                  <li key={candidate.id} data-status={candidate.status}>
+                    <strong>v{candidate.version} · {candidate.status.toLowerCase()}</strong>
+                    <span className="meta"> {new Date(candidate.createdAt).toLocaleString()}</span>
+                    <p>{candidate.summary || "No summary recorded."}</p>
+                    {candidate.requestedChange ? <p className="meta">Requested: {candidate.requestedChange}</p> : null}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
+          {approvals.length ? (
+            <div>
+              <h4>Approvals</h4>
+              <ol>
+                {approvals.map((approval) => (
+                  <li key={approval.id}>
+                    <strong>v{approval.version}</strong>
+                    <span className="meta"> {new Date(approval.approvedAt).toLocaleString()}</span>
+                    {approval.staleReason ? <p className="meta">Stale: {approval.staleReason}</p> : null}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
+        </details>
+      ) : null}
     </section>
   );
 }

@@ -13,7 +13,7 @@ import {
   recordWitnessDrafts,
   rememberSession,
   rememberTranscript,
-  reviseSection,
+  SectionContractError,
   WorkflowConflict,
 } from "../workflow/transitions.ts";
 import { PHASE_DETAIL, type GuideBudgets, type SpiritGuide } from "./guide.ts";
@@ -25,9 +25,9 @@ import { classifyNativeError, providerErrorFor as providerFailureFor } from "./f
 import { NetworkPolicyError } from "../security/network.ts";
 import { markRecovered } from "./runs.ts";
 import { redactText, type RedactOptions } from "../security/redaction.ts";
+import { describeSectionContract, sectionContract } from "../../shared/section-contracts.ts";
 import {
   extractJsonObject,
-  formatSectionDraft,
   oracleReplySchema,
   sectionReplySchema,
   witnessReplySchema,
@@ -129,8 +129,9 @@ export class ExperienceService {
     intent: "clarify" | "draft" | "question" | "witness",
     text: string,
     proceedWithAssumptions = false,
+    sectionId: string | null = null,
   ) {
-    const payload = { intent, text, proceedWithAssumptions };
+    const payload = { intent, text, proceedWithAssumptions, sectionId };
     const claimed = await this.claim(actionId, payload, expectedRevision);
     if (claimed.duplicate) return { project: claimed.project, duplicate: true };
     const project = claimed.project;
@@ -140,7 +141,7 @@ export class ExperienceService {
         // operations: the request returns as soon as the run is queued. The
         // `question` adapter stays synchronous because it changes no saved
         // state and answers directly.
-        return await this.queueGuide(actionId, payload, expectedRevision, intent, text, project, proceedWithAssumptions);
+        return await this.queueGuide(actionId, payload, expectedRevision, intent, text, project, proceedWithAssumptions, sectionId);
       }
       return await this.question(actionId, payload, expectedRevision, project, text);
     } catch (error) {
@@ -506,12 +507,27 @@ export class ExperienceService {
           messageId: snapshot?.messageId ?? null,
         }));
     }
-    const result = await this.workflow.execute(actionId, payload, expectedRevision, (project) =>
-      applyValidatedReply(project, operationId, reply, {
-        redact: (value) => this.redact(value),
-        sessionId,
-        messageId: snapshot?.messageId ?? null,
-      }));
+    let result;
+    try {
+      result = await this.workflow.execute(actionId, payload, expectedRevision, (project) =>
+        applyValidatedReply(project, operationId, reply, {
+          redact: (value) => this.redact(value),
+          sessionId,
+          messageId: snapshot?.messageId ?? null,
+        }));
+    } catch (error) {
+      if (error instanceof SectionContractError) {
+        return this.workflow.execute(actionId, payload, expectedRevision, (project) =>
+          markRecoveredGuide(project, operationId, {
+            status: "FAILED",
+            result: `The late Architect candidate does not satisfy its content contract, so nothing was applied. ${error.message}`,
+            statusReason: "contract-invalid",
+            phase: null,
+            messageId: snapshot?.messageId ?? null,
+          }));
+      }
+      throw error;
+    }
     const next = result.project;
     return { project: next, duplicate: result.duplicate };
   }
@@ -549,6 +565,7 @@ export class ExperienceService {
     text: string,
     project: Project,
     proceedWithAssumptions: boolean,
+    requestedSectionId: string | null,
   ) {
     if (intent === "clarify" && project.product.status === "APPROVED") {
       throw new ExperienceFailure("The product proposal is already approved.", "PRODUCT_ALREADY_APPROVED", 409, false);
@@ -563,8 +580,11 @@ export class ExperienceService {
         false,
       );
     }
-    if (intent === "draft" && (project.product.status !== "APPROVED" || !project.currentSectionId)) {
-      throw new ExperienceFailure("Drafting waits for an approved product and an active section.", "SECTION_NOT_READY", 409, false);
+    const targetSection = intent === "draft"
+      ? project.sections.find((section) => section.id === (requestedSectionId ?? project.currentSectionId)) ?? null
+      : null;
+    if (intent === "draft" && (project.product.status !== "APPROVED" || !targetSection)) {
+      throw new ExperienceFailure("Drafting waits for an approved product and a known section.", "SECTION_NOT_READY", 409, false);
     }
     if (intent === "witness") {
       const makerDone = project.operations.some((operation) => operation.kind === "maker" && operation.status === "SUCCEEDED");
@@ -608,7 +628,7 @@ export class ExperienceService {
         appliedAt: null,
         providerError: null,
         intent,
-        sectionId: intent === "draft" ? current.currentSectionId : null,
+        sectionId: intent === "draft" ? targetSection?.id ?? null : null,
         startingRevision: expectedRevision,
         idempotencyKey: actionId,
         expectedOutput,
@@ -627,7 +647,7 @@ export class ExperienceService {
     if (!operation) throw new ExperienceFailure("The run was not recorded.", "RUN_NOT_RECORDED", 500, true);
     const role: "oracle" | "architect" | "maker" | "witness" = intent === "witness" ? "witness" : intent === "draft" ? "architect" : "oracle";
     try {
-      const prompt = await this.instructions(role, queued.project, intent === "witness" ? text : text, context.model);
+      const prompt = await this.instructions(role, queued.project, text, context.model, operation.sectionId);
       this.guides.start({
         operationId: operation.id,
         actionId,
@@ -715,13 +735,20 @@ export class ExperienceService {
     });
   }
 
-  private async instructions(role: "oracle" | "architect" | "maker" | "witness", project: Project, text: string, model: ModelRef): Promise<string> {
+  private async instructions(
+    role: "oracle" | "architect" | "maker" | "witness",
+    project: Project,
+    text: string,
+    model: ModelRef,
+    sectionId: string | null = null,
+  ): Promise<string> {
     const procedure = await loadStagePrompt(role === "maker" ? "maker" : stagePrompt[role], this.options.promptRoot);
-    const section = project.sections.find((item) => item.id === project.currentSectionId);
+    const section = project.sections.find((item) => item.id === (sectionId ?? project.currentSectionId));
+    const contract = role === "architect" && section ? sectionContract(section.id) : null;
     const shape = role === "oracle"
       ? '{"mode":"questions|proposal","questions":[{"id":"...","field":"intendedUser|problem|desiredOutcome|deadlineEvent|mustHaveFeatures|optionalFeatures|budget|privacyRequirements|platforms|repositoryCondition|nonGoals|unresolvedQuestions","prompt":"...","whyItMatters":"...","suggestedChoices":["..."]}],"assumptions":[{"id":"...","field":"...","statement":"...","reason":"..."}],"knownConstraints":["..."],"intake":{"intendedUser":{"value":"...","source":"USER|ASSUMPTION|SYSTEM"}|null,"problem":null,"desiredOutcome":null,"deadlineEvent":null,"mustHaveFeatures":{"value":["..."],"source":"USER|ASSUMPTION|SYSTEM"}|null,"optionalFeatures":null,"budget":null,"privacyRequirements":null,"platforms":null,"repositoryCondition":null,"nonGoals":null},"proposal":null|{"title":"...","summary":"...","intendedUser":"...","problem":"...","desiredOutcome":"...","mustHaveFeatures":["..."],"optionalFeatures":["..."],"nonGoals":["..."],"successCriteria":["..."],"facts":["..."],"userDecisions":["..."],"assumptions":["..."]},"unresolvedRisks":["..."],"recommendedNextAction":"..."}'
       : role === "architect"
-        ? '{"content":"...","recommendation":"...","tradeoff":"..."}'
+        ? '{"content":"complete Markdown section","summary":"what changed and why","recommendation":"...","tradeoff":"..."}'
         : role === "witness"
           ? '{"findings":"...","limitations":"...","draftNotes":"..."}'
           : "a code change, not JSON";
@@ -733,6 +760,10 @@ export class ExperienceService {
       `selected model ${model.providerID}/${model.id}${model.variant ? `#${model.variant}` : ""}`,
       section ? `active section ${section.order}. ${section.title}; version ${section.version}; status ${section.status}` : "no active section",
       project.product.proposal ? `approved-or-proposed product:\n${project.product.proposal}` : "no product proposal yet",
+      role === "architect" && contract ? `Section content contract:\n${describeSectionContract(contract)}` : "",
+      role === "architect" && section
+        ? `Current section draft (v${section.version}, ${section.status}):\n${section.content || "(empty; draft the complete section)"}`
+        : "",
       role === "oracle"
         ? `project source:\n${JSON.stringify({
             kind: project.source.kind,
@@ -772,7 +803,16 @@ export class ExperienceService {
               "In proposal mode, distinguish facts, user decisions, and assumptions in the structured proposal. Never treat an assumption as a user decision.",
               `Reply with one JSON object only, matching ${shape}. Do not approve, advance, or claim the user approved.`,
             ].join("\n")
-          : `Reply with one JSON object only, matching ${shape}. Do not approve, advance, or claim the user approved. A question is not approval.`,
+          : role === "architect"
+            ? [
+                "Return a complete replacement candidate, not a patch and not a direct edit of saved state.",
+                "The content field must be readable GitHub-flavoured Markdown with headings, paragraphs, lists, tables where useful, and fenced code where needed.",
+                "Never emit raw HTML, scripts, event handlers, or javascript: links. The app renders only the safe Markdown subset.",
+                "Satisfy every required topic, dependency acknowledgement, risk, decision, and acceptance criterion in the contract. Do not pad with repeated text or rely on word count.",
+                "The summary field must describe what changed and why in one or two sentences. The candidate is shown to the user as a diff before anything is accepted.",
+                `Reply with one JSON object only, matching ${shape}. Do not approve, advance, or claim the user approved. A question is not approval.`,
+              ].join("\n")
+            : `Reply with one JSON object only, matching ${shape}. Do not approve, advance, or claim the user approved. A question is not approval.`,
     ].join("\n");
   }
 

@@ -7,9 +7,10 @@ import { z } from "zod";
  * demo fixture. Hashing, persistence, and project creation stay in
  * `src/server/workflow/model.ts` because they use Node's crypto module.
  *
- * Schema v6 keeps every v5 workflow record and activates guided Oracle
- * discovery: explicit project-source onboarding, field-level intake answers,
- * structured proposals, assumptions, and durable decision memory.
+ * Schema v7 keeps every v6 workflow record and activates reviewable Architect
+ * revisions: a candidate records its base version/hash, summary, requested
+ * change, and decision time. Only an explicitly accepted candidate replaces
+ * the current draft; approval remains a separate transition.
  */
 
 export const LEGACY_FIXED_MODEL_KEY = "opencode/deepseek-v4.1-flash-free";
@@ -134,7 +135,8 @@ export const engineSelectionSchema = z.object({
 
 export type EngineSelection = z.infer<typeof engineSelectionSchema>;
 
-export const candidateSectionRevisionSchema = z.object({
+/** The schema v6 candidate shape. It has no base or review metadata. */
+export const candidateSectionRevisionV6Schema = z.object({
   id: z.string(),
   version: z.number().int().positive(),
   content: z.string(),
@@ -142,6 +144,14 @@ export const candidateSectionRevisionSchema = z.object({
   status: z.enum(["PENDING", "ACCEPTED", "REJECTED", "SUPERSEDED"]),
   sourceOperationId: z.string().nullable(),
   createdAt: z.string(),
+});
+
+export const candidateSectionRevisionSchema = candidateSectionRevisionV6Schema.extend({
+  baseVersion: z.number().int().nonnegative().default(0),
+  baseHash: z.string().default(""),
+  summary: z.string().max(4_000).default(""),
+  requestedChange: z.string().max(8_000).default(""),
+  decidedAt: z.string().nullable().default(null),
 });
 
 const legacySectionSchema = z.object({
@@ -153,6 +163,10 @@ const legacySectionSchema = z.object({
   version: z.number().int().nonnegative(),
   hash: z.string(),
   status: sectionStatusSchema,
+});
+
+export const sectionV6Schema = legacySectionSchema.extend({
+  candidateRevisions: z.array(candidateSectionRevisionV6Schema).default([]),
 });
 
 export const sectionSchema = legacySectionSchema.extend({
@@ -651,7 +665,7 @@ const emptyOracleIntake = {
 };
 
 export const projectSchema = projectCoreSchema.extend({
-  schemaVersion: z.literal(6),
+  schemaVersion: z.literal(7),
   mode: projectModeSchema,
   demoWorkspace: z.boolean(),
   createdAt: z.string(),
@@ -670,6 +684,12 @@ export const projectSchema = projectCoreSchema.extend({
     },
     budget: { maxCostUsd: null, maxTotalTokens: null, maxRunDurationMs: null },
   }),
+});
+
+/** The v6 project record. Candidates are migrated explicitly to add review metadata. */
+export const projectV6Schema = projectSchema.omit({ schemaVersion: true, sections: true }).extend({
+  schemaVersion: z.literal(6),
+  sections: z.array(sectionV6Schema),
 });
 
 export type Project = z.infer<typeof projectSchema>;

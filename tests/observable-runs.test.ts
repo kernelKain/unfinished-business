@@ -14,8 +14,15 @@ import {
   type Project,
 } from "../src/server/workflow/model.ts";
 import { WorkflowService } from "../src/server/workflow/service.ts";
-import { approveProduct, approveSection, grantMakerScope, reviseSection } from "../src/server/workflow/transitions.ts";
+import {
+  acceptSectionCandidate,
+  approveProduct,
+  approveSection,
+  grantMakerScope,
+  reviseSection,
+} from "../src/server/workflow/transitions.ts";
 import { confirmNewProjectSource, oracleProposalReply } from "./fixtures/oracle-replies.ts";
+import { compliantSectionDraft } from "./fixtures/section-drafts.ts";
 
 const model: DiscoveredModel = {
   key: "opencode/flint-40b-free",
@@ -290,7 +297,8 @@ test("a late Oracle response is reconciled and applied exactly once", async () =
 
 test("a section 06 Architect timeout is recovered when the late reply finally lands", async () => {
   const sectionReply = JSON.stringify({
-    content: "Section six phases: build in three short phases with a checkpoint after each.",
+    content: compliantSectionDraft("phases", "Sequence the queue by dependency with a checkpoint after each phase."),
+    summary: "Sequenced the phases with gates and a rollback checkpoint.",
     recommendation: "Sequence the queue by dependency.",
     tradeoff: "Fewer checkpoints would be faster but riskier.",
   });
@@ -338,9 +346,19 @@ test("a section 06 Architect timeout is recovered when the late reply finally la
   holdUntilLate = false;
   const reconciled = await run.experience.reconcile("reconcile-section-06", (await run.store.load()).state.revision, awaitedOp(sent).operation.id);
   assert.equal(operationOf(reconciled.project, awaitedOp(sent).operation.id).status, "SUCCEEDED");
-  const phases = reconciled.project.sections.find((item) => item.id === "phases");
+  const phasesBeforeAccept = reconciled.project.sections.find((item) => item.id === "phases");
+  assert.equal(phasesBeforeAccept?.version, 0, "a reconciled candidate does not replace the draft");
+  const pending = phasesBeforeAccept?.candidateRevisions.find((candidate) => candidate.status === "PENDING");
+  assert.ok(pending, "the recovered reply is a pending candidate");
+  const accepted = await run.workflow.execute(
+    "accept-section-06",
+    { candidateId: pending.id },
+    reconciled.project.revision,
+    (project) => acceptSectionCandidate(project, "phases", pending.id),
+  );
+  const phases = accepted.project.sections.find((item) => item.id === "phases");
   assert.equal(phases?.version, 1);
-  assert.match(phases?.content ?? "", /Section six phases/);
+  assert.match(phases?.content ?? "", /Phases and queue/);
 
   await assert.rejects(
     run.experience.reconcile("reconcile-section-06-again", (await run.store.load()).state.revision, awaitedOp(sent).operation.id),

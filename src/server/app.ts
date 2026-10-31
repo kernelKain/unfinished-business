@@ -30,7 +30,12 @@ import { WorkspacePolicyError } from "./security/workspace.ts";
 import { createLogger, requestId, type Logger } from "./observability/logger.ts";
 import type { Project } from "./workflow/model.ts";
 import { WorkflowService } from "./workflow/service.ts";
-import { approveSection, reviseSection, WorkflowConflict } from "./workflow/transitions.ts";
+import {
+  acceptSectionCandidate,
+  approveSection,
+  rejectSectionCandidate,
+  WorkflowConflict,
+} from "./workflow/transitions.ts";
 
 export type EngineProbe = () => Promise<unknown>;
 
@@ -42,7 +47,8 @@ const actionSchema = z.object({
   actionId: actionIdSchema,
   expectedRevision: z.number().int().nonnegative(),
 });
-const revisionSchema = actionSchema.extend({ content: z.string().min(1).max(65_536) });
+const revisionRequestSchema = actionSchema.extend({ request: z.string().min(1).max(8_000) });
+const candidateIdSchema = z.string().min(1).max(128);
 const approvalRequestSchema = actionSchema.extend({
   version: z.number().int().positive(),
   hash: z.string().regex(/^[a-f0-9]{64}$/),
@@ -51,6 +57,7 @@ const messageSchema = actionSchema.extend({
   intent: z.enum(["clarify", "draft", "question", "witness"]),
   text: z.string().min(1).max(8_000),
   proceedWithAssumptions: z.boolean().optional().default(false),
+  sectionId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
 });
 const approvalKindSchema = z.discriminatedUnion("kind", [
   actionSchema.extend({ kind: z.literal("product") }),
@@ -732,17 +739,57 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
   app.post("/api/sections/:id/revisions", async (context) => {
     const id = sectionIdSchema.safeParse(context.req.param("id"));
     if (!id.success) return invalidRequest(context, "Unknown section identifier.");
+    if (!workflow.experience) return unavailable(context);
     try {
-      const input = revisionSchema.parse(await context.req.json());
+      const input = revisionRequestSchema.parse(await context.req.json());
+      const result = await workflow.experience.sendMessage(
+        input.actionId,
+        input.expectedRevision,
+        "draft",
+        input.request,
+        false,
+        id.data,
+      );
+      const queued = "accepted" in result ? Boolean(result.accepted) : false;
+      return context.json(publicProjectResult(result), queued ? 202 : 200);
+    } catch (error) {
+      return workflowError(context, error, "Invalid revision request.", log);
+    }
+  });
+
+  app.post("/api/sections/:id/revisions/:candidateId/accept", async (context) => {
+    const id = sectionIdSchema.safeParse(context.req.param("id"));
+    const candidateId = candidateIdSchema.safeParse(context.req.param("candidateId"));
+    if (!id.success || !candidateId.success) return invalidRequest(context, "Unknown section or candidate identifier.");
+    try {
+      const input = actionSchema.parse(await context.req.json());
       const result = await workflow.service.execute(
         input.actionId,
-        input,
+        { ...input, candidateId: candidateId.data },
         input.expectedRevision,
-        (project) => reviseSection(project, id.data, input.content),
+        (project) => acceptSectionCandidate(project, id.data, candidateId.data),
       );
       return context.json(publicProjectResult(result));
     } catch (error) {
-      return workflowError(context, error, "Invalid revision request.", log);
+      return workflowError(context, error, "Invalid candidate acceptance.", log);
+    }
+  });
+
+  app.post("/api/sections/:id/revisions/:candidateId/reject", async (context) => {
+    const id = sectionIdSchema.safeParse(context.req.param("id"));
+    const candidateId = candidateIdSchema.safeParse(context.req.param("candidateId"));
+    if (!id.success || !candidateId.success) return invalidRequest(context, "Unknown section or candidate identifier.");
+    try {
+      const input = actionSchema.parse(await context.req.json());
+      const result = await workflow.service.execute(
+        input.actionId,
+        { ...input, candidateId: candidateId.data },
+        input.expectedRevision,
+        (project) => rejectSectionCandidate(project, id.data, candidateId.data),
+      );
+      return context.json(publicProjectResult(result));
+    } catch (error) {
+      return workflowError(context, error, "Invalid candidate rejection.", log);
     }
   });
 
@@ -773,6 +820,7 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
         input.intent,
         input.text,
         input.proceedWithAssumptions,
+        input.sectionId ?? null,
       );
       const queued = "accepted" in result ? Boolean(result.accepted) : false;
       return context.json(publicProjectResult(result), queued ? 202 : 200);

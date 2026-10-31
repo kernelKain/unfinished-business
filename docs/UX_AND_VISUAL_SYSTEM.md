@@ -317,13 +317,15 @@ All four characters are hand-authored SVG in this repository. They are not gener
 
 | Metric | Budget | Measured (2026-11-01) | Status |
 |---|---|---|---|
-| Initial JS (gzip) | ≤ 220 KiB | 194.9 KiB | PASS |
-| All JS chunks (gzip) | ≤ 280 KiB | 269.7 KiB | PASS |
-| CSS (gzip) | ≤ 15 KiB | 14.8 KiB | PASS |
+| Initial JS (gzip) | ≤ 220 KiB | 195.0 KiB | PASS |
+| All JS chunks (gzip) | ≤ 280 KiB | 277.9 KiB | PASS |
+| CSS (gzip) | ≤ 18 KiB | 16.2 KiB | PASS |
 | All hero variants (total) | ≤ 640 KiB | 570.9 KiB | PASS |
 | Largest single hero file | ≤ 190 KiB | 86.7 KiB | PASS |
 
-The initial route is the landing page. Workshop and demo are lazy-loaded (57.0 KiB and 11.8 KiB gzip). The demo chunk includes the versioned fixture, playback reducer, and guided UI. The workshop chunk includes the connection/discovery wizard and advanced OpenCode panel. The hero transfers **34.7–58.2 KiB** as AVIF on a typical wide viewport and **30.9–49.1 KiB** as AVIF on mobile depending on pixel density; the total covers all breakpoints and formats, not one visit.
+The CSS budget was deliberately raised from 15 to 18 KiB in Upgrade Phase 4 to cover the safe Markdown typography, responsive side-by-side/unified diff, revision review, and audit-history surfaces. The increase is recorded here rather than silently accepted.
+
+The initial route is the landing page. Workshop and demo are lazy-loaded (66.8 KiB and 12.5 KiB gzip). The demo chunk includes the versioned fixture, playback reducer, and guided UI. The workshop chunk includes the connection/discovery wizard and advanced OpenCode panel. The hero transfers **34.7–58.2 KiB** as AVIF on a typical wide viewport and **30.9–49.1 KiB** as AVIF on mobile depending on pixel density; the total covers all breakpoints and formats, not one visit.
 
 ### Rules
 

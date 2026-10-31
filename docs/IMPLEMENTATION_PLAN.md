@@ -1,6 +1,6 @@
 # Implementation plan and phase record
 
-**Status:** Upgrade Phase 3 complete and verified.
+**Status:** Upgrade Phase 4 complete and verified.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
@@ -21,6 +21,7 @@
 | Upgrade Phase 1 — Model access and provider recovery | All accessible models, per-project access policy, optional spending limits, paid/unknown-price confirmation, structured provider errors, schema v4 migration | Complete and verified; commit recorded by `git log -1` after phase handoff |
 | Upgrade Phase 2 — Run observability and recovery | Persisted async Oracle/Architect/Witness/Maker runs, live progress phases, elapsed/cancel/retry/abandon/reconcile controls, exact-once late-result reconciliation, schema v5 migration | Complete and verified; commit recorded by `git log -1` after phase handoff |
 | Upgrade Phase 3 — Project intake and guided discovery | Four-way source onboarding, safe confirmation-gated imports, multi-turn Oracle intake, structured proposal/memory, schema v6 migration | Complete and verified; commit recorded by `git log -1` after phase handoff |
+| Upgrade Phase 4 — Reviewable generated revisions | Section content contracts, candidate revisions, explicit accept/reject, stale approvals, safe Markdown, unified/side-by-side diffs, schema v7 migration | Complete and verified; commit recorded by `git log -1` after phase handoff |
 
 The guided-interface line (`origin/main` at `b2d2654`) and the hardening line (`origin/phase-8-hardening` at `8c50439`) both descended from `2205774`. Phase 9 integrates them rather than choosing one and losing the other. The release candidate therefore keeps the landing page, onboarding, deterministic demo, security middleware, state migration, retention, and recovery in one build.
 
@@ -150,6 +151,40 @@ Every fresh project identifies whether it is new work, a validated local reposit
 - [x] Local/remote source security, v1–v5 migration, typecheck, 161 tests, build, budget, 18-test visual suite, high-severity audit, and final diff/security review pass.
 
 Phase 3 acceptance passed on 2026-11-01. No live provider inference or private repository credential was used.
+
+## Upgrade Phase 4 — reviewable generated revisions
+
+### Outcome
+
+Architect output is a reviewable candidate rather than an immediate overwrite. Every section has a content contract, every candidate is validated structurally, the user can inspect the complete revision and a responsive diff, and only an explicit accept changes the current draft. Approval remains a separate exact-version action, and accepted upstream changes mark only transitive approvals stale.
+
+**Phase commit:** `feat(architect): add reviewable generated revisions`.
+
+### Work units
+
+| Unit | Outcome | Evidence |
+|---|---|---|
+| U4-1 content contracts | Eight section contracts with required topics, detail guidance, dependencies, risk/decision requirements, acceptance criteria, and required headings; validation is structural and topic-based, never word-count-only | `src/shared/section-contracts.ts`, `tests/revisions.test.ts` |
+| U4-2 candidate model and migration | Schema v7 adds candidate base version/hash, summary, requested change, decision time, and explicit statuses; v1–v6 migrate deterministically | `src/shared/workflow.ts`, `src/server/workflow/model.ts`, `tests/migration.test.ts` |
+| U4-3 revision workflow | Change requests queue Architect candidates; accept, reject, supersede, base-version conflict, and contract revalidation are server transitions; no user-facing route calls raw replacement | `src/server/workflow/transitions.ts`, `src/server/experience/guide-runs.ts`, `src/server/app.ts`, `tests/experience.test.ts`, `tests/http-workflow.test.ts` |
+| U4-4 stale approvals | Accepting a candidate applies the draft, marks its own approval and every transitive dependent approval stale, and leaves unrelated approvals valid | `src/server/workflow/transitions.ts`, `tests/revisions.test.ts` |
+| U4-5 safe Markdown | Shared parser and React renderer for headings, paragraphs, lists, emphasis, links, tables, and code; raw HTML stays text and unsafe links become labels | `src/shared/markdown.ts`, `src/web/components/Markdown.tsx`, `tests/markdown.test.ts` |
+| U4-6 diff review | Shared LCS line diff feeds unified and side-by-side views; wide screens default to side-by-side and narrow screens stack with labels | `src/shared/diff.ts`, `src/web/components/RevisionDiff.tsx`, `src/web/components/RevisionReview.tsx`, `tests/revisions.test.ts` |
+| U4-7 interface and reading | Section selection, pending badges, full revision preview, diff toggle, accept/reject/request-another controls, contract details, revision/approval history, improved reading width and typography | `src/web/workshop/WorkshopPage.tsx`, `src/web/components/SectionCard.tsx`, `src/web/styles.css` |
+| U4-8 documentation | README, architecture, decisions, UX/budget, operations, evidence, release notes, changelog, implementation plan | canonical documentation set |
+
+### Acceptance status
+
+- [x] “Request changes” never immediately overwrites an approved or draft section; it queues a candidate.
+- [x] The user can inspect the complete revised Markdown and a unified or side-by-side diff before accepting.
+- [x] Every generated candidate satisfies its section contract; padded word count alone is rejected.
+- [x] Markdown is readable and safe; raw HTML/script and unsafe link protocols do not execute.
+- [x] Accepting a revision is separate from approval and marks affected downstream approvals stale.
+- [x] Section versions, candidate decisions, and approvals remain auditable.
+- [x] v1–v6 projects migrate explicitly to schema v7.
+- [x] Final typecheck, 179 tests, build, budget, and diff/security review pass.
+
+Phase 4 acceptance passed on 2026-11-01. No live provider inference was used.
 
 ## Phase 8 hardening units
 
