@@ -1,7 +1,7 @@
-import { ArrowRight, CircleDot, PlugZap, TerminalSquare } from "lucide-react";
+import { ArrowRight, CircleDot, PlugZap, TerminalSquare, Timer } from "lucide-react";
 import { heroAlt } from "../content/landing.ts";
 
-export function Hero({ onConnect }: { onConnect: () => void }) {
+export function Hero() {
   return (
     <section className="hero" aria-labelledby="hero-title">
       <picture className="hero-media" aria-hidden="true">
@@ -54,13 +54,18 @@ export function Hero({ onConnect }: { onConnect: () => void }) {
           <a className="action action-large" href="/demo">
             Try the example <ArrowRight size={18} aria-hidden="true" />
           </a>
-          <button className="action action-large secondary" type="button" onClick={onConnect}>
-            <PlugZap size={18} aria-hidden="true" /> Connect OpenCode
-          </button>
-          <a className="action action-large ghost" href="#local-setup">
-            <TerminalSquare size={18} aria-hidden="true" /> Set up locally
+          <a className="action action-large secondary" href="/demo?presentation=1">
+            <Timer size={18} aria-hidden="true" /> Watch the guided workflow
+          </a>
+          <a className="action action-large ghost" href="/workshop">
+            <PlugZap size={18} aria-hidden="true" /> Run live with OpenCode
           </a>
         </div>
+        <p className="hero-secondary-link">
+          <a className="text-link" href="#local-setup">
+            <TerminalSquare size={15} aria-hidden="true" /> Set up locally
+          </a>
+        </p>
         <p className="hero-note">
           <CircleDot size={14} aria-hidden="true" />
           The example is a deterministic fixture, not live inference. Local mode connects to your own OpenCode server.

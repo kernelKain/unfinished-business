@@ -1,6 +1,6 @@
 # Decision ledger
 
-**Scope:** Phase 4 interface, landing, visual system, motion, and spirit characters.
+**Scope:** Phase 4 interface plus Phase 7 guided demo decisions.
 **Last updated:** 2026-10-31.
 
 | ID | Decision | Alternatives considered | Rationale | Consequence |
@@ -28,7 +28,24 @@
 | D4-21 | Keep the advanced OpenCode panel collapsed behind `<details>` | Put all session/permission controls in the main four-stage layout | Model/session controls are power-user surfaces; the main workflow should stay readable | Advanced controls remain reachable but do not compete with the current stage |
 | D4-22 | Preserve the remote onboarding commit and integrate it rather than overwrite it | Push the Phase 4 commit over the remote or discard onboarding | The remote work is user work and adds required connection functionality | Rebase replay preserved both histories; 63 tests pass after integration |
 
-## Open follow-ups (not Phase 5 work)
+## Phase 7 — guided demo
+
+| ID | Decision | Alternatives considered | Rationale | Consequence |
+|---|---|---|---|---|
+| D7-01 | Use a versioned browser-bundled fixture | Server endpoint; live model call; video only | Deterministic playback must work without network, provider, or credentials | `src/shared/demo.ts`; no `/api/` call from `/demo` |
+| D7-02 | Extract browser-safe workflow schemas to `src/shared/workflow.ts` | Duplicate schemas in the demo | One production contract; drift fails a test | Server model re-exports the shared schemas; fixture is parsed by `projectSchema` |
+| D7-03 | Use the Campus Umbrella Relay scenario | Invent a new sponsor product | It aligns with the existing campus lost-and-found fixture and needs no real campus data | Clear lost-and-found scenario; no fabricated sponsor/user/metric |
+| D7-04 | Reuse `RunInspector`, `SpiritStageTabs`, `SpiritCharacter`, `StatusChip` | Build a parallel demo UI | The acceptance criterion is that live and demo runs share contracts | Demo is a guided use of the production surfaces |
+| D7-05 | Use a pure playback reducer | Timer/state scattered in the component | Reset/pause/replay/route-refresh behavior must be testable and isolated | `src/web/demo/playback.ts`; unit tests cover transitions |
+| D7-06 | Pause playback when a spirit tab is inspected | Keep playing under the user | Inspection should not move the content under the reader | Selecting a tab pauses; Play resumes |
+| D7-07 | Make presentation mode 10 beats × 9 seconds | A separate video file | Exactly 90 seconds, deterministic, recordable, and no media dependency | `?presentation=1`; optional normal mode remains |
+| D7-08 | Label the fixture PASS and the live session `NOT_RUN` | Show only a passing check | The demo must not imply live execution | Run Inspector shows both rows; source label stays visible |
+| D7-09 | Reject every non-GET `/api/*` request in hosted-demo mode | Rely on disabled buttons | Server authority must not depend on the UI | `DEMO_READ_ONLY`; no session token; live store unchanged |
+| D7-10 | Keep reset client-only | Add a reset API | Reset must never affect a live project or OpenCode session | Pure reducer; no `/api/` request |
+| D7-11 | Add three distinct landing actions | One ambiguous “demo” CTA | Visitors and judges need to choose interactive, presentation, or live | Try the example, Watch the guided workflow, Run live with OpenCode |
+| D7-12 | Keep the fixture source free of time/randomness/environment/network | Generate fixture at runtime | Deterministic playback and reproducible screenshots | Source scan test; fixed timestamps and content hashes |
+
+## Open follow-ups (not Phase 8 work)
 
 - A real recorded demo and final submission assets remain separate acceptance work.
 - The free-model route remains account-dependent and time-limited.

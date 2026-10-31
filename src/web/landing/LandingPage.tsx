@@ -52,7 +52,7 @@ export function LandingPage() {
       </header>
 
       <main id="main-content">
-        <Hero onConnect={() => setConnectOpen(true)} />
+        <Hero />
 
         <section className="positioning" aria-labelledby="positioning-title">
           <div className="positioning-copy">
@@ -235,8 +235,8 @@ export function LandingPage() {
           <p>Walk the deterministic example first, then connect your own OpenCode server when you are ready to do real work.</p>
           <div className="final-actions">
             <a className="action action-large" href="/demo">Try the example <ArrowRight size={18} aria-hidden="true" /></a>
-            <a className="action action-large secondary" href="/workshop">Open the workshop</a>
-            <button className="action action-large ghost" type="button" onClick={() => setConnectOpen(true)}>Connect OpenCode</button>
+            <a className="action action-large secondary" href="/demo?presentation=1">Watch the guided workflow</a>
+            <a className="action action-large ghost" href="/workshop">Run live with OpenCode</a>
           </div>
         </section>
       </main>

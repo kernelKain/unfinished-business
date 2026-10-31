@@ -1,5 +1,49 @@
 # Changelog
 
+## 2026-10-31 — Guided deterministic demo (Phase 7)
+
+### Added
+
+- Versioned `campus-umbrella-relay@1` fixture in `src/shared/demo.ts` with the idea, Oracle clarification, approved product summary, eight Architect sections, revisions, Maker authorization, normalized operations, representative diff, deterministic check, Witness findings, readiness, and next actions.
+- Guided playback at `/demo` with Play/Pause, Previous/Next, Replay, Reset, four inspectable spirit tabs, and a 90-second presentation mode (`/demo?presentation=1`).
+- Pure playback reducer in `src/web/demo/playback.ts`; reset changes only demo playback state.
+- Browser-safe production workflow schemas in `src/shared/workflow.ts`, re-exported by the server model.
+- Runtime-mode descriptors in `src/shared/modes.ts`.
+- Hosted-demo read-only policy: every non-GET `/api/*` request returns `403 DEMO_READ_ONLY`; no session token is issued; `/api/project` and `/api/export` return the fixture; `/api/connection` reports a read-only demo status.
+- Read-only hosted-demo notice on `/workshop` with clean exits to the guided example or local setup.
+- Distinct landing actions: Try the example, Watch the guided workflow, and Run live with OpenCode.
+- Fixture/drift/playback/isolation/accessibility tests in `tests/demo.test.ts` and `tests/visual/demo.spec.ts`.
+- New snapshots: `demo-guided-wide.png`, `demo-guided-narrow.png`, `demo-presentation-wide.png`.
+
+### Changed
+
+- The deterministic demo now uses the production `RunInspector`, `SpiritStageTabs`, `SpiritCharacter`, `StatusChip`, and `Brand` components instead of a parallel demo interface.
+- `SpiritStageTabs` supports an optional inspectable variant used only by the demo; the workshop remains non-interactive stage navigation.
+- `RunInspector` accepts an optional demo source label and marks fixture rows.
+- The demo page visibly labels the fixture PASS and the live session `NOT_RUN`.
+- README, product brief, UX/visual system, architecture, hosted deployment, operations/recovery, implementation plan, decisions, and demo/submission docs now describe the guided demo and its boundaries.
+
+### Fixed
+
+- Long fixture fingerprints and diff/check content no longer cause horizontal page overflow at 390px.
+- The demo's reset control cannot reach a mutation endpoint or a live project.
+
+### Verification
+
+- `npm run typecheck` — pass.
+- `npm test` — 73 pass.
+- `npm run build` — pass.
+- `npm run budget` — pass (initial JS 193.1 KiB gzip; all JS 262.9 KiB; CSS 14.2 KiB; hero 570.9 KiB total).
+- `npm run test:visual` — 18 pass.
+- Hosted-demo smoke test: `/api/project` returns the fixture, `/api/mode` returns the demo descriptor, `/api/session` is `403`, and a mutation is `403 DEMO_READ_ONLY`.
+
+### Not in this entry
+
+- No live free-model run was repeated.
+- The fixture is not live inference and is not a submitted hackathon entry.
+- No public hosted URL, testimonial, usage figure, award, sponsor endorsement, deployment result, or competition result is claimed.
+- Phase 8 was not started.
+
 ## 2026-10-31 — Ghostlight interface (Phase 4)
 
 ### Added

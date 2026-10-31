@@ -1,44 +1,150 @@
 # Demo and submission guidance
 
-**Status:** Phase 4 visual capture guidance. Independent acceptance, final video, article, and submission packaging remain separate work.
+**Status:** Phase 7 deterministic guided demo implemented and locally verified. Independent acceptance, final video, article, and submission packaging remain separate work.
 **Last updated:** 2026-10-31.
 
 ## Two different demos
 
 | Demo | What it is | What it proves |
 |---|---|---|
-| Deterministic walkthrough (`/demo`) | Scripted fixture data with explicit labels | Interface states, approval language, evidence wording, recovery states |
-| Real workshop run (`/workshop`) | The four-stage workflow connected to a local OpenCode server | Actual native sessions, observed tool results, real failures and success |
+| Guided example (`/demo`) | A versioned fixture played through the real interface components | Interface states, approval language, permission boundaries, evidence wording, recovery, and reset isolation |
+| Real workshop (`/workshop`) | The four-stage workflow connected to a local OpenCode server | Actual native sessions, observed tool results, real failures and success |
 
-Never present the deterministic walkthrough as live inference. Never use a fixture screenshot to claim a real build passed.
+Never present the guided example as live inference. Never use a fixture screenshot to claim a real build passed. The demo page and its fixture are deliberately separate from live project data.
 
-## Approved visual captures
+## Scenario: Campus Umbrella Relay
 
-The Playwright visual suite is the canonical source of approved screenshots. All captures use:
+The example recovers a half-built campus umbrella/lost-and-found workflow:
 
-- dark color scheme;
-- `prefers-reduced-motion: reduce`;
-- device scale factor 1;
-- 1440 × 1000 wide viewport or 390 × 844 narrow viewport;
-- stable fixture/empty state, so no model call is required.
+1. a group-chat lost-and-found lets umbrellas be claimed twice;
+2. the Oracle clarifies one umbrella pool, one pickup point, a short claim code, and duplicate-claim prevention;
+3. the Architect approves eight sections, including a revision that makes the old approval stale;
+4. Maker receives a separate scope for two files in `demo-workspace/`;
+5. one bounded change adds duplicate-claim and returned-item guards plus a behavioural test;
+6. a prerecorded `node --test` check records 3 passed, 0 failed;
+7. Witness separates the fixture pass from the missing live proof and states the next honest step.
 
-The UI intentionally uses system font stacks, so baselines are tied to the verified Linux/Chromium font environment. Regenerate snapshots on the same image after a deliberate typography or layout change. Files live in `tests/visual/snapshots/`:
+No real campus, sponsor, user, metric, deployment, account, or competition result is depicted. The scenario is aligned with the repository's existing campus lost-and-found demo fixture rather than inventing a new sponsor or product claim.
 
-| File | Shows | Use |
+## Fixture and provenance
+
+| Item | Value |
+|---|---|
+| Fixture module | `src/shared/demo.ts` |
+| Fixture version | `campus-umbrella-relay@1` |
+| Data mode | `demo` |
+| Source label | `Prerecorded demo fixture — not a live OpenCode session` |
+| Production contract | `src/shared/workflow.ts` (`projectSchema`, operation/evidence/capability schemas) |
+| Drift test | `tests/demo.test.ts` |
+| Playback state | `src/web/demo/playback.ts` |
+| UI | `src/web/demo/DemoPage.tsx` |
+| Shared components | `RunInspector`, `SpiritCharacter`, `SpiritStageTabs`, `StatusChip`, `Brand` |
+
+The fixture contains the input idea, Oracle clarification, approved product summary, eight Architect sections, two revisions, Maker authorization, normalized operations, a representative diff, verification output, Witness findings, submission readiness, and next actions. Section hashes are real SHA-256 hashes of the fixed content and are recomputed by the test.
+
+The fixture is browser-safe: it imports no server, filesystem, network, provider, or OpenCode module. `tests/demo.test.ts` also reads the source to assert that it has no `fetch`, `/api/`, `node:`, `Date.now`, `Math.random`, or `process.env` use.
+
+## Playback
+
+| Control | Behavior |
+|---|---|
+| Play / Pause | Starts or stops deterministic auto-advance |
+| Previous / Next step | Moves one beat and pauses |
+| Replay | Returns to beat 1 and plays |
+| Reset | Returns to beat 1, paused, and clears tab inspection |
+| Spirit tabs | Inspect Oracle, Architect, Maker, or Witness at any time; inspection pauses playback |
+| 90s mode | Enters the screen-recording presentation path |
+
+Normal playback holds each of the 10 beats for 7 seconds. Presentation mode holds each beat for 9 seconds, for exactly 90 seconds. Presentation mode is optional; normal interactive use remains available. `?presentation=1` is the route-refresh state for presentation mode.
+
+The demo uses `setTimeout` only for playback. It makes no network request, inference call, provider call, or mutation request. The Playwright test records requests during playback and asserts that no `/api/` or provider URL is contacted.
+
+## Reset behavior
+
+Reset is a pure reducer transition in `src/web/demo/playback.ts`. It changes only:
+
+- the demo beat index;
+- the playing/paused flag;
+- the inspected spirit tab;
+- the completed flag.
+
+It cannot call `/api/*`, cannot change a live project snapshot, cannot start or stop an OpenCode session, and cannot clear live state. In hosted-demo mode the server independently rejects every non-GET `/api/*` request with `DEMO_READ_ONLY`, so a browser cannot reach a live mutation even if the UI were bypassed.
+
+## Live-versus-simulated disclosure
+
+| Claim | Demo behavior |
+|---|---|
+| “This is live inference” | **Prohibited.** The page says no provider call or model quota is used. |
+| “The check passed” | Allowed only with the label “prerecorded demo fixture”; the live session is shown as `NOT_RUN`. |
+| “This is the visitor's repository” | **Prohibited.** The workspace is `demo://campus-umbrella-relay`. |
+| “This is a submitted hackathon entry” | **Prohibited.** The Witness readiness statement says it is not a submission. |
+| “Reset is safe for live state” | Allowed with the exact scope: reset changes only the demo fixture. |
+
+Every simulated operation, evidence row, diff, and finding carries a visible `Demo data` chip or a fixture source label. The Run Inspector receives the same operation/evidence/capability shapes as the live workshop.
+
+## Exact claims
+
+Approved:
+
+- “The guided example is a deterministic fixture.”
+- “OpenCode supplies the agent loop, model access, native tools, permissions, and sessions.”
+- “The example shows the same Run Inspector contract used by the live workshop.”
+- “The fixture check passes; the live native session is not run.”
+- “Reset affects only the demo fixture.”
+- “Run live with OpenCode for a real native session.”
+- “The hosted demo is read-only and has no repository, provider key, or user-specific storage.”
+
+Not approved:
+
+- “Live inference” or “real OpenCode run” around the fixture.
+- “Reads your repository from the hosted page.”
+- “Guaranteed working build.”
+- “Autonomous end-to-end submission.”
+- Any testimonial, user count, award, sponsor endorsement, performance metric, deployment result, or competition result that has not been observed.
+
+## 90-second presentation path
+
+The presentation mode is 10 beats × 9 seconds. A recording can follow this beat map:
+
+| Time | Beat | What to show |
 |---|---|---|
-| `landing-wide.png` | Hero, primary CTAs, engine positioning | README / submission overview |
-| `landing-narrow.png` | Mobile hero and stacked CTAs | Mobile proof |
-| `workshop-wide.png` | Four-stage navigation, outline, Oracle empty state, Run Inspector empty | Product structure |
-| `workshop-narrow.png` | Mobile workshop and scrollable stage strip | Responsive proof |
-| `onboarding-wide.png` | First-run connection panel, server URL/password, diagnostics | OpenCode connection honesty and provider-key boundary |
-| `spirit-oracle-*.png` | Oracle idle/listening/clarification | Character system |
-| `spirit-architect-*.png` | Architect idle/drawing/approval | Character system |
-| `spirit-maker-*.png` | Maker idle/building/permission/blocked/success | State-driven motion and failure handling |
-| `spirit-witness-*.png` | Witness idle/scanning/evidence/warning/stamp | Character system |
-| `run-inspector.png` | Fixture runs, failed evidence, permission boundary | Evidence honesty |
-| `recovery-unknown.png` | Unknown native run and reconcile action | Recovery honesty |
+| 0–9s | Problem | The group-chat umbrella problem and the unfinished idea |
+| 9–18s | Oracle | Clarification, open questions, explicit product approval |
+| 18–27s | Architect | One section drafted; revision makes the old approval stale |
+| 27–36s | Approval | Exact-version approval and the eight-section plan |
+| 36–45s | Scope | Separate Maker authorization; permission boundary |
+| 45–54s | Run | Maker progress: queued → running → succeeded (fixture replay) |
+| 54–63s | Diff | Representative diff with the source label visible |
+| 63–72s | Check | Deterministic `node --test` output and the `NOT_RUN` live session |
+| 72–81s | Witness | Pass, limitations, readiness, and next actions |
+| 81–90s | Next step | Clean exit to local setup or live OpenCode |
 
-The hero image is an original generated atmosphere asset. It is **not** evidence of a run, a model response, or a working build.
+Narration should name the four spirits, explain that the run is a prerecorded fixture, and end with “run live with OpenCode for a native session.”
+
+## Screenshots and video beats
+
+Canonical Playwright captures:
+
+| File | Shows |
+|---|---|
+| `tests/visual/snapshots/demo-guided-wide.png` | Wide guided example: intro, honesty panel, playback controls |
+| `tests/visual/snapshots/demo-guided-narrow.png` | 390px guided example without horizontal overflow |
+| `tests/visual/snapshots/demo-presentation-wide.png` | 90-second presentation mode |
+| `tests/visual/snapshots/run-inspector.png` | Run Inspector at the check beat, including fixture PASS and live `NOT_RUN` |
+| `tests/visual/snapshots/recovery-unknown.png` | Unknown native run and reconcile action |
+| `tests/visual/snapshots/landing-wide.png` | Landing page with the three distinct demo/live actions |
+| `tests/visual/snapshots/landing-narrow.png` | Narrow landing page |
+| `tests/visual/snapshots/workshop-wide.png` | Live workshop structure |
+| `tests/visual/snapshots/onboarding-wide.png` | OpenCode connection/discovery |
+| `tests/visual/snapshots/spirit-*.png` | Character states |
+
+Video rules:
+
+- Keep the fixture label and `NOT_RUN` visible when showing evidence.
+- Do not speed-edit the fixture into a live run.
+- Do not add fake terminal output, dashboards, success badges, or deployment results.
+- If a live recording fails, show the failure and say so.
+- Use the actual viewport; do not stretch narrow screenshots.
 
 ## Regenerating snapshots
 
@@ -47,7 +153,7 @@ npm run build
 npm run test:visual
 ```
 
-On the first run, or after a deliberate visual change:
+After a deliberate visual change:
 
 ```bash
 npx playwright test --update-snapshots
@@ -55,82 +161,11 @@ npx playwright test --update-snapshots
 
 Review every changed image before committing. A snapshot change is a UI decision, not an automatic approval.
 
-The suite also checks:
+## Clean exit
 
-- primary CTA destinations;
-- truthful mode copy and absence of fabricated claims;
-- first-run connection setup is reachable and keeps provider keys in OpenCode;
-- keyboard focus order and a visible focus ring;
-- dialog open/close and Escape;
-- setup tabs with arrow-key navigation;
-- 200% text zoom without horizontal overflow;
-- 390px layouts without horizontal page overflow;
-- reduced motion (`animation: none`);
-- contrast ratios ≥4.5:1 for tested tokens.
+The guided example ends with two honest exits:
 
-## Capturing a real run for the final demo
+- **Run live with OpenCode** → `/workshop`, which shows the real connection/discovery flow.
+- **Local setup** → `/#local-setup`, which links to the tested commands in `docs/LOCAL_SETUP.md`.
 
-Use a disposable data directory so the recording starts from a clean state:
-
-```bash
-UB_DATA_DIR=/tmp/unfinished-business-demo npm run dev
-```
-
-Keep OpenCode running in another terminal. Record only after the engine badge reports connected.
-
-A credible sequence:
-
-1. Show the landing page's two paths and the deterministic demo label.
-2. Open the real workshop.
-3. State an unfinished idea and show the Oracle proposal.
-4. Approve the product explicitly.
-5. Draft one Architect section, revise it, and approve the exact version.
-6. Show a stale section after a change.
-7. Grant a separate Maker scope and run a bounded edit.
-8. Show the native session reference and the actual result.
-9. Show a failing check or a failed run without hiding it.
-10. Reconcile an unknown run if the recording has one.
-11. Show the Witness review and the evidence ledger.
-12. End on the limitation: drafts are not a submitted article, and the demo does not claim remote repository access.
-
-Do not speed-edit a failure into a success. If the recorded run fails, say so and show the failure.
-
-## Screenshot rules
-
-- Keep the fixture/scripted label in frame when capturing `/demo`.
-- Keep native session IDs or the evidence ledger visible when claiming a real run.
-- Do not add fake dashboards, fake terminal output, or a fabricated “success” badge.
-- Do not place text in generated images; all essential text must be real HTML.
-- Do not crop the hero to imply a UI that is not present.
-- Use the actual viewport; do not stretch narrow screenshots.
-
-## Submission claims
-
-Approved:
-
-- “Four-stage workflow built around OpenCode.”
-- “OpenCode supplies the agent loop, tools, permissions, and native sessions.”
-- “The deterministic demo is a scripted fixture.”
-- “Hosted/private instances use their own isolated workspace.”
-- “Local mode runs on the builder's machine.”
-- “Maker's edit in this release is bounded to an isolated demo workspace.”
-- “A failed check remains failed.”
-
-Not approved:
-
-- “Reads your repository from the hosted page.”
-- “Guaranteed working build.”
-- “Autonomous end-to-end submission.”
-- “Live inference” around the fixture.
-- Testimonials, usage counts, awards, or organizer endorsements without actual evidence.
-
-## Visual asset checklist before submission
-
-- [ ] Hero contains no text, logos, or watermarks.
-- [ ] Hero is served through AVIF/WebP with explicit dimensions.
-- [ ] Character states match the workflow state table.
-- [ ] Reduced-motion capture still shows every state.
-- [ ] No screenshot crops out a fixture label or a failure.
-- [ ] `npm run budget` passes.
-- [ ] `npm test` and `npm run test:visual` pass.
-- [ ] `docs/PRODUCT_BRIEF.md` claims match the recorded demo.
+The hosted demo also rejects mutation routes, so “Run live” is an explicit path to a local or private deployment rather than an implied capability of the public sample.

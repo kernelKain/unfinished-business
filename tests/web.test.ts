@@ -6,11 +6,11 @@ import { LandingPage } from "../src/web/landing/LandingPage.tsx";
 import { DemoPage } from "../src/web/demo/DemoPage.tsx";
 import { SpiritCharacter, type SpiritState } from "../src/web/components/SpiritCharacter.tsx";
 import { RunInspector } from "../src/web/components/RunInspector.tsx";
+import { demoFixture } from "../src/shared/demo.ts";
 import {
   demoCapabilities,
   demoEvidence,
   demoOperations,
-  demoSteps,
   faqs,
   usageModes,
 } from "../src/web/content/landing.ts";
@@ -51,9 +51,12 @@ test("landing hero names the product, the engine, and all three primary actions"
   assert.match(copy, /Turn unfinished ideas into hackathon-ready builds\./);
   assert.match(copy, /OpenCode-powered hackathon project builder/i);
   assert.match(copy, /Try the example/);
-  assert.match(copy, /Connect OpenCode/);
+  assert.match(copy, /Watch the guided workflow/);
+  assert.match(copy, /Run live with OpenCode/);
   assert.match(copy, /Set up locally/);
   assert.match(html, /href="\/demo"/);
+  assert.match(html, /href="\/demo\?presentation=1"/);
+  assert.match(html, /href="\/workshop"/);
   assert.match(html, /href="#local-setup"/);
   assert.match(html, /width="1920"/);
   assert.match(html, /height="823"/);
@@ -113,13 +116,21 @@ test("setup tabs expose the tested local commands", () => {
   assert.match(text(html), /Commands are checked against docs\/LOCAL_SETUP\.md/);
 });
 
-test("demo and evidence previews label fixtures and keep failures visible", () => {
+test("demo and evidence previews label fixtures and keep the missing live proof visible", () => {
   const demo = renderToStaticMarkup(createElement(DemoPage));
   const copy = text(demo);
-  assert.match(copy, /This page never calls OpenCode or a model\./);
-  assert.match(copy, /Not live inference, not a successful build, not remote repository access\./);
-  assert.match(copy, /The same component appears in the workshop with real native session references/);
-  for (const step of demoSteps) assert.match(demo, new RegExp(`data-testid="spirit-state-${step.spirit}-${step.state}"`));
+  assert.match(copy, /Campus Umbrella Relay/);
+  assert.match(copy, /No OpenCode session, provider call, repository read, or model quota is used/);
+  assert.match(copy, /Every run, diff, check, and finding is fixture data/);
+  assert.match(copy, /The live session remains NOT_RUN/);
+  assert.match(copy, /Representative diff and deterministic check/);
+  assert.match(copy, /Reset changes only this demo fixture/);
+  assert.match(copy, /The same Run Inspector, with demo data/);
+  for (const spirit of ["oracle", "architect", "maker", "witness"] as const) {
+    for (const state of new Set(demoFixture.beats.filter((beat) => beat.spirit === spirit).map((beat) => beat.state))) {
+      assert.match(demo, new RegExp(`data-testid="spirit-state-${spirit}-${state}"`));
+    }
+  }
   assert.match(demo, /data-testid="demo-recovery"/);
 
   const inspector = renderToStaticMarkup(createElement(RunInspector, {

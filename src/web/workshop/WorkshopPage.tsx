@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowRight, Eye, Hammer, PlugZap, ScrollText, Settings2, Sparkles } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import type { ConnectionStatus } from "../../shared/opencode.ts";
+import { modeDescriptor } from "../../shared/modes.ts";
 import {
   ApiError,
   approveProduct,
@@ -110,8 +111,9 @@ export function WorkshopPage() {
   const characterState = spiritStateFor(project, section);
   const approved = project.sections.filter((item) => item.status === "APPROVED").length;
   const selectedModel = findSelectedModel(connection.discovery, project.engine.model);
+  const hostedDemo = connection.deploymentMode === "hosted-demo";
   const firstRun = !connection.discovery || !project.engine.model;
-  const showOnboarding = setupOpen || (firstRun && !onboardingDismissed && connection.state !== "unavailable");
+  const showOnboarding = !hostedDemo && (setupOpen || (firstRun && !onboardingDismissed && connection.state !== "unavailable"));
   const connected = connection.state === "connected" || connection.state === "degraded";
   const header = project.stage === "ORACLE"
     ? "What's still haunting your to-do list?"
@@ -195,9 +197,13 @@ export function WorkshopPage() {
                   : "No supported model selected"}
               </p>
               {selectedModel ? <p className="meta">{modelFacts(selectedModel)}</p> : null}
-              <button className="text-link button-link" type="button" onClick={() => setSetupOpen(true)}>
-                <PlugZap size={15} aria-hidden="true" /> OpenCode setup
-              </button>
+              {hostedDemo ? (
+                <a className="text-link button-link" href="/demo">Open the guided example</a>
+              ) : (
+                <button className="text-link button-link" type="button" onClick={() => setSetupOpen(true)}>
+                  <PlugZap size={15} aria-hidden="true" /> OpenCode setup
+                </button>
+              )}
             </section>
           </aside>
 
@@ -266,31 +272,37 @@ export function WorkshopPage() {
             {slow ? <p className="banner" role="status">This is taking longer than usual. The saved section is unchanged until a response arrives.</p> : null}
             {error ? <p className="banner bad" role="alert">{error}</p> : null}
 
-            {project.stage === "ORACLE" ? (
-              <OraclePanel project={project} text={text} setText={setText} busy={busy} act={act} />
-            ) : null}
-            {project.stage === "ARCHITECT" && section ? (
-              <ArchitectPanel
-                project={project}
-                section={section}
-                change={change}
-                setChange={setChange}
-                text={text}
-                setText={setText}
-                busy={busy}
-                act={act}
-                reduceMotion={reduceMotion}
-              />
-            ) : null}
-            {project.stage === "ARCHITECT" && !section ? (
-              <ScopePanel project={project} scope={scope} setScope={setScope} busy={busy} act={act} />
-            ) : null}
-            {project.stage === "MAKER" ? (
-              <MakerPanel project={project} busy={busy} activeRun={activeRun} act={act} onChooseModel={() => setSetupOpen(true)} />
-            ) : null}
-            {project.stage === "WITNESS" ? (
-              <WitnessPanel project={project} text={text} setText={setText} busy={busy} act={act} exportNote={exportNote} setExportNote={setExportNote} />
-            ) : null}
+            {hostedDemo ? (
+              <HostedDemoPanel />
+            ) : (
+              <>
+                {project.stage === "ORACLE" ? (
+                  <OraclePanel project={project} text={text} setText={setText} busy={busy} act={act} />
+                ) : null}
+                {project.stage === "ARCHITECT" && section ? (
+                  <ArchitectPanel
+                    project={project}
+                    section={section}
+                    change={change}
+                    setChange={setChange}
+                    text={text}
+                    setText={setText}
+                    busy={busy}
+                    act={act}
+                    reduceMotion={reduceMotion}
+                  />
+                ) : null}
+                {project.stage === "ARCHITECT" && !section ? (
+                  <ScopePanel project={project} scope={scope} setScope={setScope} busy={busy} act={act} />
+                ) : null}
+                {project.stage === "MAKER" ? (
+                  <MakerPanel project={project} busy={busy} activeRun={activeRun} act={act} onChooseModel={() => setSetupOpen(true)} />
+                ) : null}
+                {project.stage === "WITNESS" ? (
+                  <WitnessPanel project={project} text={text} setText={setText} busy={busy} act={act} exportNote={exportNote} setExportNote={setExportNote} />
+                ) : null}
+              </>
+            )}
           </article>
 
           <aside className="side inspector-side">
@@ -331,6 +343,35 @@ export function WorkshopPage() {
         />
       </main>
     </div>
+  );
+}
+
+function HostedDemoPanel() {
+  const demo = modeDescriptor("demo");
+  return (
+    <section className="stage-panel hosted-demo-panel" aria-labelledby="hosted-demo-title">
+      <div className="panel-intro">
+        <span className="panel-icon"><Eye size={18} aria-hidden="true" /></span>
+        <div>
+          <h2 id="hosted-demo-title">This hosted instance is a read-only demo</h2>
+          <p>{demo.summary}</p>
+        </div>
+      </div>
+      <ul className="check-list">
+        {demo.capabilities.filter((capability) => !capability.available).map((capability) => (
+          <li key={capability.id}>
+            <AlertTriangle size={15} aria-hidden="true" />
+            <span><strong>{capability.label}:</strong> {capability.detail}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="actions">
+        <a className="action" href="/demo">Try the guided example</a>
+        <a className="action secondary" href="/#local-setup">Set up locally</a>
+        <a className="action ghost" href="/">Read the overview</a>
+      </div>
+      <p className="meta">All mutation, run, approval, and session-token routes are rejected in this mode.</p>
+    </section>
   );
 }
 

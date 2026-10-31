@@ -3,6 +3,7 @@ import { access, mkdir, readFile } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 import { serve } from "@hono/node-server";
 import type { DeploymentMode } from "../shared/opencode.ts";
+import type { RuntimeMode } from "../shared/modes.ts";
 import { createApp } from "./app.ts";
 import { OpenCodeSpiritGuide } from "./experience/guide.ts";
 import { ExperienceService } from "./experience/service.ts";
@@ -26,6 +27,11 @@ const deploymentMode: DeploymentMode = process.env.UB_DEPLOYMENT_MODE === "hoste
     : process.env.RENDER
       ? "hosted-private"
       : "local";
+const runtimeMode: RuntimeMode = deploymentMode === "hosted-demo"
+  ? "demo"
+  : deploymentMode === "hosted-private"
+    ? "private-hosted"
+    : "local";
 await mkdir(demoWorkspace, { recursive: true });
 await mkdir(safeDirectory, { recursive: true });
 
@@ -37,7 +43,7 @@ try {
 }
 const sessionToken = process.env.UB_SESSION_TOKEN ?? randomBytes(32).toString("base64url");
 const accessPassword = process.env.UB_ACCESS_PASSWORD?.trim();
-if (process.env.NODE_ENV === "production" && !accessPassword) {
+if (process.env.NODE_ENV === "production" && runtimeMode !== "demo" && !accessPassword) {
   throw new Error("UB_ACCESS_PASSWORD is required in production.");
 }
 const workflow = new WorkflowService(store);
@@ -59,7 +65,8 @@ const app = createApp({
   experience,
   connection,
   sessions,
-  access: accessPassword ? {
+  mode: runtimeMode,
+  access: runtimeMode !== "demo" && accessPassword ? {
     username: process.env.UB_ACCESS_USERNAME?.trim() || "unfinished-business",
     password: accessPassword,
   } : undefined,

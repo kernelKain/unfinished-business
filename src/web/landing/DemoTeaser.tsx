@@ -66,7 +66,10 @@ export function DemoTeaser() {
               Next <ArrowRight size={16} aria-hidden="true" />
             </button>
           </div>
-          <a className="text-link" href="/demo">Open the full deterministic walkthrough <ArrowRight size={15} aria-hidden="true" /></a>
+          <div className="demo-teaser-links">
+            <a className="text-link" href="/demo">Try the example <ArrowRight size={15} aria-hidden="true" /></a>
+            <a className="text-link" href="/demo?presentation=1">Watch the 90-second guided workflow <ArrowRight size={15} aria-hidden="true" /></a>
+          </div>
         </div>
       </div>
     </section>

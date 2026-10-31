@@ -1,6 +1,6 @@
 # Product brief — Unfinished Business
 
-**Status:** Approved for the Phase 4 interface. Last updated 2026-10-31.
+**Status:** Approved through the Phase 7 guided demo. Last updated 2026-10-31.
 
 ## One sentence
 
@@ -60,7 +60,7 @@ Provider API keys stay in OpenCode. The first-run panel accepts only the OpenCod
 
 1. Hero: “Turn unfinished ideas into hackathon-ready builds.”
 2. Value statement and OpenCode-only positioning.
-3. Primary actions: try the example, connect OpenCode, set up locally.
+3. Primary actions: try the example, watch the guided workflow, run live with OpenCode, set up locally.
 4. Two ways to use it: hosted/private and full local.
 5. Four-spirit workflow explanation.
 6. Deterministic demo teaser with an explicit fixture label.
@@ -70,14 +70,25 @@ Provider API keys stay in OpenCode. The first-run panel accepts only the OpenCod
 10. Privacy and security boundaries.
 11. FAQ and final call to action.
 
+## The guided demo's role
+
+The deterministic example is the product's **onboarding proof** and the judge's **fast path to the value story**:
+
+- **Onboarding:** a first-time visitor can complete the whole journey — unfinished idea → approved plan → bounded implementation → diff/tests → Witness evidence → next step — without an OpenCode account, provider key, model quota, or repository.
+- **Judging:** the same interface contracts render live and fixture runs, so the demo demonstrates the approval, permission, progress, evidence, and recovery surfaces without pretending the fixture is a live session.
+- **Trust:** the demo is explicit about what it cannot prove. The live native session remains `NOT_RUN`; reset affects only the fixture; the hosted demo cannot mutate anything.
+
+The demo is a **guided example**, not a second product surface. It uses the production `RunInspector`, `SpiritCharacter`, `SpiritStageTabs`, `StatusChip`, and shared workflow schemas.
+
 ## Calls to action
 
 | Action | Destination | Truthful expectation |
 |---|---|---|
-| Try the example | `/demo` | A scripted fixture, not live inference |
+| Try the example | `/demo` | An interactive, scripted fixture; not live inference |
+| Watch the guided workflow | `/demo?presentation=1` | A 90-second screen-recording path over the same fixture |
+| Run live with OpenCode | `/workshop` | The real workflow; engine status is visible and may be unreachable |
 | Connect OpenCode | Setup dialog | Instructions only; no connection is implied until the engine answers |
 | Set up locally | `#local-setup` | Commands match `docs/LOCAL_SETUP.md` |
-| Open workshop | `/workshop` | The real workflow; engine status is visible and may be unreachable |
 | Walk through the fixture | `/demo` | Representative states with fixture IDs |
 
 ## Prohibited claims

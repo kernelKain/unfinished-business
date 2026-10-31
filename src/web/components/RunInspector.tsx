@@ -15,6 +15,8 @@ interface RunInspectorProps {
   eyebrow?: string;
   title?: string;
   note?: string;
+  sourceLabel?: string;
+  demo?: boolean;
 }
 
 export function RunInspector({
@@ -26,17 +28,22 @@ export function RunInspector({
   eyebrow = "OpenCode evidence",
   title = "Run Inspector",
   note = "Only observed native results are recorded. A missing result stays missing.",
+  sourceLabel,
+  demo = false,
 }: RunInspectorProps) {
   const latest = [...operations].reverse();
   const unknown = latest.find((operation) => operation.status === "UNKNOWN");
   return (
-    <section className="run-inspector" aria-labelledby="run-inspector-title" data-testid="run-inspector">
+    <section className="run-inspector" aria-labelledby="run-inspector-title" data-testid="run-inspector" data-demo={demo ? "true" : undefined}>
       <header className="inspector-head">
         <div>
           <p className="eyebrow">{eyebrow}</p>
           <h2 id="run-inspector-title">{title}</h2>
         </div>
-        <span className="inspector-badge">Read-only view</span>
+        <div className="inspector-badges">
+          {sourceLabel ? <span className="inspector-source">{sourceLabel}</span> : null}
+          <span className="inspector-badge">Read-only view</span>
+        </div>
       </header>
       <p className="inspector-note">{note}</p>
 

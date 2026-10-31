@@ -1,7 +1,7 @@
 # UX and visual system — Ghostlight Hacker Workshop
 
-**Status:** Implemented in Phase 4. Last updated 2026-10-31.
-**Source of truth:** `src/web/styles.css`, `src/web/spirits.ts`, `src/web/components/`, `src/web/content/landing.ts`.
+**Status:** Implemented through the Phase 7 guided demo. Last updated 2026-10-31.
+**Source of truth:** `src/web/styles.css`, `src/web/spirits.ts`, `src/web/components/`, `src/web/content/landing.ts`, `src/web/demo/`.
 
 ## 1. Theme
 
@@ -147,9 +147,21 @@ Status chips include a dot and text; color is never the only signal. `.status-ch
 ### Stage tabs
 
 - A semantic `<nav aria-label="Four-stage workflow">` containing an ordered list.
-- Non-interactive stage items: they do not pretend to be clickable tabs. `aria-current="step"` marks the current stage.
+- The workshop uses non-interactive stage items: they do not pretend to be clickable tabs. `aria-current="step"` marks the current stage.
+- The guided demo passes `onSelect`, so each stage is a real button labeled “Inspect Oracle/Architect/Maker/Witness”. Selecting a tab pauses playback and shows that spirit's fixture workspace. `aria-current="step"` still marks the inspected stage.
 - Each item includes a mini spirit, stage number, name, state text, and a visually hidden “Stage X of 4”.
 - Horizontal scroll on narrow screens; never truncate the current stage text.
+
+### Guided demo
+
+- The demo is a guided example, not a separate interface. It reuses `RunInspector`, `SpiritCharacter`, `SpiritStageTabs`, `StatusChip`, and the production workflow shapes.
+- The layout is: intro/honesty panel → playback controls → four-spirit tabs → guided beat + spirit workspace → Run Inspector → representative diff/check → Witness findings → character gallery/recovery → clean exit.
+- Every fixture operation, evidence row, diff, and finding carries a `Demo data` chip or a `Prerecorded demo fixture` source label.
+- Playback controls are Play/Pause, Previous, Next, Replay, Reset, and 90s mode. Reset returns to beat 1, paused, and clears inspection; it never calls an API.
+- Tabs are available during playback. Inspecting a tab pauses auto-advance and shows “Playback paused so you can inspect …”. Resume with Play.
+- Presentation mode (`?presentation=1`) uses 10 beats × 9 seconds = 90 seconds, hides the intro/gallery/recovery, and keeps the diff, check, and Witness sections visible. It is optional; normal interactive use remains available.
+- Narrow layout stacks the beat card, workspace, evidence, and Witness panels. The diff and check output scroll inside their own containers; long fingerprints wrap.
+- Reduced motion disables character animation but keeps every state visible. The playback timer is independent of animation.
 
 ### Section cards
 
@@ -249,7 +261,8 @@ The state classes also drive the workshop header character: Oracle listening/cla
 - Visible 3px amber focus ring with a soft halo.
 - Minimum 44px targets for actions, tabs, stage rows, and demo controls.
 - Tabs use roving tabindex and full arrow-key support.
-- Stage strip is a list, not a set of disabled buttons.
+- Stage strip is a list; the demo's inspectable stages are real buttons with visible focus rings.
+- Playback status is announced through `role="status"` / `aria-live="polite"`; progress uses `role="progressbar"` with a beat value.
 - Status chips pair color with text.
 - Character SVGs are decorative by default; labelled instances expose `role="img"` and `<title>`.
 - No essential information in the hero image.
@@ -298,13 +311,13 @@ All four characters are hand-authored SVG in this repository. They are not gener
 
 | Metric | Budget | Measured (2026-10-31) | Status |
 |---|---|---|---|
-| Initial JS (gzip) | ≤ 220 KiB | 192.8 KiB | PASS |
-| All JS chunks (gzip) | ≤ 280 KiB | 250.2 KiB | PASS |
-| CSS (gzip) | ≤ 15 KiB | 12.6 KiB | PASS |
+| Initial JS (gzip) | ≤ 220 KiB | 193.1 KiB | PASS |
+| All JS chunks (gzip) | ≤ 280 KiB | 262.9 KiB | PASS |
+| CSS (gzip) | ≤ 15 KiB | 14.2 KiB | PASS |
 | All hero variants (total) | ≤ 640 KiB | 570.9 KiB | PASS |
 | Largest single hero file | ≤ 190 KiB | 86.7 KiB | PASS |
 
-The initial route is the landing page. Workshop and demo are lazy-loaded (54.8 KiB and 2.6 KiB gzip). The workshop chunk includes the connection/discovery wizard and advanced OpenCode panel. The hero transfers **34.7–58.2 KiB** as AVIF on a typical wide viewport and **30.9–49.1 KiB** as AVIF on mobile depending on pixel density; the total covers all breakpoints and formats, not one visit.
+The initial route is the landing page. Workshop and demo are lazy-loaded (54.9 KiB and 11.4 KiB gzip). The demo chunk includes the versioned fixture, playback reducer, and guided UI. The workshop chunk includes the connection/discovery wizard and advanced OpenCode panel. The hero transfers **34.7–58.2 KiB** as AVIF on a typical wide viewport and **30.9–49.1 KiB** as AVIF on mobile depending on pixel density; the total covers all breakpoints and formats, not one visit.
 
 ### Rules
 

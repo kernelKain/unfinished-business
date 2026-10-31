@@ -1,0 +1,30 @@
+# Optional public demo service. It serves the deterministic guided example only:
+# no OpenCode process, provider credentials, session token, persistent disk, or
+# visitor-specific storage. Use render.yaml for the protected private instance.
+services:
+  - type: web
+    name: unfinished-business-demo
+    runtime: node
+    region: singapore
+    plan: free
+    autoDeployTrigger: checksPass
+    buildCommand: npm ci && npm run typecheck && npm test && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.14.0
+      - key: UB_DEPLOYMENT_MODE
+        value: hosted-demo
+      - key: UB_HOST
+        value: 0.0.0.0
+      - key: UB_DATA_DIR
+        value: /tmp/unfinished-business-demo
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_ENVIRONMENT
+        value: production
+      - key: VITE_SENTRY_DSN
+        sync: false
+      - key: VITE_SENTRY_ENVIRONMENT
+        value: production

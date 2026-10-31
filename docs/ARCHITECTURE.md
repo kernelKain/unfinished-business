@@ -1,6 +1,6 @@
 # Architecture — Unfinished Business
 
-**Status:** Implemented through Phase 4. Last updated 2026-10-31.
+**Status:** Implemented through the Phase 7 guided demo. Last updated 2026-10-31.
 
 ## 1. System shape
 
@@ -19,7 +19,8 @@ Hono server (src/server/app.ts)
   ├─ /api/connection/configure   local only; server URL + in-memory password
   ├─ /api/engine/selection       persist a discovered model/variant
   ├─ /api/opencode/*             project-owned sessions, permissions, usage
-  ├─ /api/project                current snapshot
+  ├─ /api/mode                   public mode descriptor
+  ├─ /api/project                current snapshot or demo fixture
   ├─ /api/messages               stage messages
   ├─ /api/approvals              product + Maker scope
   ├─ /api/sections/*             revisions + exact-version approvals
@@ -52,10 +53,11 @@ Unfinished Business never implements a second agent loop, inference client, gene
 
 The workshop and demo are split with `React.lazy`. Measured production chunks:
 
-- initial `index-*.js`: 192.8 KiB gzip;
-- `WorkshopPage-*.js`: 54.8 KiB gzip (includes onboarding/discovery UI);
-- `DemoPage-*.js`: 2.6 KiB gzip;
-- CSS: 12.6 KiB gzip.
+- initial `index-*.js`: 193.1 KiB gzip;
+- `WorkshopPage-*.js`: 54.9 KiB gzip (includes onboarding/discovery UI);
+- `DemoPage-*.js`: 11.4 KiB gzip (includes the versioned fixture and playback reducer);
+- `SpiritStageTabs-*.js`: 3.5 KiB gzip;
+- CSS: 14.2 KiB gzip.
 
 The workshop keeps its existing Phase 3 structure: four-stage navigation, plan outline, working document, activity/evidence rail. The visual layer changed; the stage and approval semantics did not.
 
@@ -89,7 +91,10 @@ Vite copies `public/` to `dist/web/`, so production URLs are `/assets/hero/...`.
 | `src/web/App.tsx` | Route switch, lazy loading, page title |
 | `src/web/routes.ts` | Pure path resolution and titles |
 | `src/web/landing/` | Hero, usage modes, spirit roster, deterministic teaser, setup, privacy, FAQ, final CTA |
-| `src/web/demo/` | Scripted walkthrough, all-state gallery, recovery states |
+| `src/web/demo/` | Guided playback, fixture workspace, diff/check, Witness findings, all-state gallery, recovery states |
+| `src/shared/demo.ts` | Versioned browser-safe fixture, beats, diff, verification, Witness findings |
+| `src/shared/workflow.ts` | Browser-safe production workflow schemas shared by server, UI, and fixture tests |
+| `src/shared/modes.ts` | Runtime-mode descriptors and capability truth table |
 | `src/web/workshop/` | Real Oracle/Architect/Maker/Witness workflow, connection state, active-run polling |
 | `src/web/onboarding.tsx` | First-run connection check and model/variant selection |
 | `src/web/opencode-panel.tsx` | Advanced discovered capability, session, permission, usage, and revert controls |
@@ -135,7 +140,7 @@ The Run Inspector is read-only. The only write it can trigger is the existing re
 
 ## 7. Workflow authorization is unchanged
 
-Phase 4 did not change:
+Phase 4 and Phase 7 did not change:
 
 - session-token checks;
 - basic-auth behavior;
@@ -147,11 +152,48 @@ Phase 4 did not change:
 
 The setup dialog and landing page are instructions only. Opening them does not assert that OpenCode is reachable.
 
-## 8. Why the demo is separate
+## 8. Demo fixture boundaries and schema reuse
 
-The deterministic demo renders fixture data with visible “scripted sample” labels. It exists because a first-time visitor should understand the interface before installing an engine, and because visual regression tests need stable states that do not depend on a model call. It is a separate route so the real workshop cannot accidentally use fixture data.
+The deterministic demo is a **browser-bundled fixture**, not a server response and not a parallel UI:
 
-## 9. Not in this architecture
+```text
+src/shared/workflow.ts   production Zod schemas + types
+        │
+        ├─ src/server/workflow/model.ts  hashing, persistence, transitions
+        ├─ src/shared/demo.ts            versioned fixture (project, beats, diff, check, findings)
+        └─ src/web/demo/DemoPage.tsx     playback + shared components
+                    │
+                    ├─ RunInspector (same operation/evidence/capability shapes as /workshop)
+                    ├─ SpiritStageTabs (interactive inspect variant)
+                    ├─ SpiritCharacter / StatusChip / Brand
+                    └─ playback reducer (pure; no API calls)
+```
+
+- `src/shared/demo.ts` has no `node:`, `fetch`, `process.env`, `Date.now`, or `Math.random` imports. It can render without a server or provider.
+- `tests/demo.test.ts` parses the fixture project with `projectSchema` and each operation/evidence/capability with the production schemas. A contract change fails the demo test instead of silently drifting.
+- Section hashes are real SHA-256 hashes of the fixed content; the test recomputes them.
+- Every fixture operation/evidence result is visibly labeled. The live native session remains `NOT_RUN`.
+- The demo route is lazy-loaded and separate from `/workshop`, so live project state cannot accidentally use fixture data.
+
+### Hosted-demo enforcement
+
+`createApp` receives the runtime mode. In `demo` mode:
+
+- `GET /api/mode` returns the public demo descriptor.
+- `GET /api/project` and `GET /api/export` return the versioned fixture.
+- `GET /api/connection` returns a read-only demo status with no engine address.
+- Every non-GET `/api/*` request is rejected with `DEMO_READ_ONLY` before a body is parsed.
+- `/api/session` is rejected; no session token is issued.
+- `/api/opencode/*` is rejected; no native session or provider path is reachable.
+- The UI shows a read-only notice on `/workshop` and offers the guided example or local setup as exits.
+
+The hosted demo therefore makes zero inference/provider calls and cannot mutate a live repository. The server still rejects mutations independently of the browser UI.
+
+## 9. Why the demo is separate
+
+The deterministic demo renders fixture data with visible “demo data” labels. It exists because a first-time visitor should understand the interface before installing an engine, and because visual regression tests need stable states that do not depend on a model call. It is a separate route so the real workshop cannot accidentally use fixture data.
+
+## 10. Not in this architecture
 
 - A second coding harness or command executor.
 - A public arbitrary-execution sandbox.

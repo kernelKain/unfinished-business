@@ -177,8 +177,8 @@ test.describe("deterministic demo", () => {
   test("labels the fixture and captures every spirit state", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto("/demo");
-    await expect(page.getByRole("heading", { name: "A scripted look at the four handoffs" })).toBeVisible();
-    await expect(page.getByText("This page never calls OpenCode or a model.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Campus Umbrella Relay" })).toBeVisible();
+    await expect(page.getByText(/No OpenCode session, provider call, repository read, or model quota is used/)).toBeVisible();
 
     for (const [spirit, states] of Object.entries(spiritStates)) {
       for (const state of states) {
@@ -188,6 +188,9 @@ test.describe("deterministic demo", () => {
       }
     }
 
+    const next = page.getByRole("button", { name: "Next step" });
+    for (let step = 0; step < 7; step += 1) await next.click();
+    await expect(page.getByText("Deterministic check").first()).toBeVisible();
     await expect(page.getByTestId("run-inspector")).toHaveScreenshot("run-inspector.png");
     await expect(page.getByTestId("demo-recovery")).toHaveScreenshot("recovery-unknown.png");
   });
@@ -195,10 +198,10 @@ test.describe("deterministic demo", () => {
   test("demo is keyboard operable and honest on narrow screens", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/demo");
-    const next = page.getByRole("button", { name: "Next" });
+    const next = page.getByRole("button", { name: "Next step" });
     await next.focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("heading", { name: "Approve one section at a time" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Oracle clarifies the smallest useful product" })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(1);
   });

@@ -1,6 +1,6 @@
 # Hosted and private deployment
 
-**Status:** Configuration present in `render.yaml`. No public URL is asserted by this document.
+**Status:** Phase 7 adds the public hosted-demo behavior. `render.yaml` still defines the private hosted instance; no public URL is asserted by this document.
 **Last updated:** 2026-10-31.
 
 ## What a hosted instance is
@@ -20,6 +20,27 @@ A hosted instance is **not**:
 - a remote mount of the visitor's checkout;
 - proof that a free model route is available;
 - a substitute for the real local workflow when demonstrating actual execution.
+
+## Public hosted demo
+
+`UB_DEPLOYMENT_MODE=hosted-demo` serves the public guided example without OpenCode, provider credentials, a repository, a session token, or user-specific persistence:
+
+| Behavior | Hosted demo |
+|---|---|
+| Routes | `/`, `/demo`, `/workshop` are public; `/api/health` and `/api/mode` are public |
+| API reads | `/api/project` and `/api/export` return the versioned fixture |
+| API writes | Every non-GET `/api/*` request returns `403 DEMO_READ_ONLY` before a body is parsed |
+| Session token | `/api/session` returns `403`; no token is issued |
+| OpenCode | `/api/opencode/*` returns `403`; no server is contacted |
+| Connection | `/api/connection` returns a read-only `hosted-demo` status with no engine address |
+| Repository | None. The fixture workspace is `demo://campus-umbrella-relay` |
+| Persistence | No visitor state is written; reloading returns the same sample |
+| Inference | Zero model/provider calls |
+| Reset | The demo's Reset control changes only client playback state |
+
+The `/demo` page is fully usable without credentials. The `/workshop` route in this mode shows a read-only notice and clean exits to the guided example or local setup. The server rejection is independent of the UI, so bypassing the browser cannot reach a mutation.
+
+A public hosted demo should not set `UB_ACCESS_PASSWORD` or start `render-start.ts` (which starts OpenCode). Use `npm start` with `UB_DEPLOYMENT_MODE=hosted-demo`. The optional `render.demo.yaml` template does exactly that on a free service; the private hosted instance in `render.yaml` remains `hosted-private` and requires basic auth. Deploying either template is a separate, explicit action.
 
 ## Render configuration
 
@@ -50,7 +71,7 @@ The hosted service is **not compatible with Render's free plan**; it needs a per
 |---|---|---|---|
 | `local` | Browser can edit the URL and enter the server password in memory | `OPENCODE_PASSWORD` optional | Local development |
 | `hosted-private` | Browser configuration is read-only | URL/password managed by the environment/secret store | Password-protected private instance |
-| `hosted-demo` | Read-only | No provider-key prompt; may legitimately show no models | A sample/demo deployment that does not accept visitor credentials |
+| `hosted-demo` | Read-only | No provider-key prompt, no OpenCode, no session token, no visitor persistence | A public deterministic sample with the guided example |
 
 The dashboard does not expose the OpenCode server password or provider keys. Provider accounts belong in OpenCode's credential store. In `hosted-demo`, an unconnected provider is an honest empty catalog, not an error to fake.
 
@@ -90,6 +111,7 @@ Render generates `UB_ACCESS_PASSWORD`, `UB_SESSION_TOKEN`, and `OPENCODE_PASSWOR
 
 - `UB_ACCESS_PASSWORD` is required in production; basic auth covers all routes except health.
 - `hosted-private` and `hosted-demo` reject browser connection edits; the URL/password must come from the environment.
+- `hosted-demo` rejects every non-GET `/api/*` request and does not issue a session token.
 - Mutating API routes require the browser-session token and an expected project revision.
 - The OpenCode server binds to `127.0.0.1`, not the public interface.
 - Discovery drops provider settings, headers, bodies, skill contents, and prompt text before the browser sees it.

@@ -7,6 +7,8 @@ import {
   engineStatusSchema,
   healthSchema,
 } from "../shared/contracts.ts";
+import { demoExport, demoFixture } from "../shared/demo.ts";
+import { modeDescriptor, type RuntimeMode } from "../shared/modes.ts";
 import { ExperienceFailure, ExperienceService } from "./experience/service.ts";
 import { ConnectionConfigError } from "./opencode/client.ts";
 import type { ConnectionService } from "./opencode/connection.ts";
@@ -63,10 +65,13 @@ export interface WorkflowHttpOptions {
     username: string;
     password: string;
   };
+  /** The deployment policy. Demo mode is read-only and serves the fixture. */
+  mode?: RuntimeMode;
 }
 
 export function createApp(workflow: WorkflowHttpOptions) {
   const app = new Hono();
+  const mode = workflow.mode ?? "local";
 
   app.use(sentry(app));
 
@@ -87,22 +92,45 @@ export function createApp(workflow: WorkflowHttpOptions) {
     service: "unfinished-business",
   })));
 
+  app.get("/api/mode", (context) => context.json(modeDescriptor(mode)));
+
+  // The hosted demo is a deterministic, read-only sample. Reject every
+  // mutation before a body is parsed or a workflow service is touched.
+  app.use("/api/*", async (context, next) => {
+    if (mode !== "demo") return next();
+    if (context.req.method === "GET" || context.req.method === "HEAD") return next();
+    return context.json({
+      code: "DEMO_READ_ONLY",
+      message: modeDescriptor("demo").unavailableActions.mutations,
+      retryable: false,
+    }, 403);
+  });
+
   app.use("/api/connection/check", async (context, next) => guard(context, next, workflow.sessionToken));
   app.use("/api/connection/configure", async (context, next) => guard(context, next, workflow.sessionToken));
   app.use("/api/connection/reset", async (context, next) => guard(context, next, workflow.sessionToken));
   app.use("/api/engine/selection", async (context, next) => guard(context, next, workflow.sessionToken));
   app.use("/api/opencode/*", async (context, next) => {
+    if (mode === "demo") {
+      return context.json({
+        code: "DEMO_READ_ONLY",
+        message: modeDescriptor("demo").unavailableActions.engine,
+        retryable: false,
+      }, 403);
+    }
     if (context.req.method === "GET") return next();
     return guard(context, next, workflow.sessionToken);
   });
 
   app.get("/api/connection", async (context) => {
+    if (mode === "demo") return context.json(demoConnectionStatus());
     if (!workflow.connection) return connectionUnavailable(context);
     const status = await currentConnection(workflow);
     return context.json(status);
   });
 
   app.get("/api/engine", async (context) => {
+    if (mode === "demo") return context.json(demoEngineStatus(), 503);
     if (!workflow.connection) return connectionUnavailable(context);
     const status = await currentConnection(workflow);
     const project = await workflow.service.get();
@@ -308,8 +336,15 @@ export function createApp(workflow: WorkflowHttpOptions) {
     });
   }
 
-  app.get("/api/project", async (context) => context.json(await workflow.service.get()));
+  app.get("/api/project", async (context) => context.json(mode === "demo" ? demoFixture.project : await workflow.service.get()));
   app.get("/api/session", (context) => {
+    if (mode === "demo") {
+      return context.json({
+        code: "DEMO_READ_ONLY",
+        message: modeDescriptor("demo").unavailableActions.mutations,
+        retryable: false,
+      }, 403);
+    }
     if (workflow.access) return context.json({ token: workflow.sessionToken });
     const host = context.req.header("host") ?? "";
     if (!host.startsWith("127.0.0.1") && !host.startsWith("localhost")) {
@@ -317,8 +352,8 @@ export function createApp(workflow: WorkflowHttpOptions) {
     }
     return context.json({ token: workflow.sessionToken });
   });
-  if (workflow.experience) {
-    app.get("/api/export", async (context) => context.json(await workflow.experience!.exportApproved()));
+  if (workflow.experience || mode === "demo") {
+    app.get("/api/export", async (context) => context.json(mode === "demo" ? demoExport : await workflow.experience!.exportApproved()));
   }
 
   app.use("/api/sections/*", async (context, next) => guard(context, next, workflow.sessionToken));
@@ -432,6 +467,38 @@ export function createApp(workflow: WorkflowHttpOptions) {
   });
 
   return app;
+}
+
+function demoConnectionStatus() {
+  return connectionStatusSchema.parse({
+    state: "not_configured",
+    baseUrl: null,
+    deploymentMode: "hosted-demo",
+    managed: true,
+    auth: { mode: "none", username: "", hasPassword: false },
+    serverVersion: null,
+    compatible: null,
+    checkedAt: null,
+    diagnostics: [{
+      code: "DEMO_READ_ONLY",
+      severity: "info",
+      title: "Hosted demo",
+      message: "The public demo is read-only. No OpenCode server, provider, repository, or secret is connected.",
+      repair: "Run locally and connect OpenCode for live work, or deploy your own private hosted instance.",
+    }],
+    discovery: null,
+  });
+}
+
+function demoEngineStatus() {
+  return engineStatusSchema.parse({
+    available: false,
+    state: "not_configured",
+    serverVersion: null,
+    model: null,
+    modelAvailable: false,
+    limitation: "The hosted demo does not connect to OpenCode. Run locally for live execution.",
+  });
 }
 
 async function currentConnection(workflow: WorkflowHttpOptions) {
