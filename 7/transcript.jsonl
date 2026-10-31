@@ -1,0 +1,4 @@
+{"v":1,"agent":"opencode","cli_version":"0.12.3-nightly.202610310614.54b6a5cac","type":"user","ts":"2026-10-31T11:49:08.78Z","content":[{"id":"msg_191cac595001Ma5jPxZGhGt613-0","text":"hi"}]}
+{"v":1,"agent":"opencode","cli_version":"0.12.3-nightly.202610310614.54b6a5cac","type":"assistant","ts":"2026-10-31T11:49:08.802Z","id":"msg_191caca3d001r8E4f3VmvVYFn9","content":[]}
+{"v":1,"agent":"opencode","cli_version":"0.12.3-nightly.202610310614.54b6a5cac","type":"user","ts":"2026-10-31T11:54:12.424Z","content":[{"id":"msg_191cf6bd6001bYrUP9TpUHr250-0","text":"hi"}]}
+{"v":1,"agent":"opencode","cli_version":"0.12.3-nightly.202610310614.54b6a5cac","type":"assistant","ts":"2026-10-31T11:54:12.441Z","id":"msg_191cf6c520012LloxqyaGvDSFT","input_tokens":8087,"output_tokens":12,"content":[{"text":"Hi! What can I help you with today?","type":"text"}]}
