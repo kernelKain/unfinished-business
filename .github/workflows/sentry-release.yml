@@ -36,7 +36,7 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Require the Sentry CI token
+      - name: Validate Sentry credentials and region
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
@@ -44,6 +44,23 @@ jobs:
             echo "::error::The SENTRY_AUTH_TOKEN repository secret is missing."
             exit 1
           fi
+
+          for sentry_url in https://de.sentry.io https://sentry.io; do
+            status=$(curl --silent --show-error \
+              --output "$RUNNER_TEMP/sentry-auth-check.json" \
+              --write-out "%{http_code}" \
+              --header "Authorization: Bearer $SENTRY_AUTH_TOKEN" \
+              "$sentry_url/api/0/organizations/kernelkain/")
+
+            if [ "$status" = "200" ]; then
+              echo "SENTRY_URL=$sentry_url" >> "$GITHUB_ENV"
+              echo "Authenticated with the Sentry API."
+              exit 0
+            fi
+          done
+
+          echo "::error::Sentry rejected the CI token on both the DE and global API endpoints."
+          exit 1
 
       - name: Build and create the Sentry release
         env:

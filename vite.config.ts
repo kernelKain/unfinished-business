@@ -19,7 +19,11 @@ export default defineConfig(({ mode }) => {
         org: env.SENTRY_ORG || "kernelkain",
         project: env.SENTRY_PROJECT || "unfinished-business-web",
         authToken,
+        url: env.SENTRY_URL || undefined,
         telemetry: false,
+        errorHandler: (error) => {
+          throw error;
+        },
         sourcemaps: uploadSourceMaps
           ? { filesToDeleteAfterUpload: ["./dist/web/**/*.map"] }
           : { disable: true },
