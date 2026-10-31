@@ -1,0 +1,15 @@
+{
+  "tool_use_id": "chatcmpl-tool-90ee0d1ac9699177",
+  "agent_id": "ses_e6c720068ffeWBY9jkO9M295J6",
+  "subagent_type": "explore",
+  "task_description": "Map routes and web UI for runs",
+  "token_usage": {
+    "input_tokens": 71518,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 609280,
+    "output_tokens": 9919,
+    "api_call_count": 14
+  },
+  "started_at": "2026-11-01T01:31:59.181+05:30",
+  "completed_at": "2026-11-01T01:34:27.685892429+05:30"
+}

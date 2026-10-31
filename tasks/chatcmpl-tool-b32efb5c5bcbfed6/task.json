@@ -1,0 +1,15 @@
+{
+  "tool_use_id": "chatcmpl-tool-b32efb5c5bcbfed6",
+  "agent_id": "ses_e6c720069ffeU3RYFWf0r0mSCY",
+  "subagent_type": "explore",
+  "task_description": "Map OpenCode client SDK APIs",
+  "token_usage": {
+    "input_tokens": 91556,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 1436160,
+    "output_tokens": 7698,
+    "api_call_count": 36
+  },
+  "started_at": "2026-11-01T01:31:59.181+05:30",
+  "completed_at": "2026-11-01T01:34:38.877284731+05:30"
+}

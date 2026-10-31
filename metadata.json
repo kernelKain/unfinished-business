@@ -3,9 +3,40 @@
   "checkpoint_id": "01M69WRQFP9MF523W73PSEWYP8",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
-    "src/server/workflow/service.ts"
+    "README.md",
+    "docs/ARCHITECTURE.md",
+    "docs/CHANGELOG.md",
+    "docs/DECISIONS.md",
+    "docs/DEMO_AND_SUBMISSION.md",
+    "docs/EVIDENCE.md",
+    "docs/IMPLEMENTATION_PLAN.md",
+    "docs/OPENCODE_INTEGRATION.md",
+    "docs/OPERATIONS_AND_RECOVERY.md",
+    "docs/RELEASE_NOTES.md",
+    "src/server/app.ts",
+    "src/server/experience/failures.ts",
+    "src/server/experience/guide-runs.ts",
+    "src/server/experience/guide.ts",
+    "src/server/experience/progress.ts",
+    "src/server/experience/runs.ts",
+    "src/server/experience/service.ts",
+    "src/server/workflow/model.ts",
+    "src/server/workflow/service.ts",
+    "src/shared/demo.ts",
+    "src/shared/workflow.ts",
+    "src/web/api.ts",
+    "src/web/components/RunInspector.tsx",
+    "src/web/opencode-panel.tsx",
+    "src/web/styles.css",
+    "src/web/workshop/WorkshopPage.tsx",
+    "tests/experience-hardening.test.ts",
+    "tests/experience.test.ts",
+    "tests/http-hardening.test.ts",
+    "tests/migration.test.ts",
+    "tests/observable-runs.test.ts",
+    "tests/store-hardening.test.ts"
   ],
   "sessions": [
     {
@@ -14,19 +45,40 @@
       "compact_transcript": "/0/transcript.jsonl",
       "content_hash": "/0/content_hash.txt",
       "prompt": "/0/prompt.txt"
+    },
+    {
+      "metadata": "/1/metadata.json",
+      "transcript": "/1/full.jsonl",
+      "compact_transcript": "/1/transcript.jsonl",
+      "content_hash": "/1/content_hash.txt",
+      "prompt": "/1/prompt.txt"
     }
   ],
+  "token_usage": {
+    "input_tokens": 565504,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 84676864,
+    "output_tokens": 123008,
+    "api_call_count": 330,
+    "subagent_tokens": {
+      "input_tokens": 163074,
+      "cache_creation_tokens": 0,
+      "cache_read_tokens": 2045440,
+      "output_tokens": 17617,
+      "api_call_count": 50
+    }
+  },
   "redaction": {
-    "replacements": 189,
+    "replacements": 253,
     "layers": {
-      "betterleaks": 170,
+      "betterleaks": 202,
       "connection_string": 0,
       "credential_key": 0,
-      "credential_value": 19,
+      "credential_value": 27,
       "credentialed_uri": 0,
-      "entropy": 0,
+      "entropy": 10,
       "key_context": 0,
-      "provider_token": 0,
+      "provider_token": 20,
       "shell_stdin": 0
     }
   }
