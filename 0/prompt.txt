@@ -1,0 +1,100 @@
+# Phase 8 prompt — Harden backend, security, persistence, and operations
+
+Implement only Phase 8 of the Unfinished Business roadmap. Review and harden the completed workflow without adding unrelated features. Use controls proportional to the actual local, hosted-demo, and private-hosted modes.
+
+## Prerequisite
+
+Verify the live run lifecycle, OpenCode onboarding, mode separation, and demo boundaries are implemented and documented. If major contracts are still changing, stop and finish those phases first rather than hardening obsolete paths.
+
+## Outcome
+
+The application safely validates workspace and OpenCode targets, protects event/mutation routes, redacts secrets, recovers state, bounds resource usage, and explains operational failures without corrupting or duplicating work.
+
+## Threat model and inspection
+
+- Draw/update trust boundaries for browser, application server, local workspace, OpenCode server, provider, persistent state, Render proxy/disk, Sentry, and demo fixtures.
+- Inventory all inputs, filesystem paths, URLs, headers, cookies, secrets, logs, traces, exported data, run events, and external actions.
+- Identify mode-specific threats instead of applying a generic checklist.
+- Inspect dependency/audit results and verify whether reported issues are reachable before changing versions.
+
+## Hardening work
+
+### Filesystem and workspace
+
+- Canonicalize workspace roots server-side; reject traversal, symlink escape where relevant, unsafe device/special files, and unintended broad roots.
+- Keep destructive actions behind explicit OpenCode permission and application scope.
+- Add state backups, atomic replacement, schema validation, corruption preservation, and tested recovery.
+
+### OpenCode and network
+
+- Default to loopback. Require HTTPS for non-loopback OpenCode URLs unless an explicitly documented development exception applies.
+- Prevent SSRF with scheme/host/port policy, DNS/IP validation as appropriate, redirect policy, timeouts, response-size limits, and revalidation.
+- Enforce compatible version and authentication state before mutation.
+- Bound retries and never automatically repeat uncertain side effects.
+
+### Browser/API/events
+
+- Protect mutation and SSE routes consistently with session/access controls.
+- Enforce origin/CORS policy and CSRF protection appropriate to the authentication mechanism.
+- Validate request sizes, content types, IDs, expected revisions, and action idempotency.
+- Add per-session/global concurrency and rate limits with understandable responses.
+- Prevent event cursors or exports from leaking another project/run if multi-project support exists.
+
+### Secrets, telemetry, and privacy
+
+- Centralize redaction for credentials, authorization headers, cookies, provider keys, prompts when configured private, tool arguments/results, environment variables, local paths where necessary, and user identity.
+- Test Sentry/log/event/export redaction independently.
+- Define retention and deletion for events, runs, backups, demo state, and telemetry.
+- Keep health endpoints minimal and disable debug details in production.
+
+### Budgets and operations
+
+- Add configurable run time, token/context, cost, tool-call, and concurrency budgets where OpenCode exposes reliable data.
+- Do not claim enforcement for unavailable provider quota facts; use elapsed/tool limits as fallbacks.
+- Improve recovery for OpenCode unavailable, provider limit, permission pending, disk full, corrupted state, event disconnect, test failure, and application restart.
+- Add structured operational logs with correlation IDs that do not contain secrets.
+
+### Cleanup
+
+- Identify duplicated operation helpers, obsolete fixed-model code, unused environment variables, dead styles/components, and redundant dependencies.
+- Remove only items proven unused after tests/reference searches. Preserve `.backboard/` and other user-owned artifacts unless explicitly authorized.
+
+## Verification
+
+Add security and recovery tests for path traversal/symlink escape, unsafe roots, SSRF/redirect/DNS cases, origin/CORS/CSRF, SSE authorization, cross-run access, request limits, rate/concurrency limits, duplicate actions, secret redaction, corrupt state, disk/write failure, restart, unknown native outcomes, and retention cleanup.
+
+Run typecheck, full tests, production build, dependency audit, fresh setup, and focused manual checks. Do not conduct intrusive external testing or attack third-party services.
+
+## Documentation requirements
+
+Update:
+
+- `docs/ARCHITECTURE.md` with the final trust-boundary diagram and security ownership;
+- `docs/OPERATIONS_AND_RECOVERY.md` with backups, migrations, retention, incidents, failure matrix, budgets, restart, and cleanup;
+- `docs/OPENCODE_INTEGRATION.md` with URL/auth/version/retry policies;
+- `docs/LOCAL_SETUP.md` and `docs/HOSTED_DEPLOYMENT.md` with secure defaults and troubleshooting;
+- `docs/UX_AND_VISUAL_SYSTEM.md` for permission, limit, privacy, and recovery messages;
+- `docs/DECISIONS.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/CHANGELOG.md`, `.env.example`, and `README.md`.
+
+Record residual risks honestly, especially shared-host isolation and remote connector deferral.
+
+## Acceptance
+
+- Workspace and remote URL policies have automated abuse tests.
+- Mutation and event routes share consistent authorization/origin protections.
+- Secrets do not appear in logs, events, telemetry, state exports, or errors under the test matrix.
+- Corrupt/incomplete state is preserved and recoverable rather than silently reset.
+- Duplicate/unknown execution cannot be retried automatically.
+- Budgets and limits are visible and honest about provider-data gaps.
+- Dead code/dependencies are removed only with evidence.
+- Full regression and build pass.
+
+Finish with the required phase handoff and stop. Do not start Phase 9.
+
+---
+
+why? Stop here; do not begin Phase 9.
+
+---
+
+commit all and push
