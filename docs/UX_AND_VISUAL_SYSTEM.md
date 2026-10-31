@@ -111,7 +111,7 @@ Layering order: page gradient → section glass → paper/blueprint inset → te
 |---|---|---|
 | Positive | `--status-positive` `#8fe3b8` | PASS, SUCCEEDED, APPROVED, GRANTED |
 | Active | `--status-active` `#9fe7ff` | RUNNING, QUEUED, DRAFT, DRAWING |
-| Warning | `--status-warning` `#ffd08a` | WAITING_PERMISSION, UNKNOWN, NOT_RUN, INCONCLUSIVE, STALE |
+| Warning | `--status-warning` `#ffd08a` | WAITING_PERMISSION, COMPLETED_UNAPPLIED, ABANDONED, NOT_RUN, INCONCLUSIVE, STALE |
 | Danger | `--status-danger` `#ffb4a8` | FAIL, FAILED, BLOCKED, CANCELLED |
 | Neutral | `--status-neutral` `#b8b3c7` | NOT_STARTED, NONE, CANCELLED |
 
@@ -235,7 +235,7 @@ Characters are original inline SVG (`src/web/components/SpiritCharacter.tsx`). T
 | Architect | `approval` | Seal star glows | Exact version approved |
 | Maker | `idle` | Tool belt clipped, visor low | No run yet |
 | Maker | `building` | Sparks and tapping arm | QUEUED/RUNNING |
-| Maker | `permission` | Raised hand + amber keyhole | WAITING_PERMISSION or UNKNOWN |
+| Maker | `permission` | Raised hand + amber keyhole | WAITING_PERMISSION, COMPLETED_UNAPPLIED, or ABANDONED |
 | Maker | `blocked` | Rose shield with slash | FAILED/CANCELLED/refused |
 | Maker | `success` | Mint ring and check | SUCCEEDED |
 | Witness | `idle` | Folded wings | No review yet |

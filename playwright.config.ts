@@ -34,7 +34,7 @@ export default defineConfig({
     launchOptions: executablePath ? { executablePath } : undefined,
   },
   webServer: {
-    command: "npm run build && UB_PORT=4317 UB_DATA_DIR=/tmp/unfinished-business-visual node --import tsx src/server/start.ts",
+    command: "npm run build && UB_PORT=4317 UB_DATA_DIR=/tmp/unfinished-business-visual OPENCODE_BASE_URL=http://127.0.0.1:65534 node --import tsx src/server/start.ts",
     url: "http://127.0.0.1:4317/api/health",
     reuseExistingServer: false,
     timeout: 120_000,

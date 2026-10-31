@@ -135,8 +135,8 @@ Pending requests are read from OpenCode and filtered to project-owned sessions. 
 
 | Control | Default | Behavior |
 |---|---:|---|
-| Guide timeout | 90s | Timeout is an unknown/failed native operation; no silent re-prompt. |
-| Maker timeout | 180s | `UNKNOWN`; reconcile before another run. |
+| Guide timeout | 90s | Timeout is an abandoned/failed native operation; no silent re-prompt. |
+| Maker timeout | 180s | `ABANDONED`; reconcile before another run. A late result is not silently applied. |
 | Node check timeout | 30s | Failure is recorded as evidence; no passing claim. |
 | Session token budget | 200k | Exceeding it is a non-retryable budget failure with the native session retained. |
 | Session cost budget | $0 | Any reported non-zero cost fails; no paid fallback. |

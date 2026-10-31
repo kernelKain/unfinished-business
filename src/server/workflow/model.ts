@@ -3,19 +3,27 @@ import {
   LEGACY_FIXED_MODEL_KEY,
   actionSchema,
   approvalSchema,
+  candidateSectionRevisionSchema,
   capabilitySchema,
   engineSelectionSchema,
   engineSelectionSourceSchema,
   evidenceSchema,
+  legacyOperationStatusSchema,
   makerScopeSchema,
+  memoryEntrySchema,
   modelRefSchema,
+  modelPreferencesSchema,
   nativeSessionRefSchema,
   operationSchema,
   operationStatusSchema,
+  oracleIntakeSchema,
   productSchema,
+  projectMemorySchema,
   projectModeSchema,
   projectSchema,
+  projectSourceSchema,
   projectV1Schema,
+  projectV2Schema,
   sectionSchema,
   sectionStatusSchema,
   transcriptEntrySchema,
@@ -35,19 +43,27 @@ export {
   LEGACY_FIXED_MODEL_KEY,
   actionSchema,
   approvalSchema,
+  candidateSectionRevisionSchema,
   capabilitySchema,
   engineSelectionSchema,
   engineSelectionSourceSchema,
   evidenceSchema,
+  legacyOperationStatusSchema,
   makerScopeSchema,
+  memoryEntrySchema,
   modelRefSchema,
+  modelPreferencesSchema,
   nativeSessionRefSchema,
   operationSchema,
   operationStatusSchema,
+  oracleIntakeSchema,
   productSchema,
+  projectMemorySchema,
   projectModeSchema,
   projectSchema,
+  projectSourceSchema,
   projectV1Schema,
+  projectV2Schema,
   sectionSchema,
   sectionStatusSchema,
   transcriptEntrySchema,
@@ -63,7 +79,8 @@ export {
   type SpiritRole,
 };
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
+export const MIGRATION_TIMESTAMP = "1970-01-01T00:00:00.000Z";
 
 export class UnsupportedSchemaVersionError extends Error {
   constructor(readonly version: unknown) {
@@ -118,10 +135,11 @@ export function createProject(
     version: 0,
     hash: contentHash(""),
     status: "NOT_STARTED" as const,
+    candidateRevisions: [],
   }));
   const now = options?.now ?? new Date().toISOString();
   return refreshNextAction(projectSchema.parse({
-    schemaVersion: 2,
+    schemaVersion: 3,
     id: randomUUID(),
     revision: 0,
     mode,
@@ -161,6 +179,20 @@ export function createProject(
     witnessDrafts: [],
     nativeSessions: [],
     engine: { model: null, source: "none", updatedAt: null, legacyModel: null },
+    source: { kind: mode === "hosted-demo" ? "demo" : "workspace", label: null, externalId: null, importedAt: null },
+    oracleIntake: {
+      status: "NOT_STARTED",
+      summary: null,
+      questions: [],
+      constraints: [],
+      successCriteria: [],
+      updatedAt: null,
+    },
+    memory: { facts: [], decisions: [], constraints: [], risks: [] },
+    modelPreferences: {
+      access: { requireFreeOrLocal: true, allowedProviders: [], allowedModels: [], dataPolicy: "PROVIDER_DEFAULT" },
+      budget: { maxCostUsd: null, maxTotalTokens: null, maxRunDurationMs: null },
+    },
   }));
 }
 
@@ -171,12 +203,13 @@ export interface MigrationResult {
 }
 
 /**
- * Reads both supported prior shapes as schema v2.
+ * Reads every supported prior shape as schema v3.
  *
  * The guided-interface line wrote v2 with engine selection but no mode or
  * timestamps. The hardening line wrote v2 with mode/timestamps but no engine.
- * Both are accepted through explicit defaults; missing fields are filled, and
- * a v1 fixed-model project preserves that legacy identity for discovery.
+ * Both v2 variants are accepted through explicit deterministic defaults. A v1
+ * fixed-model project preserves that legacy identity for discovery. No
+ * migration step reads the wall clock, generates an ID, or deletes history.
  */
 export function migrateProject(raw: unknown): MigrationResult {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
@@ -187,43 +220,80 @@ export function migrateProject(raw: unknown): MigrationResult {
   if (version > CURRENT_SCHEMA_VERSION) throw new UnsupportedSchemaVersionError(version);
   if (version < 1) throw new Error("Project state has an invalid schema version.");
 
-  if (version === 1) {
-    const legacy = projectV1Schema.parse(source);
-    const now = new Date().toISOString();
-    return {
-      project: projectSchema.parse({
-        ...legacy,
-        schemaVersion: 2,
-        mode: "local",
-        demoWorkspace: true,
-        createdAt: now,
-        updatedAt: now,
-        actions: legacy.actions.map((action) => ({ ...action, createdAt: now })),
-        operations: legacy.operations.map((operation) => ({
-          ...operation,
+  if (version === 1 || version === 2) {
+    const legacy = version === 1 ? projectV1Schema.parse(source) : projectV2Schema.parse(source);
+    const createdAt = "createdAt" in legacy && legacy.createdAt ? legacy.createdAt : MIGRATION_TIMESTAMP;
+    const updatedAt = "updatedAt" in legacy && legacy.updatedAt ? legacy.updatedAt : createdAt;
+    const mode = "mode" in legacy && legacy.mode ? legacy.mode : "local";
+    const engine = version === 1
+      ? {
           model: null,
-          agent: null,
-          startedAt: null,
-          finishedAt: null,
-        })),
-        evidence: legacy.evidence.map((evidence) => ({ ...evidence, model: null })),
-        witnessDrafts: legacy.witnessDrafts.map((draft) => ({ ...draft, createdAt: now })),
-        engine: {
-          model: null,
-          source: "migrated-legacy",
+          source: "migrated-legacy" as const,
           updatedAt: null,
           legacyModel: LEGACY_FIXED_MODEL_KEY,
-        },
-      }),
-      fromVersion: 1,
-      migrated: true,
-    };
+        }
+      : "engine" in legacy && legacy.engine
+        ? legacy.engine
+        : { model: null, source: "none" as const, updatedAt: null, legacyModel: null };
+    const product = legacy.product;
+    const project = projectSchema.parse({
+      ...legacy,
+      schemaVersion: 3,
+      mode,
+      demoWorkspace: "demoWorkspace" in legacy ? legacy.demoWorkspace ?? true : true,
+      createdAt,
+      updatedAt,
+      sections: legacy.sections.map((section) => ({ ...section, candidateRevisions: [] })),
+      actions: legacy.actions.map((action) => ({ ...action, createdAt: action.createdAt ?? createdAt })),
+      operations: legacy.operations.map((operation) => ({
+        ...operation,
+        status: operation.status === "UNKNOWN" ? "ABANDONED" : operation.status,
+        model: "model" in operation ? operation.model : null,
+        agent: "agent" in operation ? operation.agent : null,
+        startedAt: "startedAt" in operation ? operation.startedAt : null,
+        finishedAt: "finishedAt" in operation ? operation.finishedAt : null,
+        statusReason: operation.status === "UNKNOWN" ? "legacy-unknown-outcome" : null,
+        lastObservedAt: null,
+        appliedAt: null,
+      })),
+      evidence: legacy.evidence.map((evidence) => ({
+        ...evidence,
+        model: "model" in evidence ? evidence.model : null,
+      })),
+      witnessDrafts: legacy.witnessDrafts.map((draft) => ({ ...draft, createdAt: draft.createdAt ?? createdAt })),
+      engine,
+      source: {
+        kind: mode === "hosted-demo" ? "demo" : "workspace",
+        label: null,
+        externalId: null,
+        importedAt: null,
+      },
+      oracleIntake: {
+        status: product.status === "APPROVED" ? "APPROVED" : product.status === "PROPOSED" ? "READY" : "NOT_STARTED",
+        summary: product.proposal,
+        questions: product.openQuestions.map((prompt) => ({ prompt, answer: null })),
+        constraints: [],
+        successCriteria: [],
+        updatedAt: null,
+      },
+      memory: { facts: [], decisions: [], constraints: [], risks: [] },
+      modelPreferences: {
+        access: { requireFreeOrLocal: true, allowedProviders: [], allowedModels: [], dataPolicy: "PROVIDER_DEFAULT" },
+        budget: { maxCostUsd: null, maxTotalTokens: null, maxRunDurationMs: null },
+      },
+    });
+    return { project, fromVersion: version, migrated: true };
   }
 
-  const missingDefaults = !("mode" in source)
-    || !("createdAt" in source)
-    || !("updatedAt" in source)
-    || !("engine" in source);
+  const missingDefaults = !("source" in source)
+    || !("oracleIntake" in source)
+    || !("memory" in source)
+    || !("modelPreferences" in source)
+    || !Array.isArray(source.sections)
+    || source.sections.some((section) => !section || typeof section !== "object" || !("candidateRevisions" in section))
+    || !Array.isArray(source.operations)
+    || source.operations.some((operation) => !operation || typeof operation !== "object"
+      || !("statusReason" in operation) || !("lastObservedAt" in operation) || !("appliedAt" in operation));
   const project = projectSchema.parse(source);
   return { project, fromVersion: version, migrated: missingDefaults };
 }
@@ -233,7 +303,7 @@ export function refreshNextAction(project: Project): Project {
   project.currentSectionId = current?.id ?? null;
 
   const unresolved = project.operations.find((operation) =>
-    ["QUEUED", "RUNNING", "WAITING_PERMISSION", "UNKNOWN"].includes(operation.status),
+    ["QUEUED", "RUNNING", "WAITING_PERMISSION", "COMPLETED_UNAPPLIED", "ABANDONED"].includes(operation.status),
   );
   if (unresolved) {
     project.stage = unresolved.kind === "maker" ? "MAKER" : unresolved.kind === "witness" ? "WITNESS" : "ARCHITECT";
@@ -241,7 +311,9 @@ export function refreshNextAction(project: Project): Project {
       ? "A native permission is pending. Resolve it in OpenCode, then reconcile. Work will not be repeated automatically."
       : unresolved.status === "RUNNING"
         ? "A native run is still running. Wait or reconcile. It will not be started again automatically."
-        : "A native run has an unknown outcome. Reconcile it before any new run.";
+        : unresolved.status === "COMPLETED_UNAPPLIED"
+          ? "A native result arrived after the active request ended. Review and apply or discard it before any new run."
+          : "A native run was abandoned without a confirmed outcome. Reconcile it before any new run.";
     return project;
   }
 

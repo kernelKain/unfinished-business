@@ -139,6 +139,9 @@ test("oracle proposal cannot approve the product by itself", async () => {
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.project.product.status, "PROPOSED");
+  assert.equal(body.project.oracleIntake.status, "READY");
+  assert.equal(body.project.oracleIntake.summary, "Track found items.");
+  assert.deepEqual(body.project.oracleIntake.questions, [{ prompt: "Who may claim an item?", answer: null }]);
   assert.equal(body.project.stage, "ORACLE");
   assert.equal(body.project.sections[0].status, "NOT_STARTED");
   assert.equal(body.project.engine.model?.id, "flint-40b-free");

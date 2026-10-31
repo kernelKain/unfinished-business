@@ -63,7 +63,7 @@ async function waitFor(
   throw new Error("Timed out waiting for the asynchronous Maker run.");
 }
 
-test("a timed-out Maker run becomes UNKNOWN and cannot be retried automatically", async () => {
+test("a timed-out Maker run becomes ABANDONED and cannot be retried automatically", async () => {
   let calls = 0;
   const guide: SpiritGuide = {
     async speak() { throw new Error("unexpected"); },
@@ -89,7 +89,7 @@ test("a timed-out Maker run becomes UNKNOWN and cannot be retried automatically"
     body: JSON.stringify({ actionId: "run-1", expectedRevision: project.revision }),
   });
   assert.equal(run.status, 202);
-  const after = await waitFor(service, (state) => state.operations[0]?.status === "UNKNOWN");
+  const after = await waitFor(service, (state) => state.operations[0]?.status === "ABANDONED");
   assert.equal(calls, 1);
   assert.match(after.nextAction, /Reconcile/i);
 
@@ -149,7 +149,7 @@ test("a budget failure is persisted as a non-retryable failure with the native s
     body: JSON.stringify({ actionId: "budget-run", expectedRevision: project.revision }),
   });
   assert.equal(run.status, 202);
-  const after = await waitFor(service, (state) => state.operations[0]?.status === "UNKNOWN");
+  const after = await waitFor(service, (state) => state.operations[0]?.status === "ABANDONED");
   assert.equal(after.operations[0].nativeSessionId, "ses_budget");
 });
 
@@ -208,12 +208,12 @@ test("reconciliation records the native outcome without starting a second run", 
     headers,
     body: JSON.stringify({ actionId: "reconcile-run", expectedRevision: project.revision }),
   });
-  const unknown = await waitFor(service, (state) => state.operations[0]?.status === "UNKNOWN");
-  const operationId = unknown.operations[0].id;
+  const abandoned = await waitFor(service, (state) => state.operations[0]?.status === "ABANDONED");
+  const operationId = abandoned.operations[0].id;
   const reconciled = await app.request(`/api/runs/${operationId}/reconcile`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ actionId: "reconcile-action", expectedRevision: unknown.revision }),
+    body: JSON.stringify({ actionId: "reconcile-action", expectedRevision: abandoned.revision }),
   });
   assert.equal(reconciled.status, 200);
   const after = await service.get();

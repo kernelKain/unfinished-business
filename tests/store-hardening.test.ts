@@ -53,7 +53,7 @@ test("migrates a v1 snapshot to the current schema without resetting content", (
   const migrated = migrateProject(legacy);
   assert.equal(migrated.migrated, true);
   assert.equal(migrated.fromVersion, 1);
-  assert.equal(migrated.project.schemaVersion, 2);
+  assert.equal(migrated.project.schemaVersion, 3);
   assert.equal(migrated.project.mode, "local");
   assert.equal(migrated.project.demoWorkspace, true);
   assert.equal(projectSchema.parse(migrated.project).revision, current.revision);
@@ -91,7 +91,7 @@ test("retains bounded actions, operations, evidence, transcript, and drafts", ()
   const project = createProject("/workspace");
   for (let index = 0; index < 10; index += 1) {
     project.actions.push({ id: `a-${index}`, payloadHash: payloadHash({ index }), resultRevision: index, createdAt: new Date().toISOString() });
-    project.operations.push({ id: `o-${index}`, kind: "guide", payloadHash: "x", nativeSessionId: null, nativeMessageId: null, status: "FAILED", result: "x", model: null, agent: null, startedAt: null, finishedAt: null });
+    project.operations.push({ id: `o-${index}`, kind: "guide", payloadHash: "x", nativeSessionId: null, nativeMessageId: null, status: "FAILED", result: "x", model: null, agent: null, startedAt: null, finishedAt: null, statusReason: null, lastObservedAt: null, appliedAt: null });
     project.transcript.push({ id: `t-${index}`, spirit: "system", text: "x", createdAt: new Date().toISOString() });
   }
   const retained = applyRetention(project, {
@@ -122,7 +122,7 @@ test("aligns runtime mode and demo workspace without changing approvals", async 
   assert.equal((await workflow.ensureRuntimeMetadata("private-hosted", "/demo-workspace")).updated, false);
 });
 
-test("marks in-flight operations unknown after restart and never repeats them", async () => {
+test("marks in-flight operations abandoned after restart and never repeats them", async () => {
   const { store } = await fixture();
   const workflow = new WorkflowService(store);
   const project = (await store.load()).state;
@@ -138,6 +138,9 @@ test("marks in-flight operations unknown after restart and never repeats them", 
     agent: null,
     startedAt: new Date().toISOString(),
     finishedAt: null,
+    statusReason: null,
+    lastObservedAt: null,
+    appliedAt: null,
   });
   project.operations.push({
     id: "22222222-2222-4222-8222-222222222222",
@@ -151,6 +154,9 @@ test("marks in-flight operations unknown after restart and never repeats them", 
     agent: null,
     startedAt: new Date().toISOString(),
     finishedAt: null,
+    statusReason: null,
+    lastObservedAt: null,
+    appliedAt: null,
   });
   await store.save(0, project);
 
@@ -158,7 +164,7 @@ test("marks in-flight operations unknown after restart and never repeats them", 
   assert.equal(recovered?.recovered, 2);
   const after = await store.load();
   for (const operation of after.state.operations) {
-    assert.equal(operation.status, "UNKNOWN");
+    assert.equal(operation.status, "ABANDONED");
     assert.match(operation.result ?? "", /restarted|not repeated/i);
   }
   assert.match(after.state.nextAction, /Reconcile/i);

@@ -1,6 +1,6 @@
 const positive = new Set(["PASS", "SUCCEEDED", "APPROVED", "GRANTED", "AVAILABLE", "COMPLETE"]);
 const active = new Set(["RUNNING", "QUEUED", "BUILDING", "DRAFT", "LISTENING", "DRAWING", "SCANNING"]);
-const warning = new Set(["WAITING_PERMISSION", "UNKNOWN", "NOT_RUN", "INCONCLUSIVE", "STALE", "PROPOSED", "PAUSED"]);
+const warning = new Set(["WAITING_PERMISSION", "COMPLETED_UNAPPLIED", "ABANDONED", "NOT_RUN", "INCONCLUSIVE", "STALE", "PROPOSED", "PAUSED"]);
 const danger = new Set(["FAIL", "FAILED", "BLOCKED", "CANCELLED", "REFUSED"]);
 
 export type StatusTone = "positive" | "active" | "warning" | "danger" | "neutral";

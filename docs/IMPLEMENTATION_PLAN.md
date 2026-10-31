@@ -1,8 +1,8 @@
 # Implementation plan and phase record
 
-**Status:** Phase 9 release-verification gate complete; publication/submission pending explicit authorization.
+**Status:** Upgrade Phase 0 complete and verified.
 **Owner:** Engineering.
-**Last verified:** 2026-10-31.
+**Last verified:** 2026-11-01.
 
 ## Phase history
 
@@ -17,8 +17,37 @@
 | Phase 7 — Guided demo | Versioned fixture, guided playback, 90-second presentation, mutation rejection, reset isolation | Complete and verified |
 | Phase 8 — Hardening | Modes, workspace/network policy, HTTP security, atomic schema v2, migration, retention, redaction, budgets, failure matrix | Complete and verified before Phase 9 |
 | Phase 9 — Release gate | Reconciled both lines, canonical docs, migration fixtures, full matrix, local/demo/OpenCode evidence, evidence index | Complete; final phase commit recorded by `git log -1` |
+| Upgrade Phase 0 — Product-upgrade preparation | Baseline record, schema v3, explicit v1/v2 migration, richer operation states, reusable provider/timing/reconciliation fixtures | Complete and verified; commit recorded by `git log -1` after phase handoff |
 
 The guided-interface line (`origin/main` at `b2d2654`) and the hardening line (`origin/phase-8-hardening` at `8c50439`) both descended from `2205774`. Phase 9 integrates them rather than choosing one and losing the other. The release candidate therefore keeps the landing page, onboarding, deterministic demo, security middleware, state migration, retention, and recovery in one build.
+
+## Upgrade Phase 0 — product-upgrade preparation
+
+### Baseline
+
+- Starting revision: `7d45e439bddd28bd9d9dcffa3541353c625db40a` on `main`.
+- Existing `.backboard/` content remained untracked and untouched.
+- Before editing, `npm run typecheck`, all 111 inherited tests, and `npm run build` passed.
+
+### Work units
+
+| Unit | Outcome | Evidence |
+|---|---|---|
+| U0-1 schema foundation | Schema v3 adds source metadata, Oracle intake, structured memory, candidate revisions, model/budget preferences, and operation observation/application fields | `src/shared/workflow.ts`; migration tests |
+| U0-2 migration | Explicit v1 and v2 readers upgrade to v3 with fixed defaults; legacy `UNKNOWN` maps to `ABANDONED` | `src/server/workflow/model.ts`; `tests/migration.test.ts` |
+| U0-3 operation model | Eight required states include late-result `COMPLETED_UNAPPLIED` and unconfirmed `ABANDONED` | contracts, run/recovery tests |
+| U0-4 reusable fixtures | Synthetic provider policy/auth/rate/generic failures, slow/late responses, late diff, permission, and reconciliation | `tests/fixtures/provider-scenarios.ts`; fixture tests |
+| U0-5 documentation | Architecture, migration policy, recovery, decisions, evidence, release notes, README | canonical documentation set |
+
+### Acceptance status
+
+- [x] Old v1 and both historical v2 saved-project shapes migrate to schema v3.
+- [x] Proposals, sections, approvals, transcripts, operations, evidence, native references, and selected model data are asserted after migration.
+- [x] Migration is deterministic and idempotent; absent legacy timestamps use a fixed sentinel.
+- [x] New fixtures are importable, serializable, deterministic, and contain no credentials/private output.
+- [x] Final typecheck, 118 tests, build, budget, 18-test visual suite, high-severity audit, and diff/security review pass.
+
+Phase 0 acceptance passed on 2026-11-01. The visual harness uses an unused loopback OpenCode port so an unrelated local OpenCode process cannot change first-run screenshots.
 
 ## Phase 8 hardening units
 

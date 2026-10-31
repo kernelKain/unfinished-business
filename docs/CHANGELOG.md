@@ -2,7 +2,26 @@
 
 **Status:** Current release history.
 **Owner:** Engineering.
-**Last verified:** 2026-10-31.
+**Last verified:** 2026-11-01.
+
+## 2026-11-01 — Upgrade Phase 0 product foundation
+
+### Added
+
+- Schema v3 foundations for project source metadata, Oracle intake, structured memory, candidate section revisions, model-access/budget preferences, and richer operation metadata.
+- Reusable synthetic fixtures for provider privacy/training-policy rejection, authentication failure, rate limiting, generic failure, slow/late responses, late Maker diffs, pending permission, and reconciliation.
+- Migration, serialization, and fixture tests.
+
+### Changed
+
+- Explicit v1/v2 → v3 migration is deterministic and idempotent and preserves existing workflow records and model selection.
+- Operation states now include `COMPLETED_UNAPPLIED` and `ABANDONED`; legacy `UNKNOWN` records migrate to `ABANDONED`.
+- Runtime recovery and the existing UI use `ABANDONED` for an unconfirmed native outcome without adding a major new workflow feature.
+
+### Not in this entry
+
+- No new provider integration, automatic retry, late-result application, memory-driven prompting, candidate-revision UI, or preference enforcement.
+- No live provider call, credential, private model output, deployment, publication, or submission.
 
 ## 2026-10-31 — Phase 9 release verification and documentation migration
 

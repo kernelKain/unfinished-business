@@ -142,7 +142,7 @@ export class ExperienceService {
     if (project.makerScope.status !== "GRANTED" || !project.makerScope.statement) {
       throw new ExperienceFailure("Grant a separate Maker scope before a native run.", "MAKER_SCOPE_REQUIRED", 409, false);
     }
-    if (project.operations.some((operation) => ["QUEUED", "RUNNING", "WAITING_PERMISSION", "UNKNOWN"].includes(operation.status))) {
+    if (project.operations.some((operation) => ["QUEUED", "RUNNING", "WAITING_PERMISSION", "COMPLETED_UNAPPLIED", "ABANDONED"].includes(operation.status))) {
       throw new ExperienceFailure("An earlier native run is unresolved. Reconcile it before starting another.", "RUN_UNRESOLVED", 409, false);
     }
     const makerScope = project.makerScope.statement;
@@ -174,6 +174,9 @@ export class ExperienceService {
         agent: context.roleAgents.maker,
         startedAt,
         finishedAt: null,
+        statusReason: null,
+        lastObservedAt: null,
+        appliedAt: null,
       });
       rememberTranscript(next, "user", this.redactPrompt(`Queued a Maker run with ${context.model.providerID}/${context.model.id}${context.model.variant ? `#${context.model.variant}` : ""}.`));
       return refreshNextAction(next);
@@ -209,8 +212,8 @@ export class ExperienceService {
       const project = (await this.store.load()).state;
       const operation = project.operations.find((item) => item.id === operationId);
       if (!operation) throw new WorkflowConflict("That operation is not in this project.");
-      if (["SUCCEEDED", "FAILED", "CANCELLED", "UNKNOWN"].includes(operation.status)) {
-        throw new WorkflowConflict("A finished or unknown operation cannot be cancelled. Reconcile an unknown operation instead.");
+      if (["SUCCEEDED", "FAILED", "CANCELLED", "COMPLETED_UNAPPLIED", "ABANDONED"].includes(operation.status)) {
+        throw new WorkflowConflict("A finished or abandoned operation cannot be cancelled. Reconcile an abandoned operation instead.");
       }
       throw new ExperienceFailure("The in-process runner is no longer present. Reconcile the native session before taking another action.", "RUN_NOT_ACTIVE", 409, false, operationId);
     }
@@ -239,6 +242,8 @@ export class ExperienceService {
       }
       operation.status = "CANCELLED";
       operation.finishedAt = new Date().toISOString();
+      operation.lastObservedAt = operation.finishedAt;
+      operation.statusReason = "user-cancelled";
       operation.result = interrupted
         ? "Interrupted the native OpenCode session; the run was cancelled."
         : "Cancellation recorded. The native session was already idle or did not report an active request.";
@@ -279,7 +284,9 @@ export class ExperienceService {
         current.finishedAt ??= new Date().toISOString();
         current.result = "Reconciled from a failed or interrupted native session.";
       } else {
-        current.status = "UNKNOWN";
+        current.status = "ABANDONED";
+        current.statusReason = "native-outcome-unconfirmed";
+        current.lastObservedAt = new Date().toISOString();
         current.result = "Native outcome is still unknown. This action was not repeated.";
       }
       return refreshNextAction(next);
@@ -579,6 +586,9 @@ export class ExperienceService {
         agent: null,
         startedAt: new Date().toISOString(),
         finishedAt: new Date().toISOString(),
+        statusReason: "malformed-response",
+        lastObservedAt: new Date().toISOString(),
+        appliedAt: null,
       });
       rememberTranscript(next, "system", safeMessage);
       return refreshNextAction(next);
@@ -601,12 +611,15 @@ export class ExperienceService {
         payloadHash: payloadHash(payload),
         nativeSessionId,
         nativeMessageId: null,
-        status: uncertain ? "UNKNOWN" : "FAILED",
+        status: uncertain ? "ABANDONED" : "FAILED",
         result: message,
         model: project.engine.model,
         agent: null,
         startedAt: new Date().toISOString(),
         finishedAt: uncertain ? null : new Date().toISOString(),
+        statusReason: uncertain ? "native-outcome-unconfirmed" : classification.code.toLowerCase(),
+        lastObservedAt: new Date().toISOString(),
+        appliedAt: null,
       });
       rememberTranscript(next, "system", uncertain ? `${message} The native run was not repeated.` : message);
       return refreshNextAction(next);
@@ -702,5 +715,8 @@ function operation(
     agent: null,
     startedAt: now,
     finishedAt: status === "SUCCEEDED" || status === "FAILED" ? now : null,
+    statusReason: null,
+    lastObservedAt: now,
+    appliedAt: status === "SUCCEEDED" ? now : null,
   };
 }

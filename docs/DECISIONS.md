@@ -72,6 +72,16 @@
 | D9-06 | Report the unresolved moderate audit advisory honestly | Force a breaking Sentry downgrade without verification | A forced major downgrade could break telemetry and source maps | Production audit at high level passes; advisory documented |
 | D9-07 | Stop before deployment/publication/submission | Treat local verification as release authorization | External actions need separate scoped authority | Evidence and reviewable procedures only |
 
+## Upgrade Phase 0 — product-upgrade preparation
+
+| ID | Decision | Alternatives considered | Rationale | Consequence |
+|---|---|---|---|---|
+| U0-01 | Introduce schema v3 as an additive persisted contract | Mutate v2 in place; defer schema work until features ship | Later phases need stable fields without risking existing approvals/evidence | Explicit v1/v2 readers and one canonical v3 writer |
+| U0-02 | Make migration deterministic and idempotent with a fixed missing-time sentinel | Fill missing legacy timestamps with migration time | Wall-clock defaults make repeat migration produce different state | `1970-01-01T00:00:00.000Z` marks an unavailable legacy timestamp honestly |
+| U0-03 | Replace persisted `UNKNOWN` with `ABANDONED` and reserve `COMPLETED_UNAPPLIED` for late results | Keep `UNKNOWN`; treat any late success as applied | Unconfirmed outcome and observed-but-unapplied output are materially different | Existing unresolved operations keep native references and still block automatic replay |
+| U0-04 | Store model-access and budget preferences without claiming new enforcement | Wire preferences directly into selection/execution in Phase 0 | This phase prepares contracts and must not change product behavior materially | Existing free/local and runtime budget controls remain the only enforcement |
+| U0-05 | Keep provider/timing fixtures synthetic, declarative, and test-only | Capture provider responses or private model output | Future tests need repeatability without secrets, network, quota, or private output | Later phases can import one catalog for policy, timeout, permission, and reconciliation tests |
+
 ## Open follow-ups (post-release)
 
 - A real recorded demo and final submission assets remain separate acceptance work.

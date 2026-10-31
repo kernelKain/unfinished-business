@@ -103,6 +103,13 @@ export function recordOracleProposal(
     proposal: input.proposal,
     openQuestions: input.openQuestions,
   };
+  next.oracleIntake = {
+    ...next.oracleIntake,
+    status: "READY",
+    summary: input.proposal,
+    questions: input.openQuestions.map((prompt) => ({ prompt, answer: null })),
+    updatedAt: new Date().toISOString(),
+  };
   rememberSession(next, "oracle", input.sessionId);
   rememberTranscript(next, "oracle", `${input.clarification}\n\n${input.proposal}`);
   return projectSchema.parse(refreshNextAction(next));
@@ -114,6 +121,8 @@ export function approveProduct(project: Project): Project {
     throw new WorkflowConflict("Approve the current Oracle proposal before planning begins.");
   }
   next.product.status = "APPROVED";
+  next.oracleIntake.status = "APPROVED";
+  next.oracleIntake.updatedAt = new Date().toISOString();
   rememberTranscript(next, "user", "Approved the Oracle proposal.");
   return projectSchema.parse(refreshNextAction(next));
 }

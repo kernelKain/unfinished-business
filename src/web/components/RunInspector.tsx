@@ -32,7 +32,7 @@ export function RunInspector({
   demo = false,
 }: RunInspectorProps) {
   const latest = [...operations].reverse();
-  const unknown = latest.find((operation) => operation.status === "UNKNOWN");
+  const abandoned = latest.find((operation) => operation.status === "ABANDONED");
   return (
     <section className="run-inspector" aria-labelledby="run-inspector-title" data-testid="run-inspector" data-demo={demo ? "true" : undefined}>
       <header className="inspector-head">
@@ -70,10 +70,10 @@ export function RunInspector({
             ))}
           </ol>
         )}
-        {unknown && onReconcile ? (
+        {abandoned && onReconcile ? (
           <div className="inspector-recovery">
             <p>A run ended without a recorded outcome. Reconcile the native session before retrying; it will not be repeated automatically.</p>
-            <button className="action secondary" type="button" disabled={busy} onClick={() => onReconcile(unknown.id)}>
+            <button className="action secondary" type="button" disabled={busy} onClick={() => onReconcile(abandoned.id)}>
               Reconcile native session
             </button>
           </div>

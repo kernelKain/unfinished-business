@@ -1,9 +1,9 @@
 # Evidence index and requirements matrix
 
-**Status:** Phase 9 release evidence.
+**Status:** Upgrade Phase 0 complete and verified.
 **Owner:** Engineering.
-**Last verified:** 2026-10-31.
-**Candidate revision:** the Phase 9 release commit recorded by `git log -1` in the review worktree; it integrates `b2d2654` (guided interface) and `8c50439` (hardening). Source and tests were verified at that tree.
+**Last verified:** 2026-11-01.
+**Baseline revision:** `7d45e439bddd28bd9d9dcffa3541353c625db40a` (`chore: verify release candidate and migrate documentation`). Baseline typecheck, 111 tests, and production build passed before Phase 0 edits.
 **Environment:** Linux, Node `22.22.1`, npm `9.2.0`, pinned OpenCode `2.0.32`, system Chromium. No provider credentials were used for Phase 9 inference.
 
 Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observed failure; **UNAVAILABLE** = prerequisite absent; **DEFERRED** = explicitly out of this release; **BLOCKED** = required prerequisite missing.
@@ -14,8 +14,9 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 |---|---|---|---|---|
 | Maker reliability | Queue a bounded Maker run and return without holding the request | VERIFIED | `tests/runs.test.ts`, `tests/experience-hardening.test.ts`; `POST /api/runs` returns `202` | Deterministic guides; no live model call in Phase 9 |
 | Maker reliability | Inspect active run, cancel, and prevent duplicate native work | VERIFIED | `tests/runs.test.ts`, `tests/experience-hardening.test.ts` | In-process runner is single-process |
-| Maker reliability | Timeout/disconnect/pending permission become `UNKNOWN`/`WAITING_PERMISSION`; never auto-retry | VERIFIED | `tests/experience-hardening.test.ts` | Provider behavior beyond the deadline is unknown by definition |
-| Maker reliability | Restart marks in-flight work `UNKNOWN` | VERIFIED | `tests/store-hardening.test.ts` | — |
+| Maker reliability | Timeout/disconnect/pending permission become `ABANDONED`/`WAITING_PERMISSION`; never auto-retry | VERIFIED | `tests/experience-hardening.test.ts` | Provider behavior beyond the deadline is unknown by definition |
+| Maker reliability | Restart marks in-flight work `ABANDONED` | VERIFIED | `tests/store-hardening.test.ts` | — |
+| Upgrade fixtures | Privacy/training-policy rejection, authentication, rate limit, generic failure, slow response, late success, late Maker diff, pending permission, and reconciliation are reusable | VERIFIED | `tests/fixtures/provider-scenarios.ts`, `tests/phase-zero-fixtures.test.ts` | Synthetic fixtures; no live provider output |
 | Maker reliability | Reconcile native state without a second run | VERIFIED | `tests/experience-hardening.test.ts` | Reconciliation reads native state; it cannot reconstruct unrecorded effects |
 | OpenCode onboarding | Authenticate to OpenCode or fail with a precise repair | VERIFIED | `tests/connection.test.ts`, `tests/onboarding.test.ts`; live probe with ephemeral password; local app connection check reached `connected` | No provider account in the live probe |
 | OpenCode onboarding | Discover providers/models/agents/variants/permissions without leaking secrets | VERIFIED | `tests/connection.test.ts`, `tests/onboarding.test.ts`; live app `/api/connection` discovered 9 models and no password-shaped leak | Empty live config reported 0 providers/agents/commands |
@@ -37,9 +38,10 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 | Security | Redaction in state/exports/errors/logs/Sentry hooks | VERIFIED | `tests/http-hardening.test.ts`, `tests/security.test.ts` | Sentry live delivery not verified |
 | Security | Atomic state, lock, backups, quarantine, disk failure | VERIFIED | `tests/store-hardening.test.ts`, `tests/recovery.test.ts` | Single-writer, single-project |
 | Recovery | Previous snapshot offered; corrupt bytes preserved; no silent reset | VERIFIED | `tests/recovery.test.ts`, `tests/store-hardening.test.ts` | Both-corrupt state requires operator restore |
-| Migration | v1 and both supported v2 shapes migrate without losing content | VERIFIED | `tests/migration.test.ts`, `tests/store-hardening.test.ts` | Future schema versions are refused/preserved |
+| Migration | v1 and both supported v2 shapes migrate deterministically and idempotently to v3 without losing workflow records or selected model | VERIFIED | `tests/migration.test.ts`, `tests/store-hardening.test.ts` | Future schema versions are refused/preserved |
+| Serialization | Schema v3 JSON round-trip preserves source, intake, memory, candidates, preferences, operations, approvals, and evidence | VERIFIED | `tests/migration.test.ts` | Preferences are stored foundations, not newly enforced behavior |
 | Accessibility | Keyboard/focus/dialog/tabs/zoom/overflow/reduced motion/contrast | VERIFIED | `tests/visual/landing.spec.ts`, `tests/visual/demo.spec.ts` (18 tests) | Automated checks do not replace a screen-reader audit |
-| Performance | Bundle/asset budgets | VERIFIED | `npm run budget`: initial JS 193.8 KiB gzip, all JS 263.6 KiB, CSS 14.2 KiB, hero 570.9 KiB, largest 86.7 KiB | Vite reports a >500 KiB minified initial chunk warning; gzip budget passes |
+| Performance | Bundle/asset budgets | VERIFIED | `npm run budget`: initial JS 193.8 KiB gzip, all JS 264.1 KiB, CSS 14.2 KiB, hero 570.9 KiB, largest 86.7 KiB | Vite reports a >500 KiB minified initial chunk warning; gzip budget passes |
 | Documentation | Canonical routes/schema/env/modes/UI terms and history pointers | VERIFIED | This documentation set; link scan | Ongoing maintenance |
 | Documentation | Runtime prompts separated from implementation prompts | VERIFIED | `src/server/prompts/loader.ts`, `tests/prompts.test.ts`, `docs/prompts/README.md` | Loader reads a fixed map |
 | Dependency audit | No high/critical production advisory | VERIFIED at high threshold | `npm audit --omit=dev --audit-level=high` exit 0 | 6 moderate `glob`/`minimatch` advisories remain in the Sentry bundler path; `npm audit` exits 1 |
@@ -55,9 +57,9 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 |---|---|
 | `npm ci` | PASS — exact lockfile install |
 | `npm run typecheck` | PASS |
-| `npm test` | PASS — 111 tests, 0 failures |
+| `npm test` | PASS — 118 tests, 0 failures |
 | `npm run build` | PASS — `dist/web` produced; one large-chunk warning |
-| `npm run budget` | PASS — all five budgets |
+| `npm run budget` | PASS — all five budgets; all JS 264.1 KiB gzip |
 | `npm run test:visual` | PASS — 18 tests |
 | `npm audit --omit=dev --audit-level=high` | PASS (exit 0); 6 moderate advisories reported |
 | `npm audit` | FAIL (exit 1) — same 6 moderate advisories; no high/critical |
@@ -80,9 +82,10 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 
 ### Tests and reports
 
-- `tests/` — 111 unit/integration/component tests.
+- `tests/` — 118 unit/integration/component tests.
 - `tests/visual/` — 18 Playwright visual/accessibility tests with committed snapshots.
-- `tests/migration.test.ts` — v1 and both v2 migration fixtures.
+- `tests/migration.test.ts` — deterministic/idempotent v1/v2 → v3 migration and serialization coverage.
+- `tests/phase-zero-fixtures.test.ts` — reusable provider, timing, late-result, permission, and reconciliation fixture coverage.
 - `tests/experience-hardening.test.ts` — Maker timeout/permission/budget/cancel/reconcile matrix.
 - `tests/http-hardening.test.ts`, `tests/security.test.ts`, `tests/store-hardening.test.ts` — security/recovery matrix.
 - `tests/demo.test.ts` — fixture, drift, playback, reset, no-network, hosted-demo isolation.
@@ -92,7 +95,7 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 - `tests/visual/snapshots/landing-wide.png`, `landing-narrow.png` — landing/theme.
 - `tests/visual/snapshots/workshop-wide.png`, `workshop-narrow.png`, `onboarding-wide.png` — workshop and first-run connection.
 - `tests/visual/snapshots/demo-guided-wide.png`, `demo-guided-narrow.png`, `demo-presentation-wide.png` — guided demo.
-- `tests/visual/snapshots/run-inspector.png`, `recovery-unknown.png` — evidence and unknown-run recovery.
+- `tests/visual/snapshots/run-inspector.png`, `recovery-unknown.png` — evidence and abandoned-run recovery (snapshot filename retained for history).
 - `tests/visual/snapshots/spirit-*.png` — four-spirit states.
 - `assets/source/hero-ghostlight-workshop.webp` — hero master (not shipped); public variants under `public/assets/hero/`.
 

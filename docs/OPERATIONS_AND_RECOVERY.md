@@ -2,7 +2,7 @@
 
 **Status:** Implemented release candidate.
 **Owner:** Operations/engineering.
-**Last verified:** 2026-10-31; recovery, corruption, restart, and hosted-demo isolation covered by tests.
+**Last verified:** 2026-11-01; schema v3 migration, recovery, corruption, restart, and hosted-demo isolation covered by tests.
 
 The application is a single-process Node service with one writer and one active project. It is not a multi-tenant service.
 
@@ -11,7 +11,7 @@ The application is a single-process Node service with one writer and one active 
 | Domain | State | Reset/recovery | Must not affect |
 |---|---|---|---|
 | Guided demo (`/demo`) | Browser playback + versioned fixture | Play/Pause, Previous/Next, Replay, Reset, route refresh, presentation mode | Live project, OpenCode session, repository, provider |
-| Live workshop (`/workshop`) | `UB_DATA_DIR/project.json` + OpenCode native sessions | Restart app, reconcile unknown run, restore previous snapshot/backup | Demo fixture |
+| Live workshop (`/workshop`) | `UB_DATA_DIR/project.json` + OpenCode native sessions | Restart app, reconcile abandoned run, restore previous snapshot/backup | Demo fixture |
 
 The demo and workshop share components and schemas, but not state.
 
@@ -66,7 +66,15 @@ Recovery rules:
 - Current invalid, previous valid → copy the current bytes to `project.json.corrupt-*`, use the previous snapshot, and log the recovery. The corrupt original remains.
 - Both invalid → refuse to reset. State routes return `STATE_CORRUPT`; health stays minimal.
 - Newer schema version → refuse and preserve. Do not downgrade.
-- Schema v1 or either supported v2 shape → migrate on read; the next successful write persists the canonical v2 shape.
+- Schema v1 or either supported v2 shape → deterministically migrate on read; the next successful write persists canonical schema v3.
+
+Migration policy:
+
+- preserve proposals, section content/status/version/hash, approvals, transcripts, operations, evidence, native session references, and selected model data;
+- add source/intake/memory/candidate/model-preference fields with explicit defaults;
+- map legacy operation `UNKNOWN` to `ABANDONED` without erasing the recorded result or native references;
+- use the fixed epoch sentinel for timestamps absent from old files, never the migration wall clock;
+- make repeated migration idempotent; refuse and preserve future schema versions.
 
 Manual recovery:
 
@@ -97,19 +105,21 @@ Preserve the corrupt file and `.previous` until the incident is understood. Do n
 
 Deletion: stop the app and remove `UB_DATA_DIR` to delete the project, demo workspace, backups, and quarantined files. Rotate `UB_SESSION_TOKEN` to invalidate browser sessions and `UB_ACCESS_PASSWORD` to invalidate hosted Basic Auth. No destructive reset endpoint exists.
 
-## Unknown native runs
+## Late, unapplied, and abandoned native runs
 
-A run moves `QUEUED → RUNNING → WAITING_PERMISSION → SUCCEEDED/FAILED/CANCELLED/UNKNOWN`.
+The operation state set is `QUEUED`, `RUNNING`, `WAITING_PERMISSION`, `COMPLETED_UNAPPLIED`, `SUCCEEDED`, `FAILED`, `CANCELLED`, and `ABANDONED`.
+
+`COMPLETED_UNAPPLIED` reserves a safe state for a response or Maker diff that arrives after the active request deadline. Its output exists, but no later phase may treat it as applied without an explicit review/apply transition.
 
 If the app restarts or the connection drops while a run is in flight:
 
-1. the operation becomes `UNKNOWN`;
+1. the operation becomes `ABANDONED`;
 2. the app does not repeat the native action automatically;
 3. inspect the native session reference and Run Inspector;
 4. use the explicit reconcile action only after confirming native state;
 5. cancellation does not undo completed effects.
 
-Startup recovery marks `QUEUED`, `RUNNING`, and `WAITING_PERMISSION` operations `UNKNOWN` and records a system transcript entry. It never re-sends a prompt.
+Startup recovery marks `QUEUED`, `RUNNING`, and `WAITING_PERMISSION` operations `ABANDONED` and records a system transcript entry. It never re-sends a prompt.
 
 ## Failure matrix
 
@@ -122,8 +132,9 @@ Startup recovery marks `QUEUED`, `RUNNING`, and `WAITING_PERMISSION` operations 
 | Paid model selected | pricing policy | selection rejected | Choose a free or local model |
 | Provider rate/quota limit | 429/quota text | `PROVIDER_LIMITED`; no automatic retry | Wait, then start a new request |
 | Native permission pending | permission list/timeout | operation `WAITING_PERMISSION`; app never approves | Resolve in OpenCode, then reconcile |
-| Native timeout/disconnect | timeout/network error | operation `UNKNOWN`; never replay | Reconcile; inspect native session first |
-| App restart with in-flight work | startup recovery | in-flight statuses → `UNKNOWN` | Reconcile; do not start another run |
+| Native timeout/disconnect | timeout/network error | operation `ABANDONED`; never replay | Reconcile; inspect native session first |
+| Late native success/diff | response arrives after timeout | retain as `COMPLETED_UNAPPLIED`; do not claim application | Review and explicitly apply or discard in a later phase |
+| App restart with in-flight work | startup recovery | in-flight statuses → `ABANDONED` | Reconcile; do not start another run |
 | Duplicate action | action ID + payload hash | return existing result; no second native call | None |
 | Changed payload with same action ID | hash mismatch | 409 conflict | Use a new action ID |
 | Stale approval/revision | revision/version/hash mismatch | 409; approval does not apply | Reload and use current version/hash |
@@ -156,7 +167,7 @@ The app enforces what OpenCode exposes reliably after a session. It does **not**
 1. Stop the app with `SIGTERM`/`SIGINT`; wait for the server to close.
 2. Start OpenCode first, then the app.
 3. Check `/api/health` (minimal), sign in if hosted, and load `/api/runtime` with the session token.
-4. Check `/api/project`; reconcile any `UNKNOWN` operation before a new run.
+4. Check `/api/project`; reconcile any `ABANDONED` operation before a new run.
 5. Inspect `backups/` if startup logged recovery.
 6. Hosted Render restarts are ordinary process restarts; the persistent disk keeps state and OpenCode data.
 

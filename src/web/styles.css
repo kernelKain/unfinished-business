@@ -1690,7 +1690,8 @@ li { list-style: none; }
 .run-row[data-status="FAILED"],
 .run-row[data-status="FAIL"],
 .run-row[data-status="CANCELLED"] { border-left-color: var(--status-danger); }
-.run-row[data-status="UNKNOWN"],
+.run-row[data-status="ABANDONED"],
+.run-row[data-status="COMPLETED_UNAPPLIED"],
 .run-row[data-status="WAITING_PERMISSION"] { border-left-color: var(--status-warning); }
 .run-row[data-status="RUNNING"],
 .run-row[data-status="QUEUED"] { border-left-color: var(--status-active); }

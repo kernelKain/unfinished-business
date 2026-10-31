@@ -367,8 +367,8 @@ export function DemoPage() {
               </div>
               <div className="recovery-grid">
                 <article className="recovery-card" data-testid="demo-recovery">
-                  <StatusChip status="UNKNOWN" />
-                  <h3>Native run unknown</h3>
+                  <StatusChip status="ABANDONED" />
+                  <h3>Native run abandoned</h3>
                   <p>The connection dropped after OpenCode started. The app does not repeat the action automatically.</p>
                   <button className="action secondary" type="button" disabled>Reconcile native session</button>
                 </article>

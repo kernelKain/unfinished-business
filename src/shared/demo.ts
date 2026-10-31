@@ -38,10 +38,11 @@ export type DemoOperationStatus =
   | "QUEUED"
   | "RUNNING"
   | "WAITING_PERMISSION"
+  | "COMPLETED_UNAPPLIED"
   | "SUCCEEDED"
   | "FAILED"
   | "CANCELLED"
-  | "UNKNOWN";
+  | "ABANDONED";
 
 export type DemoEvidenceResult = "PASS" | "FAIL" | "NOT_RUN" | "INCONCLUSIVE" | "STALE";
 
@@ -258,6 +259,9 @@ const demoOperations: Operation[] = [
     agent: "oracle",
     startedAt: "2026-10-31T08:00:00.000Z",
     finishedAt: "2026-10-31T08:00:02.000Z",
+    statusReason: null,
+    lastObservedAt: "2026-10-31T08:00:02.000Z",
+    appliedAt: "2026-10-31T08:00:02.000Z",
   },
   {
     id: "op-demo-architect",
@@ -271,6 +275,9 @@ const demoOperations: Operation[] = [
     agent: "architect",
     startedAt: "2026-10-31T08:01:00.000Z",
     finishedAt: "2026-10-31T08:01:03.000Z",
+    statusReason: null,
+    lastObservedAt: "2026-10-31T08:01:03.000Z",
+    appliedAt: "2026-10-31T08:01:03.000Z",
   },
   {
     id: "op-demo-scope",
@@ -284,6 +291,9 @@ const demoOperations: Operation[] = [
     agent: null,
     startedAt: "2026-10-31T08:02:00.000Z",
     finishedAt: "2026-10-31T08:02:01.000Z",
+    statusReason: null,
+    lastObservedAt: "2026-10-31T08:02:01.000Z",
+    appliedAt: "2026-10-31T08:02:01.000Z",
   },
   {
     id: "op-demo-maker",
@@ -297,6 +307,9 @@ const demoOperations: Operation[] = [
     agent: "maker",
     startedAt: "2026-10-31T08:03:00.000Z",
     finishedAt: "2026-10-31T08:03:09.000Z",
+    statusReason: null,
+    lastObservedAt: "2026-10-31T08:03:09.000Z",
+    appliedAt: "2026-10-31T08:03:09.000Z",
   },
   {
     id: "op-demo-check",
@@ -310,6 +323,9 @@ const demoOperations: Operation[] = [
     agent: "maker",
     startedAt: "2026-10-31T08:04:00.000Z",
     finishedAt: "2026-10-31T08:04:04.000Z",
+    statusReason: null,
+    lastObservedAt: "2026-10-31T08:04:04.000Z",
+    appliedAt: "2026-10-31T08:04:04.000Z",
   },
   {
     id: "op-demo-witness",
@@ -323,6 +339,9 @@ const demoOperations: Operation[] = [
     agent: "witness",
     startedAt: "2026-10-31T08:05:00.000Z",
     finishedAt: "2026-10-31T08:05:05.000Z",
+    statusReason: null,
+    lastObservedAt: "2026-10-31T08:05:05.000Z",
+    appliedAt: "2026-10-31T08:05:05.000Z",
   },
 ];
 
@@ -377,10 +396,11 @@ const projectSections = sectionIds.map((id, index) => ({
   version: id === "control" || id === "architecture" ? 2 : 1,
   hash: sectionHashes[id],
   status: "APPROVED" as const,
+  candidateRevisions: [],
 }));
 
 const demoProject: Project = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   id: "demo-campus-umbrella-relay",
   revision: 14,
   mode: "hosted-demo",
@@ -468,6 +488,20 @@ const demoProject: Project = {
     { role: "witness", sessionId: "demo_ses_witness_01" },
   ],
   engine: { model: null, source: "none", updatedAt: null, legacyModel: null },
+  source: { kind: "demo", label: "Campus Umbrella Relay", externalId: DEMO_FIXTURE_VERSION, importedAt: null },
+  oracleIntake: {
+    status: "APPROVED",
+    summary: "Build a small campus umbrella relay with guarded claim and return flows.",
+    questions: [],
+    constraints: ["No accounts, network, or personal data in the deterministic example."],
+    successCriteria: ["Reject duplicate claims.", "Do not allow returned umbrellas to be claimed."],
+    updatedAt: "2026-10-31T08:00:02.000Z",
+  },
+  memory: { facts: [], decisions: [], constraints: [], risks: [] },
+  modelPreferences: {
+    access: { requireFreeOrLocal: true, allowedProviders: [], allowedModels: [], dataPolicy: "PROVIDER_DEFAULT" },
+    budget: { maxCostUsd: null, maxTotalTokens: null, maxRunDurationMs: null },
+  },
 };
 
 export const demoFixture: DemoFixture = {

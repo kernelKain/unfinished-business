@@ -71,7 +71,7 @@ const local: ModeDescriptor = {
   ],
   recovery: [
     "Stop and restart OpenCode, then restart the app. Saved project state is preserved.",
-    "Reconcile an UNKNOWN native run before starting another Maker run.",
+    "Reconcile an ABANDONED native run before starting another Maker run.",
     "If a project snapshot is corrupt, the previous snapshot is offered and the corrupt file is preserved.",
     "Back up UB_DATA_DIR before deleting or resetting local state.",
   ],
@@ -163,7 +163,7 @@ const privateHosted: ModeDescriptor = {
     "Rotate UB_ACCESS_PASSWORD in Render to revoke access; the service redeploys.",
     "Stop the service before copying the disk or replacing project state.",
     "Keep the previous snapshot; do not delete the disk to troubleshoot a single request.",
-    "Reconcile an UNKNOWN native run before retrying.",
+    "Reconcile an ABANDONED native run before retrying.",
   ],
   unavailableActions: {
     mutations: "This action is unavailable in the current runtime mode.",

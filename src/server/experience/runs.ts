@@ -37,7 +37,7 @@ function modelLabel(model: ModelRef): string {
 /**
  * Owns the in-process half of a Maker run. Persisted operation state remains the
  * source of truth across process restarts; an interrupted process leaves a
- * reconciled UNKNOWN record rather than silently replaying the native action.
+ * reconciled ABANDONED record rather than silently replaying the native action.
  */
 export class MakerRunCoordinator {
   private readonly activeRuns = new Map<string, ActiveRun>();
@@ -77,7 +77,7 @@ export class MakerRunCoordinator {
   async markFailed(operationId: string, error: unknown, model: ModelRef, agent: string | null): Promise<void> {
     const message = error instanceof Error ? error.message : "The Maker run could not start.";
     await this.finish(operationId, {
-      status: failureIsUncertain(message, error) ? "UNKNOWN" : "FAILED",
+      status: failureIsUncertain(message, error) ? "ABANDONED" : "FAILED",
       result: message,
       model,
       agent,
@@ -162,7 +162,7 @@ export class MakerRunCoordinator {
       const stillRunning = performed.timedOut || performed.outcome === "running" || performed.outcome === "unknown";
       if (stillRunning) {
         await this.finish(input.operationId, {
-          status: "UNKNOWN",
+          status: "ABANDONED",
           result: "The native Maker run did not become idle before the deadline. It was not repeated; reconcile before another run.",
           model: input.model,
           agent: input.agent,
@@ -195,7 +195,7 @@ export class MakerRunCoordinator {
         ? (error as { nativeSessionId: string }).nativeSessionId
         : null;
       await this.finish(input.operationId, {
-        status: active.cancelled ? "CANCELLED" : failureIsUncertain(message, error) ? "UNKNOWN" : "FAILED",
+        status: active.cancelled ? "CANCELLED" : failureIsUncertain(message, error) ? "ABANDONED" : "FAILED",
         result: active.cancelled
           ? "Cancellation was recorded before the native run finished."
           : failureIsUncertain(message, error)
@@ -213,7 +213,7 @@ export class MakerRunCoordinator {
   private async finish(
     operationId: string,
     outcome: {
-      status: "SUCCEEDED" | "FAILED" | "CANCELLED" | "UNKNOWN" | "WAITING_PERMISSION";
+      status: "SUCCEEDED" | "FAILED" | "CANCELLED" | "ABANDONED" | "WAITING_PERMISSION";
       result: string;
       model: ModelRef;
       agent: string | null;
@@ -239,9 +239,12 @@ export class MakerRunCoordinator {
       operation.agent = outcome.agent;
       operation.nativeSessionId = outcome.sessionId ?? operation.nativeSessionId;
       operation.nativeMessageId = outcome.messageId ?? operation.nativeMessageId;
-      operation.finishedAt = outcome.status === "WAITING_PERMISSION" || outcome.status === "UNKNOWN"
+      operation.finishedAt = outcome.status === "WAITING_PERMISSION" || outcome.status === "ABANDONED"
         ? null
         : new Date().toISOString();
+      operation.statusReason = outcome.status === "ABANDONED" ? "native-outcome-unconfirmed" : null;
+      operation.lastObservedAt = new Date().toISOString();
+      operation.appliedAt = outcome.status === "SUCCEEDED" ? operation.lastObservedAt : null;
       const checkText = outcome.check
         ? `Node check exit ${outcome.check.code ?? "unavailable"}. ${outcome.check.output}`
         : "No native diff, so the Node check did not run.";

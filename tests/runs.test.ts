@@ -231,6 +231,6 @@ test("an inactive in-process runner is not silently cancelled", async () => {
   });
   await assert.rejects(
     run.experience.cancel("cancel-finished", (await run.store.load()).state.revision, operationId),
-    /finished or unknown operation/,
+    /finished or abandoned operation/,
   );
 });

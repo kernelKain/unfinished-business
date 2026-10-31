@@ -106,7 +106,7 @@ export function WorkshopPage() {
   }
 
   const section = project.sections.find((item) => item.id === project.currentSectionId) ?? null;
-  const unknown = project.operations.find((item) => item.status === "UNKNOWN") ?? null;
+  const abandoned = project.operations.find((item) => item.status === "ABANDONED") ?? null;
   const profile = stageSpirit(project.stage);
   const characterState = spiritStateFor(project, section);
   const approved = project.sections.filter((item) => item.status === "APPROVED").length;
@@ -260,11 +260,11 @@ export function WorkshopPage() {
                 <button className="action secondary" type="button" disabled={busy} onClick={() => void act(() => cancelRun(project, activeRun.id))}>Cancel run</button>
               </p>
             ) : null}
-            {unknown ? (
+            {abandoned ? (
               <div className="warning-panel" role="status">
                 <AlertTriangle size={18} aria-hidden="true" />
                 <div>
-                  <strong>A native run is unknown and was not repeated.</strong>
+                  <strong>A native run was abandoned without a confirmed outcome and was not repeated.</strong>
                   <p>Use the Run Inspector to reconcile the native session before trying again.</p>
                 </div>
               </div>
@@ -663,7 +663,7 @@ function spiritStateFor(
     const latest = [...project.operations].reverse().find((operation) => operation.kind === "maker");
     if (!latest) return "idle";
     if (latest.status === "WAITING_PERMISSION") return "permission";
-    if (latest.status === "UNKNOWN") return "permission";
+    if (latest.status === "ABANDONED" || latest.status === "COMPLETED_UNAPPLIED") return "permission";
     if (latest.status === "FAILED" || latest.status === "CANCELLED") return "blocked";
     if (latest.status === "SUCCEEDED") return "success";
     return "building";

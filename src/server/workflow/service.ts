@@ -116,14 +116,16 @@ export class WorkflowService {
       let recovered = 0;
       for (const operation of next.operations) {
         if (["QUEUED", "RUNNING", "WAITING_PERMISSION"].includes(operation.status)) {
-          operation.status = "UNKNOWN";
+          operation.status = "ABANDONED";
+          operation.statusReason = "application-restarted";
+          operation.lastObservedAt = this.now().toISOString();
           operation.result = "The application restarted while this native operation was in flight. It was not repeated; reconcile the native session.";
           operation.finishedAt = this.now().toISOString();
           recovered += 1;
         }
       }
       if (recovered === 0) return null;
-      rememberTranscript(next, "system", `${recovered} interrupted native operation(s) were marked unknown after restart and will not be repeated automatically.`);
+      rememberTranscript(next, "system", `${recovered} interrupted native operation(s) were marked abandoned after restart and will not be repeated automatically.`);
       refreshNextAction(next);
       await this.store.save(loaded.state.revision, next);
       return { recovered };

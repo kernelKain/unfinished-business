@@ -1,8 +1,8 @@
 # Architecture — Unfinished Business
 
-**Status:** Implemented release candidate; Phase 9 reconciled the guided interface with Phase 8 hardening.
+**Status:** Upgrade Phase 0 implemented on the verified release-candidate baseline.
 **Owner:** Engineering.
-**Last verified:** 2026-10-31 against `111` unit/integration tests, `18` visual/accessibility tests, the production build, budget, and local/hosted-demo smoke runs.
+**Last verified:** 2026-11-01 against `118` unit/integration tests plus the existing `18` visual/accessibility tests.
 
 ## 1. System shape
 
@@ -56,7 +56,7 @@ Measured production chunks (2026-10-31):
 
 - initial `index-*.js`: 193.8 KiB gzip;
 - `WorkshopPage-*.js`: 54.9 KiB gzip (includes onboarding/discovery UI);
-- `DemoPage-*.js`: 11.5 KiB gzip;
+- `DemoPage-*.js`: 11.8 KiB gzip;
 - `SpiritStageTabs-*.js`: 3.5 KiB gzip;
 - CSS: 14.2 KiB gzip.
 
@@ -88,7 +88,7 @@ Public hero assets are produced by `scripts/build-hero-assets.py` into `public/a
 | `src/server/security/redaction.ts` | Text/error/unknown/Sentry/log redaction |
 | `src/server/observability/logger.ts` | Structured JSON logs with correlation IDs |
 | `src/server/store/atomic-project-store.ts` | Lock, atomic write, fsync, backups, quarantine, migration |
-| `src/server/workflow/` | Schema v2, transitions, idempotency, retention, restart recovery |
+| `src/server/workflow/` | Schema v3, explicit v1/v2 migration, transitions, idempotency, retention, restart recovery |
 | `src/server/opencode/client.ts` | Safe client, version/auth/model readiness |
 | `src/server/opencode/connection.ts` | Connection settings, discovery, model resolution |
 | `src/server/opencode/sessions.ts` | Project-owned session/permission/usage controls |
@@ -129,11 +129,22 @@ The browser session token is issued only over loopback in local mode or after Ba
 
 ## 7. State, evidence, and recovery
 
-Schema v2 is the single current shape. It includes approvals, action idempotency, operations, evidence, transcript, drafts, native session references, engine selection, mode, demo-workspace metadata, and timestamps. Migration accepts:
+Schema v3 is the single current shape. It preserves the v2 workflow record and adds:
+
+- project source metadata (`workspace`, `import`, `template`, or `demo`);
+- structured Oracle intake state, questions, constraints, and success criteria;
+- structured project memory buckets for facts, decisions, constraints, and risks;
+- candidate section revisions that remain separate from the approved/current section;
+- model-access and budget preferences, stored as preferences rather than new enforcement claims;
+- operation observation/application metadata and late-result-safe states.
+
+Migration accepts:
 
 - v1 fixed-model snapshots;
 - guided-interface v2 snapshots with engine selection but no mode/timestamps;
 - hardening-line v2 snapshots with mode/timestamps but no engine selection.
+
+Migration is deterministic and idempotent. Missing legacy timestamps use the documented epoch sentinel `1970-01-01T00:00:00.000Z`; migration never reads the wall clock or generates IDs. Legacy `UNKNOWN` operations become `ABANDONED` with their result and native references intact. A v3 document round-trips through JSON and schema validation without changing.
 
 Operational rules:
 
@@ -142,8 +153,9 @@ Operational rules:
 - approvals target an exact section version and hash;
 - revisions invalidate only transitive dependent sections/approvals;
 - Maker requires every current section approved plus a separate scope grant;
-- a run moves `QUEUED → RUNNING → WAITING_PERMISSION → SUCCEEDED/FAILED/CANCELLED/UNKNOWN`;
-- startup marks in-flight work `UNKNOWN`; reconciliation reads native state and never replays automatically;
+- operation states are `QUEUED`, `RUNNING`, `WAITING_PERMISSION`, `COMPLETED_UNAPPLIED`, `SUCCEEDED`, `FAILED`, `CANCELLED`, and `ABANDONED`;
+- `COMPLETED_UNAPPLIED` means a late native result exists but has not been accepted into project state;
+- startup marks in-flight work `ABANDONED`; reconciliation reads native state and never replays automatically;
 - evidence records an observed native result/fingerprint; a missing result is an empty state.
 
 `AtomicProjectStore` acquires a cross-process lock, writes a private temp file, fsyncs, renames, keeps `.previous` and rolling `backups/`, quarantines corrupt current files, and prunes bounded retention. A corrupt current with no valid previous returns `STATE_CORRUPT`; it never silently resets.

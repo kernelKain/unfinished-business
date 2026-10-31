@@ -13,6 +13,7 @@ Unfinished Business is an OpenCode-powered hackathon project builder. Four frien
 - The **real workshop** at `/workshop`, which connects to a local OpenCode server and records what actually happened.
 - A **first-run connection and discovery flow** that checks a supported OpenCode server, lists the models/providers/agents it actually reports, and lets the builder choose a model and reported reasoning variant. Provider API keys stay inside OpenCode.
 - A **read-only hosted demo** and a **private hosted** mode. Neither reaches into a visitor's local repository.
+- A versioned **schema v3** foundation for source metadata, Oracle intake, structured memory, candidate section revisions, model/budget preferences, and late-result-safe operation states. These fields are persistence foundations; Phase 0 does not claim new autonomous behavior.
 
 OpenCode supplies the agent loop, model access, native tools, permissions, execution, interruption, and native sessions. Unfinished Business adds the four-stage workshop, exact-version approvals, dependency invalidation, evidence views, the onboarding/discovery flow, and the Ghostlight interface. It does **not** ship a second coding harness or a general command executor.
 
@@ -85,14 +86,14 @@ npm run budget
 npm run test:visual
 ```
 
-Current results (2026-10-31, Node 22.22.1, no live provider inference):
+Current results (2026-11-01, Node 22.22.1, no live provider inference):
 
-- **111 unit/integration/component tests pass**.
+- **118 unit/integration/component tests pass**.
 - **18 Playwright visual/accessibility tests pass** with committed snapshots, including guided demo wide/narrow/presentation captures.
-- Initial JS is **193.8 KiB gzip**; all JS **263.6 KiB**; CSS **14.2 KiB gzip**; all hero variants **570.9 KiB** total.
+- Initial JS is **193.8 KiB gzip**; all JS **264.1 KiB**; CSS **14.2 KiB gzip**; all hero variants **570.9 KiB** total.
 - Keyboard focus order, dialog Escape, setup tab arrow keys, 200% text zoom, 390px overflow, reduced motion, and token contrast are checked.
 - Demo playback, reset isolation, fixture/schema drift, 90-second timing, tab inspection, no-network behavior, and hosted-demo mutation rejection are covered.
-- State migration covers schema v1 plus both supported v2 shapes.
+- State migration deterministically upgrades schema v1 and both supported v2 shapes to v3 without dropping proposals, approvals, transcripts, operations, evidence, or model selection.
 - Local and hosted-demo smoke journeys pass; the hosted demo makes no inference call and rejects mutation.
 - OpenCode 2.0.32 live compatibility probe passed (version, catalog, and disposable session create/read/remove; no prompt or model call).
 - Production dependency audit at `--audit-level=high` passes. `npm audit` still reports six moderate `glob`/`minimatch` advisories reachable through the Sentry bundler plugin during developer builds; the suggested fix is a breaking Sentry downgrade and was not applied.
@@ -101,13 +102,14 @@ Current results (2026-10-31, Node 22.22.1, no live provider inference):
 
 ## Status and limitations
 
-Phases 0–8 are integrated: foundation, staged workflow, guided experience, OpenCode onboarding/discovery, Ghostlight interface, hosted modes, deterministic demo, and security/persistence hardening. Phase 9 is the release-verification gate and does not add a new product feature.
+The prior release phases remain integrated. Upgrade Phase 0 prepares the repository for the next product sequence with schema v3, explicit migrations, and reusable provider/timing/reconciliation fixtures; it deliberately adds no major user-facing feature.
 
 Known limitations:
 
 - The application is a trusted single-project tool, not a multi-tenant sandbox. Shared-host isolation, remote repository connectors, and a remote browser-to-local pairing flow are deferred.
 - Maker edits only `UB_DATA_DIR/demo-workspace`; the Node check is not an OS sandbox.
 - The free-model route is time-limited and account-dependent. No paid inference fallback is configured.
+- Schema v3 stores model-access and budget preferences for later phases, but Phase 0 does not add new enforcement beyond the existing free/local selection and runtime limits.
 - Backboard is not integrated and no partner category is claimed for installation alone. Sentry is configured but live release/source-map/trace verification requires authorized credentials and a deployment.
 - No public hosted URL, recorded video, published article, or submission is asserted by this repository.
 - A real recorded demonstration and final submission packaging remain separate acceptance work.
