@@ -1,0 +1,57 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M683PGNKWVGNV1SEFKS51S73",
+  "session_id": "01a19032-02d2-7b60-a490-ef43320f665f",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-31T04:32:47.830132337Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".gitignore",
+    "README.md",
+    "docs/ENGINEERING_BLUEPRINT.md",
+    "index.html",
+    "package.json",
+    "src/server/app.ts",
+    "src/server/index.ts",
+    "src/server/opencode/client.ts",
+    "src/server/prompts/loader.ts",
+    "src/shared/contracts.ts",
+    "src/web/App.tsx",
+    "src/web/main.tsx",
+    "src/web/styles.css",
+    "src/web/vite-env.d.ts",
+    "tests/contracts.test.ts",
+    "tests/fixtures/opencode-native-proof/README.md",
+    "tests/fixtures/opencode-native-proof/opencode.jsonc",
+    "tests/native-permissions.test.ts",
+    "tests/prompts.test.ts",
+    "tsconfig.json",
+    "vite.config.ts"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.6-sol",
+  "turn_id": "3ef8ab83ffba",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 114681,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 3905792,
+    "output_tokens": 22158,
+    "api_call_count": 42
+  },
+  "redaction": {
+    "replacements": 18,
+    "layers": {
+      "betterleaks": 4,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 2,
+      "credentialed_uri": 0,
+      "entropy": 12,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}

@@ -1,0 +1,1 @@
+Read docs/ENGINEERING_BLUEPRINT.md and docs/prompts/README.md. Continue Prompt 2 from the blocked OpenCode proof. Recheck preflight. Preserve changes, stay on main, commit each verified phase before the next, and spend nothing.
