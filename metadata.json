@@ -3,18 +3,22 @@
   "checkpoint_id": "01M68PJEC1W9BV1V0YEFA1HFV2",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 3,
+  "checkpoints_count": 6,
   "files_touched": [
     ".env.example",
     ".github/workflows/sentry-release.yml",
     "README.md",
     "docs/SENTRY_AND_OPENCODE_SETUP.md",
+    "package-lock.json",
     "package.json",
+    "src/server/app.ts",
     "src/server/experience/guide.ts",
     "src/server/experience/service.ts",
     "src/server/experience/telemetry.ts",
     "src/server/instrument.ts",
+    "src/server/start.ts",
     "src/web/instrument.ts",
+    "src/web/main.tsx",
     "vite.config.ts"
   ],
   "sessions": [
@@ -28,25 +32,32 @@
     {
       "metadata": "/1/metadata.json",
       "prompt": ""
+    },
+    {
+      "metadata": "/2/metadata.json",
+      "transcript": "/2/full.jsonl",
+      "compact_transcript": "/2/transcript.jsonl",
+      "content_hash": "/2/content_hash.txt",
+      "prompt": "/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 157958,
+    "input_tokens": 291096,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 3041280,
-    "output_tokens": 14908,
-    "api_call_count": 34,
+    "cache_read_tokens": 9269888,
+    "output_tokens": 35273,
+    "api_call_count": 97,
     "subagent_tokens_complete": true
   },
   "redaction": {
-    "replacements": 14,
+    "replacements": 51,
     "layers": {
-      "betterleaks": 0,
+      "betterleaks": 1,
       "connection_string": 0,
-      "credential_key": 0,
-      "credential_value": 14,
+      "credential_key": 18,
+      "credential_value": 22,
       "credentialed_uri": 0,
-      "entropy": 0,
+      "entropy": 10,
       "key_context": 0,
       "provider_token": 0,
       "shell_stdin": 0
