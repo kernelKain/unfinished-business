@@ -35,6 +35,7 @@ Render owns production builds and Sentry source-map uploads because it builds th
 ## Operational notes
 
 - Do not select Render’s free plan. Free services cannot attach the persistent disk this stateful application requires.
+- Render mounts the persistent disk only at runtime. The Blueprint therefore maps its `OPENCODE_*_HOME` settings to XDG paths inside the OpenCode child process instead of exposing `/var/data` to build tools.
 - `/api/health` is intentionally public for Render health checks and a future Sentry uptime monitor. All other application and API routes require HTTP Basic Auth.
 - `RENDER_GIT_COMMIT` supplies the release identifier to both browser builds and the running server. Do not set `SENTRY_RELEASE` manually on Render.
 - Rotate `UB_ACCESS_PASSWORD` in Render whenever access should be revoked. Rotating it causes a redeploy.

@@ -25,9 +25,9 @@ services:
         value: http://127.0.0.1:4096
       - key: OPENCODE_PASSWORD
         generateValue: true
-      - key: XDG_DATA_HOME
+      - key: OPENCODE_DATA_HOME
         value: /var/data/xdg-data
-      - key: XDG_CONFIG_HOME
+      - key: OPENCODE_CONFIG_HOME
         value: /var/data/xdg-config
       - key: SENTRY_DSN
         sync: false
