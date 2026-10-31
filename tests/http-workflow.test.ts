@@ -12,13 +12,7 @@ async function fixture() {
   const directory = await mkdtemp(join(tmpdir(), "ub-http-"));
   const store = new AtomicProjectStore(join(directory, "project.json"));
   await store.initialize(createProject("/workspace"));
-  const app = createApp(async () => ({
-    available: true,
-    serverVersion: "2.0.32",
-    model: "opencode/deepseek-v4.1-flash-free",
-    modelAvailable: true,
-    limitation: null,
-  }), { service: new WorkflowService(store), sessionToken: "test-token" });
+  const app = createApp({ service: new WorkflowService(store), sessionToken: "test-token" });
   return app;
 }
 
@@ -35,13 +29,7 @@ test("protects hosted routes while leaving health checks public", async () => {
   const directory = await mkdtemp(join(tmpdir(), "ub-http-auth-"));
   const store = new AtomicProjectStore(join(directory, "project.json"));
   await store.initialize(createProject("/workspace"));
-  const app = createApp(async () => ({
-    available: true,
-    serverVersion: "2.0.32",
-    model: "opencode/deepseek-v4.1-flash-free",
-    modelAvailable: true,
-    limitation: null,
-  }), {
+  const app = createApp({
     service: new WorkflowService(store),
     sessionToken: "test-token",
     access: { username: "builder", password: "secret" },

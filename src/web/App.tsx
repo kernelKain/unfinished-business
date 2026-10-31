@@ -1,21 +1,25 @@
-import { useEffect, useState } from "react";
-import { Eye, Hammer, ScrollText, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Eye, Hammer, ScrollText, Settings2, Sparkles } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
+import type { ConnectionStatus } from "../shared/opencode.ts";
 import {
   ApiError,
   approveProduct,
   approveSection,
+  cancelRun,
+  findSelectedModel,
   grantScope,
-  loadEngine,
+  loadConnection,
   loadExport,
   loadProject,
   reconcileRun,
   reviseSection,
   runMaker,
   sendMessage,
-  type EngineStatus,
   type WorkshopProject,
 } from "./api.ts";
+import { Onboarding } from "./onboarding.tsx";
+import { OpenCodePanel } from "./opencode-panel.tsx";
 
 const spirits = [
   ["ORACLE", "Oracle", Sparkles],
@@ -26,7 +30,8 @@ const spirits = [
 
 export function App() {
   const [project, setProject] = useState<WorkshopProject | null>(null);
-  const [engine, setEngine] = useState<EngineStatus | null>(null);
+  const [connection, setConnection] = useState<ConnectionStatus | null>(null);
+  const [setupOpen, setSetupOpen] = useState(false);
   const [text, setText] = useState("");
   const [scope, setScope] = useState("Build the approved plan in the isolated demo workspace and leave a passing Node test.");
   const [change, setChange] = useState("");
@@ -37,15 +42,31 @@ export function App() {
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
-    void Promise.all([loadProject(), loadEngine()])
+    void Promise.all([loadProject(), loadConnection()])
       .then(([loaded, native]) => {
         setProject(loaded);
-        setEngine(native);
+        setConnection(native);
+        setSetupOpen(!native.discovery || !loaded.engine.model);
       })
       .catch((caught: unknown) => {
         setError(caught instanceof Error ? caught.message : "The workshop could not be loaded.");
       });
   }, []);
+
+  const activeRun = useMemo(
+    () => project?.operations.find((operation) => operation.status === "RUNNING" || operation.status === "QUEUED") ?? null,
+    [project],
+  );
+
+  useEffect(() => {
+    if (!activeRun) return;
+    const timer = window.setInterval(() => {
+      void loadProject().then(setProject).catch(() => {
+        // A transient poll failure must not replace the visible project state.
+      });
+    }, 1_500);
+    return () => window.clearInterval(timer);
+  }, [activeRun?.id]);
 
   async function act(work: () => Promise<{ project: WorkshopProject }>) {
     setBusy(true);
@@ -53,12 +74,13 @@ export function App() {
     setError(null);
     const timer = window.setTimeout(() => setSlow(true), 8_000);
     try {
-      setProject((await work()).project);
+      const result = await work();
+      setProject(result.project);
     } catch (caught) {
       const loaded = await loadProject().catch(() => null);
       if (loaded) setProject(loaded);
       setError(caught instanceof ApiError
-        ? `${caught.message} ${caught.retryable ? "You can try a new request. The current section was not overwritten." : "Nothing was repeated."}`
+        ? `${caught.message} ${caught.retryable ? "You can try a new request. The saved section was not overwritten." : "Nothing was repeated."}`
         : "The workshop lost its connection. Reload before trying again.");
     } finally {
       window.clearTimeout(timer);
@@ -67,7 +89,7 @@ export function App() {
     }
   }
 
-  if (!project) {
+  if (!project || !connection) {
     return (
       <main className="workshop">
         <h1>Unfinished Business</h1>
@@ -76,8 +98,35 @@ export function App() {
     );
   }
 
+  const firstRun = !connection.discovery || !project.engine.model;
+  if (setupOpen || (firstRun && connection.state !== "unavailable")) {
+    return (
+      <main className="workshop">
+        <nav className="stage-strip" aria-label="Workshop">
+          <span className="brand"><Sparkles size={18} aria-hidden="true" /> Unfinished Business</span>
+        </nav>
+        <Onboarding
+          connection={connection}
+          project={project}
+          firstRun={firstRun}
+          onConnection={(status) => {
+            setConnection(status);
+            if (status.discovery && project.engine.model) setSetupOpen(false);
+          }}
+          onProject={(updated) => {
+            setProject(updated);
+            if (updated.engine.model) setSetupOpen(false);
+          }}
+          onClose={() => setSetupOpen(false)}
+        />
+        {error ? <p className="banner bad" role="alert">{error}</p> : null}
+      </main>
+    );
+  }
+
   const section = project.sections.find((item) => item.id === project.currentSectionId) ?? null;
   const unknown = project.operations.find((item) => item.status === "UNKNOWN") ?? null;
+  const selectedModel = findSelectedModel(connection.discovery, project.engine.model);
   const header = project.stage === "ORACLE"
     ? "What's still haunting your to-do list?"
     : section
@@ -89,6 +138,7 @@ export function App() {
       <a className="skip" href="#document">Skip to the working document</a>
       <main className="workshop">
         <nav className="stage-strip" aria-label="Spirits">
+          <span className="brand"><Sparkles size={18} aria-hidden="true" /> Unfinished Business</span>
           {spirits.map(([id, label, Icon]) => {
             const done = stageOrder(project.stage) > stageOrder(id);
             return (
@@ -98,6 +148,9 @@ export function App() {
               </button>
             );
           })}
+          <button className="action secondary settings-button" type="button" onClick={() => setSetupOpen(true)}>
+            <Settings2 size={16} aria-hidden="true" /> OpenCode
+          </button>
         </nav>
         <div className="frame">
           <aside className="side">
@@ -111,6 +164,15 @@ export function App() {
                 ))}
               </ol>
             </section>
+            <section className="panel">
+              <h2>Run model</h2>
+              <p className="meta">
+                {selectedModel
+                  ? `${selectedModel.name} · ${selectedModel.providerID}/${selectedModel.id}${project.engine.model?.variant ? `#${project.engine.model.variant}` : ""}`
+                  : "No supported model selected"}
+              </p>
+              <p className="meta">{selectedModel ? modelFacts(selectedModel) : "Choose a model in the OpenCode panel before a Maker run."}</p>
+            </section>
           </aside>
           <article className="document" id="document" aria-busy={busy}>
             <Lantern />
@@ -122,12 +184,28 @@ export function App() {
               ) : null}
             </h1>
             <p className="status-line">Stopped here: {project.nextAction}</p>
-            {engine && !engine.available ? (
+            {connection.state !== "connected" && connection.state !== "degraded" ? (
               <p className="banner bad" role="status">
-                {engine.limitation?.includes("fetch failed")
-                  ? "OpenCode is not reachable on the configured loopback address."
-                  : engine.limitation}{" "}
-                Start OpenCode, then try again. No paid model will be used.
+                OpenCode is {connection.state.replaceAll("_", " ")}. {connection.diagnostics[0]?.message}{" "}
+                <button className="action secondary" type="button" onClick={() => setSetupOpen(true)}>Open setup</button>
+              </p>
+            ) : connection.state === "degraded" ? (
+              <p className="banner" role="status">
+                OpenCode is connected with warnings. {connection.diagnostics[0]?.message ?? "Review the OpenCode panel."}{" "}
+                <button className="action secondary" type="button" onClick={() => setSetupOpen(true)}>Review</button>
+              </p>
+            ) : null}
+            {!selectedModel ? (
+              <p className="banner bad" role="status">
+                The selected model is not in the current OpenCode catalog. Choose a reported model before a run.
+                <button className="action secondary" type="button" onClick={() => setSetupOpen(true)}>Choose model</button>
+              </p>
+            ) : null}
+            {activeRun ? (
+              <p className="banner" role="status">
+                <strong>{activeRun.kind === "maker" ? "Maker" : "OpenCode"}</strong> is working in the background
+                {activeRun.model ? ` with ${activeRun.model.providerID}/${activeRun.model.id}` : ""}. The saved project updates when it finishes.
+                <button className="action secondary" type="button" disabled={busy} onClick={() => void act(() => cancelRun(project, activeRun.id))}>Cancel run</button>
               </p>
             ) : null}
             {unknown ? (
@@ -159,7 +237,7 @@ export function App() {
               <ScopePanel project={project} scope={scope} setScope={setScope} busy={busy} act={act} />
             ) : null}
             {project.stage === "MAKER" ? (
-              <MakerPanel project={project} busy={busy} act={act} />
+              <MakerPanel project={project} busy={busy} activeRun={activeRun} act={act} onChooseModel={() => setSetupOpen(true)} />
             ) : null}
             {project.stage === "WITNESS" ? (
               <WitnessPanel project={project} text={text} setText={setText} busy={busy} act={act} exportNote={exportNote} setExportNote={setExportNote} />
@@ -169,6 +247,13 @@ export function App() {
             <Activity project={project} />
           </aside>
         </div>
+        <OpenCodePanel
+          connection={connection}
+          project={project}
+          onConnection={setConnection}
+          onProject={setProject}
+          onOpenSetup={() => setSetupOpen(true)}
+        />
       </main>
     </>
   );
@@ -289,18 +374,31 @@ function ScopePanel(props: {
 function MakerPanel(props: {
   project: WorkshopProject;
   busy: boolean;
+  activeRun: WorkshopProject["operations"][number] | null;
   act: (work: () => Promise<{ project: WorkshopProject }>) => Promise<void>;
+  onChooseModel: () => void;
 }) {
   const recommended = props.project.capabilities.find((item) => item.id === "node-check");
+  const selected = props.project.engine.model;
   return (
     <>
       <p>Scope: {props.project.makerScope.statement}</p>
+      <p className="meta">
+        Chosen model: {selected ? `${selected.providerID}/${selected.id}${selected.variant ? `#${selected.variant}` : ""}` : "none selected"}. This model is recorded in the run evidence.
+      </p>
+      {!selected ? (
+        <p className="banner bad">
+          A supported model must be chosen before Maker can run.
+          <button className="action secondary" type="button" onClick={props.onChooseModel}>Choose model</button>
+        </p>
+      ) : null}
       {recommended ? (
         <p className="banner">Recommended path: {recommended.purpose}. {recommended.nativeMapping}. Permission: {recommended.permission}.</p>
       ) : null}
-      <button className="action" type="button" disabled={props.busy} onClick={() => void props.act(() => runMaker(props.project))}>
-        Run Maker
+      <button className="action" type="button" disabled={props.busy || !selected || Boolean(props.activeRun)} onClick={() => void props.act(() => runMaker(props.project))}>
+        {props.activeRun ? "Maker is running…" : "Run Maker"}
       </button>
+      {props.activeRun ? <p className="note">The HTTP request returns immediately. Polling reads the persisted operation until OpenCode finishes.</p> : null}
     </>
   );
 }
@@ -350,7 +448,7 @@ function Activity({ project }: { project: WorkshopProject }) {
           <ul>
             {latest.map((item) => (
               <li key={item.id}>
-                <span className="meta">{item.kind} · {item.status}</span>
+                <span className="meta">{item.kind} · {item.status}{item.model ? ` · ${item.model.providerID}/${item.model.id}${item.model.variant ? `#${item.model.variant}` : ""}` : ""}</span>
                 <div className="evidence">{(item.result ?? "No result recorded.").slice(0, 280)}</div>
               </li>
             ))}
@@ -362,7 +460,10 @@ function Activity({ project }: { project: WorkshopProject }) {
         {project.evidence.length === 0 ? <p>No check has been observed.</p> : (
           <ul>
             {project.evidence.map((item) => (
-              <li key={item.id}>{item.checkId}: {item.result}{item.limitation ? ` — ${item.limitation}` : ""}</li>
+              <li key={item.id}>
+                {item.checkId}: {item.result}{item.limitation ? ` — ${item.limitation}` : ""}
+                {item.model ? <span className="meta"> · {item.model.providerID}/{item.model.id}</span> : null}
+              </li>
             ))}
           </ul>
         )}
@@ -395,4 +496,8 @@ function statusLabel(section: WorkshopProject["sections"][number]): string {
 
 function stageOrder(stage: WorkshopProject["stage"]): number {
   return spirits.findIndex(([id]) => id === stage);
+}
+
+function modelFacts(model: NonNullable<ReturnType<typeof findSelectedModel>>): string {
+  return `${model.pricing === "free" ? "free" : model.pricing === "paid" ? "paid" : "price unknown"} · ${model.tools ? "tools" : "no tools"} · ${model.limits.context ? `${Math.round(model.limits.context / 1000)}k context` : "context unknown"}${model.local ? " · local" : ""}`;
 }

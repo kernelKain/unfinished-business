@@ -10,7 +10,7 @@ Start the native server on the address configured by `OPENCODE_BASE_URL`:
 opencode serve --hostname 127.0.0.1 --port 4096
 ```
 
-OpenCode 2.0.32 prints a generated server password when it starts. Copy that generated value into `OPENCODE_PASSWORD` in `.env`, or stop the server and choose a stable local password as shown below. Do not commit either value.
+OpenCode 2.0.32 prints a generated server password when it starts. The first-run wizard can hold that value in memory for the current application process. For a non-interactive start, copy it into `OPENCODE_PASSWORD` in `.env` and use the same value for the app process. Do not commit either value.
 
 To enable OpenCode Basic authentication, choose a new password and pass it to OpenCode as `OPENCODE_SERVER_PASSWORD`:
 
@@ -18,16 +18,17 @@ To enable OpenCode Basic authentication, choose a new password and pass it to Op
 OPENCODE_SERVER_PASSWORD="choose-a-long-random-password" opencode serve --hostname 127.0.0.1 --port 4096
 ```
 
-Put the same value in the application's gitignored `.env`:
+Put the same value in the application's gitignored `.env` for non-interactive use:
 
 ```dotenv
 OPENCODE_BASE_URL=http://127.0.0.1:4096
 OPENCODE_PASSWORD=the-same-password
+UB_DEPLOYMENT_MODE=local
 ```
 
-The password comes from the `opencode serve` terminal output or from the `OPENCODE_SERVER_PASSWORD` value you chose; it is not obtained from this repository. The app authenticates as the default Basic-auth username `opencode`.
+The password comes from the `opencode serve` terminal output or from the `OPENCODE_SERVER_PASSWORD` value you chose; it is not obtained from this repository. The app authenticates with the OpenCode server's fixed Basic-auth username `opencode`.
 
-OpenCode provider/model credentials are managed by OpenCode itself. This application requires the `opencode/deepseek-v4.1-flash-free` model to appear in the OpenCode model catalog and rejects substitutions or non-zero reported cost.
+OpenCode provider/model credentials are managed by OpenCode itself. Connect a provider inside OpenCode (`/connect`), choose a model (`/models`), then let the workshop discover the catalog. The app does not require a fixed model and does not accept provider API keys. The exact version/API surface and discovery rules are in [OPENCODE_INTEGRATION.md](OPENCODE_INTEGRATION.md). If no model is reported, the workshop shows `NO_MODELS`; it never asks for a provider key.
 
 ## Sentry runtime variables
 

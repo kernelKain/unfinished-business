@@ -1,5 +1,7 @@
 # Unfinished Business — Engineering Blueprint
 
+> Historical execution record. The current integration contract is [OPENCODE_INTEGRATION.md](OPENCODE_INTEGRATION.md); current decisions are in [DECISIONS.md](DECISIONS.md). Fixed-model statements below describe the phases in which they were written and are preserved as history, not as current instructions.
+
 Version: 0.2.7  
 Updated: 31 October 2026, IST  
 Status: EXPERIENCE_VERIFIED_UNCOMMITTED; partner access remains blocked  

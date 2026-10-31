@@ -19,6 +19,8 @@ services:
         value: unfinished-business
       - key: UB_ACCESS_PASSWORD
         generateValue: true
+      - key: UB_DEPLOYMENT_MODE
+        value: hosted-private
       - key: UB_SESSION_TOKEN
         generateValue: true
       - key: OPENCODE_BASE_URL

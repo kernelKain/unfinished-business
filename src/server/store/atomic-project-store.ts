@@ -1,6 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { copyFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { projectSchema, type Project } from "../workflow/model.ts";
+import { migrateProject, projectSchema, type Project } from "../workflow/model.ts";
 
 export class RevisionConflict extends Error {}
 
@@ -12,13 +13,14 @@ export interface LoadResult {
 
 export class AtomicProjectStore {
   readonly previousPath: string;
+  private writeChain: Promise<void> = Promise.resolve();
 
   constructor(readonly path: string) {
     this.previousPath = `${path}.previous`;
   }
 
   private async parse(path: string): Promise<Project> {
-    return projectSchema.parse(JSON.parse(await readFile(path, "utf8")));
+    return migrateProject(JSON.parse(await readFile(path, "utf8")));
   }
 
   async load(): Promise<LoadResult> {
@@ -39,12 +41,18 @@ export class AtomicProjectStore {
   }
 
   async save(expectedRevision: number, project: Project): Promise<Project> {
+    const operation = this.writeChain.then(() => this.saveUnlocked(expectedRevision, project));
+    this.writeChain = operation.then(() => undefined, () => undefined);
+    return operation;
+  }
+
+  private async saveUnlocked(expectedRevision: number, project: Project): Promise<Project> {
     const current = (await this.load()).state;
     if (current.revision !== expectedRevision) {
       throw new RevisionConflict(`Expected revision ${expectedRevision}, found ${current.revision}.`);
     }
     const next = projectSchema.parse({ ...project, revision: expectedRevision + 1 });
-    const temporaryPath = `${this.path}.tmp-${process.pid}-${Date.now()}`;
+    const temporaryPath = `${this.path}.tmp-${process.pid}-${randomUUID()}`;
     await copyFile(this.path, this.previousPath);
     await writeFile(temporaryPath, `${JSON.stringify(next, null, 2)}\n`, { flag: "wx" });
     await rename(temporaryPath, this.path);

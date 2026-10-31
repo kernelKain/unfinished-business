@@ -1,32 +1,77 @@
 import assert from "node:assert/strict";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import type { OpenCodeDiscovery, DiscoveredModel } from "../src/shared/opencode.ts";
 import { createApp } from "../src/server/app.ts";
 import type { SpiritGuide } from "../src/server/experience/guide.ts";
 import { ExperienceService } from "../src/server/experience/service.ts";
 import { AtomicProjectStore } from "../src/server/store/atomic-project-store.ts";
-import { createProject } from "../src/server/workflow/model.ts";
+import { createProject, refreshNextAction } from "../src/server/workflow/model.ts";
 import { WorkflowService } from "../src/server/workflow/service.ts";
-import { refreshNextAction } from "../src/server/workflow/model.ts";
 
-const engine = async () => ({
-  available: true,
-  serverVersion: "2.0.32",
-  model: "opencode/deepseek-v4.1-flash-free" as const,
-  modelAvailable: true,
-  limitation: null,
-});
+const model: DiscoveredModel = {
+  key: "opencode/flint-40b-free",
+  providerID: "opencode",
+  id: "flint-40b-free",
+  name: "Flint 40B Free",
+  family: "flint",
+  availability: "available",
+  status: "active",
+  enabled: true,
+  pricing: "free",
+  local: false,
+  limits: { context: 262_144, input: null, output: 65_536 },
+  modalities: { input: ["text"], output: ["text"] },
+  tools: true,
+  reasoning: { supported: true, source: "variants" },
+  variants: ["low", "high"],
+  cost: [{ tierSize: null, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }],
+};
 
-function guide(speakText: string[], options?: { diff?: string; calls?: { speak: number } }): SpiritGuide {
+const discovery: OpenCodeDiscovery = {
+  server: { version: "2.0.32", compatible: true, testedVersion: "2.0.32", warning: null },
+  providers: [{ id: "opencode", name: "OpenCode", activation: "enabled", ready: "ready", modelCount: 1, detail: "1 model." }],
+  models: [model],
+  agents: [{ id: "build", name: "Build", mode: "primary", hidden: false, description: null, permissionCount: 1 }],
+  roles: (["oracle", "architect", "maker", "witness"] as const).map((role) => ({
+    role,
+    agent: role === "maker" ? "build" : "plan",
+    available: true,
+    detail: "mapped",
+  })),
+  permissions: [],
+  commands: [],
+  skills: [],
+  mcpServers: [],
+  formatters: [],
+  lspServers: [],
+  capabilities: [],
+  usage: { supported: true, quotaSupported: false, links: [], detail: "usage" },
+  limitations: [],
+};
+
+function engine() {
+  return {
+    async discovery() { return discovery; },
+    async resolveModel(selection: { providerID: string; id: string } | null) {
+      return selection?.providerID === model.providerID && selection.id === model.id ? { model, source: "selected" as const } : null;
+    },
+    async chooseDefaultModel() { return null; },
+    validateSelection() { return model; },
+  };
+}
+
+function guide(speakText: string[], options?: { diff?: string; calls?: { speak: number }; inspect?: "running" | "succeeded" | "failed" | "unknown" }): SpiritGuide {
   const calls = options?.calls ?? { speak: 0 };
   return {
     async speak() {
       calls.speak += 1;
       return { sessionId: `ses_${calls.speak}`, messageId: null, text: speakText.shift() ?? "{}", cost: 0 };
     },
-    async perform() {
+    async perform(input) {
+      input.onSession?.("ses_maker");
       return {
         sessionId: "ses_maker",
         messageId: "msg_maker",
@@ -36,7 +81,10 @@ function guide(speakText: string[], options?: { diff?: string; calls?: { speak: 
       };
     },
     async inspect() {
-      return "unknown";
+      return options?.inspect ?? "succeeded";
+    },
+    async interrupt() {
+      return true;
     },
   };
 }
@@ -44,18 +92,40 @@ function guide(speakText: string[], options?: { diff?: string; calls?: { speak: 
 async function workshop(spirit: SpiritGuide) {
   const directory = await mkdtemp(join(tmpdir(), "ub-experience-"));
   const store = new AtomicProjectStore(join(directory, "project.json"));
-  await store.initialize(createProject(directory));
+  const initial = createProject(directory);
+  initial.engine = {
+    model: { providerID: "opencode", id: "flint-40b-free", variant: null },
+    source: "user",
+    updatedAt: null,
+    legacyModel: null,
+  };
+  await store.initialize(initial);
+  await writeFile(join(directory, "lost-and-found.test.mjs"), `import test from 'node:test';
+import assert from 'node:assert/strict';
+test('ledger', () => assert.equal(1, 1));
+`);
   const service = new WorkflowService(store);
   const experience = new ExperienceService(service, store, spirit, {
     safeDirectory: directory,
     demoWorkspace: directory,
     promptRoot: process.cwd(),
+    engine: engine(),
   });
-  const app = createApp(engine, { service, sessionToken: "test-token", experience });
-  return { app, store };
+  const app = createApp({ service, sessionToken: "test-token", experience });
+  return { app, store, service };
 }
 
 const headers = { "content-type": "application/json", "x-ub-session-token": "test-token" };
+
+async function waitFor<T>(work: () => Promise<T | null>, timeout = 5_000): Promise<T> {
+  const started = Date.now();
+  while (Date.now() - started < timeout) {
+    const result = await work();
+    if (result) return result;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("Timed out waiting for background state.");
+}
 
 test("oracle proposal cannot approve the product by itself", async () => {
   const { app } = await workshop(guide([
@@ -71,6 +141,7 @@ test("oracle proposal cannot approve the product by itself", async () => {
   assert.equal(body.project.product.status, "PROPOSED");
   assert.equal(body.project.stage, "ORACLE");
   assert.equal(body.project.sections[0].status, "NOT_STARTED");
+  assert.equal(body.project.engine.model?.id, "flint-40b-free");
 });
 
 test("a malformed architect reply leaves the section unchanged", async () => {
@@ -78,7 +149,7 @@ test("a malformed architect reply leaves the section unchanged", async () => {
   let project = (await store.load()).state;
   project = (await new WorkflowService(store).execute("product", { kind: "product" }, 0, (current) => {
     current.product = { status: "APPROVED", proposal: "Track found items.", openQuestions: [] };
-    return current;
+    return refreshNextAction(current);
   })).project;
   const before = project.sections[0].hash;
   const response = await app.request("/api/messages", {
@@ -97,7 +168,7 @@ test("a prose architect reply is stored as an unapproved draft", async () => {
   const { app, store } = await workshop(guide([prose]));
   const project = (await new WorkflowService(store).execute("product", { kind: "product" }, 0, (current) => {
     current.product = { status: "APPROVED", proposal: "Track found items.", openQuestions: [] };
-    return current;
+    return refreshNextAction(current);
   })).project;
   const response = await app.request("/api/messages", {
     method: "POST",
@@ -140,11 +211,11 @@ test("maker and witness stay gated until their approvals exist", async () => {
   assert.equal(witness.status, 409);
 });
 
-test("approved sections compile and a fresh witness draft is exported", async () => {
-  const { app, store } = await workshop(guide([
-    JSON.stringify({ findings: "The Node check failed.", limitations: "No live sponsor call.", draftNotes: "Describe the actual diff." }),
+test("approved sections compile, Maker runs asynchronously, and Witness reads a fresh result", async () => {
+  const { app, store, service } = await workshop(guide([
+    JSON.stringify({ findings: "The Node check passed.", limitations: "No live sponsor call.", draftNotes: "Describe the actual diff." }),
   ]));
-  const workflow = new WorkflowService(store);
+  const workflow = service;
   let project = (await workflow.execute("product", { kind: "product" }, 0, (current) => {
     current.product = { status: "APPROVED", proposal: "Track found items.", openQuestions: [] };
     return refreshNextAction(current);
@@ -162,7 +233,7 @@ test("approved sections compile and a fresh witness draft is exported", async ()
     });
     assert.equal(revised.status, 200);
     project = (await revised.json()).project;
-    const current = project.sections.find((item: { id: string }) => item.id === section.id);
+    const current = project.sections.find((item) => item.id === section.id);
     assert.ok(current);
     const approved = await app.request(`/api/sections/${section.id}/approve`, {
       method: "POST",
@@ -191,18 +262,33 @@ test("approved sections compile and a fresh witness draft is exported", async ()
   });
   assert.equal(scope.status, 200);
   project = (await scope.json()).project;
+
   const run = await app.request("/api/runs", {
     method: "POST",
     headers,
     body: JSON.stringify({ actionId: "make", expectedRevision: project.revision }),
   });
-  assert.equal(run.status, 200);
-  const made = await run.json();
-  assert.equal(made.project.stage, "WITNESS");
+  assert.equal(run.status, 202);
+  const started = await run.json();
+  assert.equal(started.accepted, true);
+  assert.equal(started.project.operations.at(-1).status, "QUEUED");
+  assert.equal(`${started.project.operations.at(-1).model.providerID}/${started.project.operations.at(-1).model.id}`, "opencode/flint-40b-free");
+
+  const made = await waitFor(async () => {
+    const current = (await store.load()).state;
+    return current.operations.some((operation) => operation.kind === "maker" && operation.status === "SUCCEEDED") ? current : null;
+  });
+  assert.equal(made.stage, "WITNESS");
+  const maker = made.operations.findLast((operation) => operation.kind === "maker");
+  assert.equal(maker?.model?.providerID, "opencode");
+  assert.equal(maker?.model?.id, "flint-40b-free");
+  assert.equal(made.evidence.at(-1)?.model?.id, "flint-40b-free");
+  assert.match(maker?.result ?? "", /Node check exit 0/);
+
   const review = await app.request("/api/messages", {
     method: "POST",
     headers,
-    body: JSON.stringify({ actionId: "witness", expectedRevision: made.project.revision, intent: "witness", text: "Review the maker diff." }),
+    body: JSON.stringify({ actionId: "witness", expectedRevision: made.revision, intent: "witness", text: "Review the maker diff." }),
   });
   assert.equal(review.status, 200);
   const witnessed = await review.json();
@@ -211,4 +297,5 @@ test("approved sections compile and a fresh witness draft is exported", async ()
   assert.match(exported.plan, /Approved control/);
   assert.equal(exported.drafts[0].title, "Findings");
   assert.match(exported.limitation, /not a submitted article/);
+  assert.equal(exported.engine.model.id, "flint-40b-free");
 });

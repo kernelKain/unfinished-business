@@ -1,16 +1,14 @@
-import { z } from "zod";
-
-export const nativeEngineStatusSchema = z.object({
-  available: z.boolean(),
-  serverVersion: z.string().regex(/^2\./).nullable(),
-  model: z.literal("opencode/deepseek-v4.1-flash-free"),
-  modelAvailable: z.boolean(),
-  limitation: z.string().nullable(),
-});
-
-export type NativeEngineStatus = z.infer<typeof nativeEngineStatusSchema>;
-
-export const healthSchema = z.object({
-  status: z.literal("ok"),
-  service: z.literal("unfinished-business"),
-});
+export {
+  connectionStatusSchema,
+  engineStatusSchema,
+  healthSchema,
+  openCodeConnectionStateSchema,
+  openCodeDiscoverySchema,
+  TESTED_OPENCODE_VERSION,
+  SUPPORTED_OPENCODE_MAJOR,
+  type ConnectionStatus,
+  type DiscoveredModel,
+  type EngineStatus,
+  type OpenCodeConnectionState,
+  type OpenCodeDiscovery,
+} from "./opencode.ts";

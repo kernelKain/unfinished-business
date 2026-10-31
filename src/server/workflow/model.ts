@@ -1,10 +1,31 @@
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 
+export const LEGACY_FIXED_MODEL_KEY = "opencode/deepseek-v4.1-flash-free";
+
 export const sectionStatusSchema = z.enum(["NOT_STARTED", "DRAFT", "APPROVED", "STALE"]);
 export const operationStatusSchema = z.enum([
   "QUEUED", "RUNNING", "WAITING_PERMISSION", "SUCCEEDED", "FAILED", "CANCELLED", "UNKNOWN",
 ]);
+
+export const modelRefSchema = z.object({
+  providerID: z.string().min(1),
+  id: z.string().min(1),
+  variant: z.string().min(1).nullable().default(null),
+});
+
+export type ModelRef = z.infer<typeof modelRefSchema>;
+
+export const engineSelectionSourceSchema = z.enum(["none", "user", "migrated-legacy", "auto-discovery"]);
+
+export const engineSelectionSchema = z.object({
+  model: modelRefSchema.nullable().default(null),
+  source: engineSelectionSourceSchema.default("none"),
+  updatedAt: z.string().nullable().default(null),
+  legacyModel: z.string().nullable().default(null),
+});
+
+export type EngineSelection = z.infer<typeof engineSelectionSchema>;
 
 export const sectionSchema = z.object({
   id: z.string(),
@@ -32,7 +53,7 @@ export const actionSchema = z.object({
   resultRevision: z.number().int().nonnegative(),
 });
 
-export const operationSchema = z.object({
+const operationCoreSchema = z.object({
   id: z.string(),
   kind: z.enum(["guide", "maker", "witness", "check"]).default("guide"),
   payloadHash: z.string(),
@@ -42,7 +63,14 @@ export const operationSchema = z.object({
   result: z.string().nullable(),
 });
 
-export const evidenceSchema = z.object({
+export const operationSchema = operationCoreSchema.extend({
+  model: modelRefSchema.nullable().default(null),
+  agent: z.string().nullable().default(null),
+  startedAt: z.string().nullable().default(null),
+  finishedAt: z.string().nullable().default(null),
+});
+
+const evidenceCoreSchema = z.object({
   id: z.string(),
   checkId: z.string(),
   nativeResultReference: z.string(),
@@ -50,6 +78,10 @@ export const evidenceSchema = z.object({
   result: z.enum(["PASS", "FAIL", "NOT_RUN", "INCONCLUSIVE", "STALE"]),
   observedAt: z.string(),
   limitation: z.string().nullable(),
+});
+
+export const evidenceSchema = evidenceCoreSchema.extend({
+  model: modelRefSchema.nullable().default(null),
 });
 
 export const productSchema = z.object({
@@ -91,8 +123,7 @@ export const nativeSessionRefSchema = z.object({
   sessionId: z.string(),
 });
 
-export const projectSchema = z.object({
-  schemaVersion: z.literal(1),
+const projectCoreSchema = z.object({
   id: z.string(),
   revision: z.number().int().nonnegative(),
   workspace: z.string(),
@@ -110,6 +141,17 @@ export const projectSchema = z.object({
   capabilities: z.array(capabilitySchema).default([]),
   witnessDrafts: z.array(witnessDraftSchema).default([]),
   nativeSessions: z.array(nativeSessionRefSchema).default([]),
+});
+
+export const projectV1Schema = projectCoreSchema.extend({
+  schemaVersion: z.literal(1),
+  operations: z.array(operationCoreSchema),
+  evidence: z.array(evidenceCoreSchema),
+});
+
+export const projectSchema = projectCoreSchema.extend({
+  schemaVersion: z.literal(2),
+  engine: engineSelectionSchema.default({ model: null, source: "none", updatedAt: null, legacyModel: null }),
 });
 
 export type Project = z.infer<typeof projectSchema>;
@@ -137,6 +179,42 @@ export function payloadHash(payload: unknown): string {
   return contentHash(JSON.stringify(payload, Object.keys(payload as object).sort()));
 }
 
+/**
+ * Reads a persisted project from either supported schema generation.
+ *
+ * V1 documents were written when the application hard-coded the free DeepSeek
+ * model. They have no engine selection. Migration records that legacy identity
+ * so discovery can preserve it when it is still available, without binding a
+ * new project or a disconnected project to a model that may no longer exist.
+ */
+export function migrateProject(raw: unknown): Project {
+  const record = raw as Record<string, unknown> | null;
+  if (!record || typeof record !== "object") throw new Error("Project data is not an object.");
+  if (record.schemaVersion === 2) return projectSchema.parse(record);
+  if (record.schemaVersion !== 1) {
+    throw new Error(`Unsupported project schema version: ${String(record.schemaVersion)}`);
+  }
+  const legacy = projectV1Schema.parse(record);
+  return projectSchema.parse({
+    ...legacy,
+    schemaVersion: 2,
+    engine: {
+      model: null,
+      source: "migrated-legacy",
+      updatedAt: null,
+      legacyModel: LEGACY_FIXED_MODEL_KEY,
+    },
+    operations: legacy.operations.map((operation) => ({
+      ...operation,
+      model: null,
+      agent: null,
+      startedAt: null,
+      finishedAt: null,
+    })),
+    evidence: legacy.evidence.map((evidence) => ({ ...evidence, model: null })),
+  });
+}
+
 export function createProject(workspace: string): Project {
   const sections = sectionDefinitions.map(([id, title, dependencies], index) => ({
     id,
@@ -149,7 +227,7 @@ export function createProject(workspace: string): Project {
     status: "NOT_STARTED" as const,
   }));
   return refreshNextAction(projectSchema.parse({
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: randomUUID(),
     revision: 0,
     workspace,
@@ -184,6 +262,7 @@ export function createProject(workspace: string): Project {
     ],
     witnessDrafts: [],
     nativeSessions: [],
+    engine: { model: null, source: "none", updatedAt: null, legacyModel: null },
   }));
 }
 

@@ -1,13 +1,15 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { access, mkdir, readFile } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 import { serve } from "@hono/node-server";
+import type { DeploymentMode } from "../shared/opencode.ts";
 import { createApp } from "./app.ts";
 import { OpenCodeSpiritGuide } from "./experience/guide.ts";
 import { ExperienceService } from "./experience/service.ts";
-import { probeNativeEngine } from "./opencode/client.ts";
+import { ConnectionService } from "./opencode/connection.ts";
+import { SessionActionsService } from "./opencode/sessions.ts";
 import { AtomicProjectStore } from "./store/atomic-project-store.ts";
-import { createProject } from "./workflow/model.ts";
+import { createProject, refreshNextAction } from "./workflow/model.ts";
 import { WorkflowService } from "./workflow/service.ts";
 
 const port = Number(process.env.PORT ?? process.env.UB_PORT ?? 4200);
@@ -17,6 +19,13 @@ const baseUrl = process.env.OPENCODE_BASE_URL ?? "http://127.0.0.1:4096";
 const dataDirectory = resolve(process.env.UB_DATA_DIR ?? ".unfinished-business");
 const demoWorkspace = resolve(dataDirectory, "demo-workspace");
 const safeDirectory = resolve(dataDirectory, "spirit-workspace");
+const deploymentMode: DeploymentMode = process.env.UB_DEPLOYMENT_MODE === "hosted-demo"
+  ? "hosted-demo"
+  : process.env.UB_DEPLOYMENT_MODE === "hosted-private"
+    ? "hosted-private"
+    : process.env.RENDER
+      ? "hosted-private"
+      : "local";
 await mkdir(demoWorkspace, { recursive: true });
 await mkdir(safeDirectory, { recursive: true });
 
@@ -32,18 +41,24 @@ if (process.env.NODE_ENV === "production" && !accessPassword) {
   throw new Error("UB_ACCESS_PASSWORD is required in production.");
 }
 const workflow = new WorkflowService(store);
-const experience = new ExperienceService(workflow, store, new OpenCodeSpiritGuide({
-  baseUrl,
-  password: process.env.OPENCODE_PASSWORD,
-}), { safeDirectory, demoWorkspace });
+const connection = new ConnectionService({
+  dataDir: dataDirectory,
+  deploymentMode,
+  envBaseUrl: baseUrl,
+  envUsername: process.env.OPENCODE_USERNAME,
+  envPassword: process.env.OPENCODE_PASSWORD,
+});
+await connection.load();
+await markInterruptedRuns(workflow);
+const experience = new ExperienceService(workflow, store, new OpenCodeSpiritGuide(() => connection.clientOptions()), { safeDirectory, demoWorkspace, engine: connection });
+const sessions = new SessionActionsService(connection, () => workflow.get());
 
-const app = createApp(() => probeNativeEngine({
-  baseUrl,
-  password: process.env.OPENCODE_PASSWORD,
-}), {
+const app = createApp({
   service: workflow,
   sessionToken,
   experience,
+  connection,
+  sessions,
   access: accessPassword ? {
     username: process.env.UB_ACCESS_USERNAME?.trim() || "unfinished-business",
     password: accessPassword,
@@ -90,3 +105,30 @@ server.on("error", (error: NodeJS.ErrnoException) => {
   }
   throw error;
 });
+
+/**
+ * A process restart cannot know whether an in-flight native session finished.
+ * Preserve the operation as UNKNOWN for explicit reconciliation rather than
+ * silently marking it failed, succeeded, or replaying the prompt.
+ */
+async function markInterruptedRuns(workflowService: WorkflowService): Promise<void> {
+  const project = await workflowService.get();
+  const interrupted = project.operations.filter((operation) => operation.status === "QUEUED" || operation.status === "RUNNING");
+  if (interrupted.length === 0) return;
+  await workflowService.executeLatest("startup:interrupted-runs", { count: interrupted.length }, (current) => {
+    const next = structuredClone(current);
+    for (const operation of next.operations) {
+      if (operation.status !== "QUEUED" && operation.status !== "RUNNING") continue;
+      operation.status = "UNKNOWN";
+      operation.result = "The application restarted while this native run was in flight. Reconcile the OpenCode session before another attempt.";
+      operation.finishedAt = new Date().toISOString();
+    }
+    next.transcript.push({
+      id: randomUUID(),
+      spirit: "system",
+      text: "A process restart left a native run unknown. It was not repeated.",
+      createdAt: new Date().toISOString(),
+    });
+    return refreshNextAction(next);
+  });
+}
