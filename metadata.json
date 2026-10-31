@@ -1,0 +1,51 @@
+{
+  "cli_version": "0.12.3-nightly.202610310614.54b6a5cac",
+  "checkpoint_id": "01M6A3E4ZKD2TXG3HFSFQHX94A",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/ARCHITECTURE.md",
+    "docs/DEMO_AND_SUBMISSION.md",
+    "docs/UX_AND_VISUAL_SYSTEM.md",
+    "scripts/build-hero-assets.py",
+    "src/shared/demo.ts",
+    "src/web/components/RunInspector.tsx",
+    "src/web/content/landing.ts",
+    "src/web/landing/DemoTeaser.tsx",
+    "src/web/landing/Hero.tsx",
+    "src/web/landing/LandingPage.tsx",
+    "tests/demo.test.ts",
+    "tests/web.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 747056,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 33128576,
+    "output_tokens": 67230,
+    "api_call_count": 158
+  },
+  "redaction": {
+    "replacements": 11933,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 11933,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
