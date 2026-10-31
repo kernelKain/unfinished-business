@@ -11,20 +11,20 @@ This catalog distinguishes what the product **uses**, what it **recommends**, an
 | Tool | Role | Status | Evidence/limitation |
 |---|---|---|---|
 | OpenCode 2.0.32 | Agent loop, model access, native tools, permissions, sessions, interruption | **Integrated foundation** | Exact client/server pin; production code uses the official client through the safe network layer. Live compatibility probe passed without inference. |
-| Free DeepSeek route `opencode/deepseek-v4.1-flash-free` | Intended zero-cost development model | **Selected; availability conditional** | Discovered from OpenCode, free-only selection enforced. Time-limited and account-dependent. No paid fallback. |
+| OpenCode model catalog | Any model the connected account reports as available | **Integrated; model-dependent** | New projects default to all accessible models. Free/local-only policy and optional spending limits are available. Paid/unknown-price routes require explicit confirmation; no silent substitution. |
 | Node.js 22.14+ | Runtime, build, and bounded Node check | **Required** | Tested on 22.22.1; `engines` minimum 22.14. |
 | React 19 + TypeScript + Vite 8 | Browser interface and build | **Integrated** | Production build and bundle budget pass. |
 | Hono 4 + `@hono/node-server` | HTTP API and static serving | **Integrated** | Security middleware, validation, SSE, and static containment are tested. |
-| Zod 4 | Shared request/state/output validation | **Integrated** | Workflow schema v3, explicit v1/v2 migration, and engine/discovery contracts. |
+| Zod 4 | Shared request/state/output validation | **Integrated** | Workflow schema v4, explicit v1/v2/v3 migration, model policy, provider-error, and engine/discovery contracts. |
 | Motion 14 + Lucide | Purposeful motion and icons | **Integrated** | Free libraries only; reduced-motion fallback tested. No second animation framework. |
 
 ## Verification and operations tools
 
 | Tool | Role | Status | Evidence/limitation |
 |---|---|---|---|
-| Node test runner | Unit/integration/component tests | **Integrated** | 118 passing tests. |
+| Node test runner | Unit/integration/component tests | **Integrated** | 139 passing tests. |
 | Playwright 1.62 | Visual, keyboard, contrast, zoom, reduced-motion, overflow tests | **Integrated** | 18 passing tests with committed snapshots; uses system Chromium. |
-| `scripts/check-budget.mjs` | Production bundle/asset budget | **Integrated** | Passes: initial JS 193.8 KiB gzip, all JS 264.1 KiB, CSS 14.2 KiB, hero 570.9 KiB. |
+| `scripts/check-budget.mjs` | Production bundle/asset budget | **Integrated** | Passes: initial JS 194.0 KiB gzip, all JS 266.4 KiB, CSS 14.5 KiB, hero 570.9 KiB. |
 | `scripts/preflight.mjs` | Read-only environment diagnostic | **Integrated** | Checks toolchain, DNS, loopback, OpenCode CLI/help, Git reads, Entire status. Not an integration proof. |
 | `scripts/opencode-live-diagnostic.ts` | Opt-in compatibility probe | **Integrated; run in Phase 9** | Server 2.0.32, catalog, disposable session create/read/remove. No prompt/model call. |
 | Render | Optional demo or private hosting | **Documented; not deployed** | `render.demo.yaml` and `render.yaml` reviewed statically. No live URL asserted. |
@@ -52,7 +52,7 @@ Rules:
 
 1. Recommend only capabilities that exist in the current native mapping.
 2. Show availability, permission, and observed outcome; do not imply an install.
-3. Never recommend a paid model, arbitrary shell, or remote repository mount for this release.
+3. Never recommend an arbitrary shell or remote repository mount for this release. Model costs and privacy are surfaced at selection; a paid or unknown-price route is never silently used.
 4. A recommendation is not an approval and does not grant Maker scope.
 5. Keep source/freshness metadata with each fixture; a stale source must be reviewed before adding a claim.
 
@@ -61,7 +61,7 @@ Source freshness for this catalog:
 | Claim | Source | Last checked |
 |---|---|---|
 | OpenCode 2.0.32 client/server compatibility | Local pinned binary + Phase 9 live compatibility probe | 2026-10-31 |
-| Free DeepSeek listing/pricing policy | OpenCode model catalog; `.env.example`; discovery tests | 2026-10-31 |
+| Model access, pricing, and spending policy | OpenCode model catalog; `.env.example`; model-access and connection tests | 2026-11-01 |
 | Sentry privacy configuration | SDK code, redaction tests, deployment docs | 2026-10-31 |
 | Entire capture presence | Repository hooks/checkpoints and prior phase records | 2026-10-31 |
 | Render templates | `render.yaml`, `render.demo.yaml` static review | 2026-10-31 |

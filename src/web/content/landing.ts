@@ -113,7 +113,7 @@ export const faqs: readonly FaqItem[] = [
   },
   {
     question: "Which model does it use?",
-    answer: "The intended route is OpenCode's free DeepSeek model, opencode/deepseek-v4.1-flash-free. It is time-limited and not guaranteed; verify availability on your own account. No paid fallback is configured by this project.",
+    answer: "The model comes from OpenCode's discovered catalog, not a fixed model in this app. New projects may use any model OpenCode reports as available; a free/local-only policy and an optional spending limit are available. A paid or unknown-price route requires an explicit confirmation, and the app never silently substitutes a model.",
   },
   {
     question: "What does the demo actually prove?",
@@ -136,6 +136,7 @@ export const demoOperations: WorkshopProject["operations"] = [
     agent: null,
     startedAt: null,
     finishedAt: null,
+    providerError: null,
   },
   {
     id: "op-demo-check",
@@ -147,6 +148,7 @@ export const demoOperations: WorkshopProject["operations"] = [
     agent: null,
     startedAt: null,
     finishedAt: null,
+    providerError: null,
   },
   {
     id: "op-demo-witness",
@@ -158,6 +160,7 @@ export const demoOperations: WorkshopProject["operations"] = [
     agent: null,
     startedAt: null,
     finishedAt: null,
+    providerError: null,
   },
 ] as const;
 

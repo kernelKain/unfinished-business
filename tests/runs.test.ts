@@ -191,7 +191,9 @@ test("a failed native turn becomes FAILED with its model retained", async () => 
     return operation?.status === "FAILED" ? state : null;
   });
   const operation = failed.operations.find((item) => item.id === operationId)!;
-  assert.match(operation.result ?? "", /Model call failed/);
+  assert.match(operation.result ?? "", /provider failed without a recognized safe category/i);
+  assert.equal(operation.providerError?.category, "UNKNOWN_PROVIDER_FAILURE");
+  assert.match(operation.providerError?.technical.diagnosticReference ?? "", /^provider-/);
   assert.equal(operation.model?.id, "flint-40b-free");
 });
 

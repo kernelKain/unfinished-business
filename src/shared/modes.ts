@@ -55,7 +55,7 @@ const local: ModeDescriptor = {
   requirements: [
     "Node.js 22.14 or newer and the dependencies installed with npm ci.",
     "A supported OpenCode 2 server started separately on loopback.",
-    "The required free DeepSeek model visible in OpenCode's catalog.",
+    "At least one model reported as available in OpenCode's catalog.",
     "A writable UB_DATA_DIR whose demo-workspace child stays inside that root.",
   ],
   privacy: [
@@ -66,7 +66,7 @@ const local: ModeDescriptor = {
   ],
   cost: [
     "No application hosting cost. You pay only for any model or infrastructure you configure in OpenCode.",
-    "The selected DeepSeek route is expected to report zero cost. The app rejects a non-zero reported cost.",
+    "All accessible models is the default. A free/local-only policy and an optional session spending limit are available; paid or unknown-price routes require an explicit confirmation.",
     "Sentry is optional and must stay within the free entitlement used for this project.",
   ],
   recovery: [
@@ -157,7 +157,7 @@ const privateHosted: ModeDescriptor = {
   cost: [
     "Render charges for the instance and the persistent disk for as long as they exist.",
     "The disk is paid persistent storage and cannot be attached to a free service.",
-    "Model usage follows the provider configured in OpenCode; the app rejects a non-zero reported cost on the free route.",
+    "Model usage and billing follow the provider configured in OpenCode. The app enforces the optional spending limit only against cost OpenCode reports.",
   ],
   recovery: [
     "Rotate UB_ACCESS_PASSWORD in Render to revoke access; the service redeploys.",

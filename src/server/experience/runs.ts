@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
+import type { ProviderErrorDetails } from "../../shared/workflow.ts";
 import { payloadHash, refreshNextAction, type ModelRef, type Project } from "../workflow/model.ts";
 import { WorkflowService } from "../workflow/service.ts";
 import { rememberSession, rememberTranscript } from "../workflow/transitions.ts";
 import type { SpiritGuide } from "./guide.ts";
 import { runApprovedNodeCheck } from "./node-check.ts";
 import { traceToolOperation } from "./telemetry.ts";
+import { classifyProviderError, isProviderFailureCandidate } from "../opencode/provider-errors.ts";
 
 export interface MakerRunInput {
   operationId: string;
@@ -16,6 +18,7 @@ export interface MakerRunInput {
   workspace: string;
   model: ModelRef;
   agent: string | null;
+  budget: Project["modelPreferences"]["budget"];
 }
 
 interface ActiveRun {
@@ -75,17 +78,20 @@ export class MakerRunCoordinator {
   }
 
   async markFailed(operationId: string, error: unknown, model: ModelRef, agent: string | null): Promise<void> {
-    const message = error instanceof Error ? error.message : "The Maker run could not start.";
+    const sessionId = typeof (error as { nativeSessionId?: unknown })?.nativeSessionId === "string"
+      ? (error as { nativeSessionId: string }).nativeSessionId
+      : null;
+    const providerFailure = providerErrorFor(error, model.providerID, sessionId);
+    const message = providerFailure?.whatHappened ?? (error instanceof Error ? error.message : "The Maker run could not start.");
     await this.finish(operationId, {
       status: failureIsUncertain(message, error) ? "ABANDONED" : "FAILED",
       result: message,
       model,
       agent,
-      sessionId: typeof (error as { nativeSessionId?: unknown })?.nativeSessionId === "string"
-        ? (error as { nativeSessionId: string }).nativeSessionId
-        : null,
+      sessionId,
       diff: null,
       check: null,
+      providerError: providerFailure,
     });
   }
 
@@ -111,6 +117,7 @@ export class MakerRunCoordinator {
         workspace: input.workspace,
         model: input.model,
         agent: input.agent,
+        budget: input.budget,
         onSession: (sessionId) => {
           active.sessionId = sessionId;
           void this.update(input, "session", (project) => {
@@ -140,6 +147,7 @@ export class MakerRunCoordinator {
           diff: performed.diff,
           check: null,
           messageId: performed.messageId,
+          providerError: null,
         });
         return;
       }
@@ -154,6 +162,7 @@ export class MakerRunCoordinator {
           diff: performed.diff,
           check: null,
           messageId: performed.messageId,
+          providerError: null,
         });
         return;
       }
@@ -170,6 +179,7 @@ export class MakerRunCoordinator {
           diff: performed.diff,
           check: null,
           messageId: performed.messageId,
+          providerError: null,
         });
         return;
       }
@@ -188,24 +198,28 @@ export class MakerRunCoordinator {
         diff: performed.diff,
         check,
         messageId: performed.messageId,
+        providerError: null,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "The native Maker run failed.";
       const errorSessionId = typeof (error as { nativeSessionId?: unknown })?.nativeSessionId === "string"
         ? (error as { nativeSessionId: string }).nativeSessionId
         : null;
+      const providerFailure = providerErrorFor(error, input.model.providerID, errorSessionId ?? active.sessionId);
+      const safeMessage = providerFailure?.whatHappened ?? message;
       await this.finish(input.operationId, {
         status: active.cancelled ? "CANCELLED" : failureIsUncertain(message, error) ? "ABANDONED" : "FAILED",
         result: active.cancelled
           ? "Cancellation was recorded before the native run finished."
           : failureIsUncertain(message, error)
-            ? `Disconnected or interrupted: ${message}. Reconcile the native session before another run.`
-            : message,
+            ? `Disconnected or interrupted: ${safeMessage}. Reconcile the native session before another run.`
+            : safeMessage,
         model: input.model,
         agent: input.agent,
         sessionId: errorSessionId ?? active.sessionId,
         diff: null,
         check: null,
+        providerError: providerFailure,
       });
     }
   }
@@ -221,6 +235,7 @@ export class MakerRunCoordinator {
       diff: string | null;
       check: Awaited<ReturnType<typeof runApprovedNodeCheck>> | null;
       messageId?: string | null;
+      providerError: ProviderErrorDetails | null;
     },
   ): Promise<void> {
     await this.options.workflow.executeLatest(`run:${operationId}:finish`, { operationId, status: outcome.status }, (project) => {
@@ -242,9 +257,11 @@ export class MakerRunCoordinator {
       operation.finishedAt = outcome.status === "WAITING_PERMISSION" || outcome.status === "ABANDONED"
         ? null
         : new Date().toISOString();
-      operation.statusReason = outcome.status === "ABANDONED" ? "native-outcome-unconfirmed" : null;
+      operation.statusReason = outcome.providerError?.category.toLowerCase()
+        ?? (outcome.status === "ABANDONED" ? "native-outcome-unconfirmed" : null);
       operation.lastObservedAt = new Date().toISOString();
       operation.appliedAt = outcome.status === "SUCCEEDED" ? operation.lastObservedAt : null;
+      operation.providerError = outcome.providerError;
       const checkText = outcome.check
         ? `Node check exit ${outcome.check.code ?? "unavailable"}. ${outcome.check.output}`
         : "No native diff, so the Node check did not run.";
@@ -286,4 +303,23 @@ export class MakerRunCoordinator {
   private async update(input: MakerRunInput, phase: string, mutation: (project: Project) => Project): Promise<void> {
     await this.options.workflow.executeLatest(`run:${input.operationId}:${phase}`, { operationId: input.operationId, phase }, mutation);
   }
+}
+
+function providerErrorFor(error: unknown, provider: string, sessionReference: string | null): ProviderErrorDetails | null {
+  const code = typeof (error as { code?: unknown })?.code === "string" ? (error as { code: string }).code : "";
+  if ([
+    "BUDGET_EXCEEDED",
+    "NATIVE_TIMEOUT",
+    "MODEL_CHANGED",
+    "EMPTY_RESPONSE",
+    "ENGINE_UNAVAILABLE",
+    "ENGINE_INCOMPATIBLE",
+    "ENGINE_AUTH",
+  ].includes(code)) return null;
+  if (!isProviderFailureCandidate(error)) return null;
+  return classifyProviderError(error, {
+    provider,
+    sessionReference,
+    savedWorkChanged: sessionReference ? "possibly" : "no",
+  }).details;
 }

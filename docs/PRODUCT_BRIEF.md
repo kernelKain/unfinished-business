@@ -1,8 +1,8 @@
 # Product brief — Unfinished Business
 
-**Status:** Approved product; Phase 9 release candidate verified locally.
+**Status:** Approved product; Upgrade Phase 1 verified locally.
 **Owner:** Product/interface.
-**Last verified:** 2026-10-31.
+**Last verified:** 2026-11-01.
 
 ## One sentence
 
@@ -27,7 +27,7 @@ The product is for a builder with an idea but no finished submission: a student 
 - Remote access to a visitor's local repository.
 - A public hosted sandbox with arbitrary execution.
 - A second coding harness, inference client, or command executor.
-- Paid-model fallback, fabricated usage metrics, testimonials, awards, or guaranteed outcomes.
+- Silent paid-model fallback, fabricated usage metrics, testimonials, awards, or guaranteed outcomes.
 - Automatic deployment, publication, or submission.
 
 ## Release truth (Phase 9)
@@ -67,7 +67,7 @@ Approved language:
 
 > OpenCode supplies the agent loop, model access, native tools, permissions, and sessions. Unfinished Business adds the four-stage workshop, exact-version approvals, dependency invalidation, an evidence ledger, and a first-run connection/discovery panel.
 
-Models are discovered from the OpenCode catalog rather than assumed. The free DeepSeek route, `opencode/deepseek-v4.1-flash-free`, was the intended development route and was listed by the tested server, but it is time-limited and must be verified on the user's own account. No paid fallback is configured by this repository.
+Models are discovered from the OpenCode catalog rather than assumed. New projects may use any model OpenCode reports as available, with an optional free/local-only policy and an optional spending limit. A paid or unknown-price remote route requires an explicit confirmation before its first request; the app never silently substitutes a model or treats a model reply as approval. The free `opencode/deepseek-v4.1-flash-free` route remains one reported option when available, but availability is time-limited and account-dependent.
 
 Provider API keys stay in OpenCode. The first-run panel accepts only the OpenCode server Basic-auth password, holds it in memory for local work, and never exposes a provider-key field.
 

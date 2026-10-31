@@ -10,7 +10,7 @@ import {
   SUPPORTED_OPENCODE_MAJOR,
   TESTED_OPENCODE_VERSION,
 } from "../../shared/opencode.ts";
-import type { ModelRef } from "../workflow/model.ts";
+import type { ModelAccessMode, ModelRef } from "../../shared/workflow.ts";
 import {
   checkVersionCompatibility,
   classifyConnectionError,
@@ -74,6 +74,7 @@ export interface CheckOptions {
   username?: string;
   password?: string;
   selected?: ModelRef | null;
+  accessMode?: ModelAccessMode;
 }
 
 export interface ModelResolution {
@@ -170,7 +171,7 @@ export class ConnectionService {
     };
   }
 
-  async refresh(options: { selected?: ModelRef | null } = {}): Promise<ConnectionStatus> {
+  async refresh(options: { selected?: ModelRef | null; accessMode?: ModelAccessMode } = {}): Promise<ConnectionStatus> {
     return this.check(options);
   }
 
@@ -328,7 +329,7 @@ export class ConnectionService {
       config: configResult.status,
     }));
 
-    const diagnostics = this.diagnosticsFor(discovery, options.selected ?? null);
+    const diagnostics = this.diagnosticsFor(discovery, options.selected ?? null, options.accessMode ?? "ALL_ACCESSIBLE");
     const state = diagnostics.some((diagnostic) => diagnostic.severity === "error")
       ? "degraded"
       : diagnosticWarnings(diagnostics) || discovery.server.warning
@@ -365,14 +366,18 @@ export class ConnectionService {
     return this.cached;
   }
 
-  async discovery(options: { selected?: ModelRef | null } = {}): Promise<OpenCodeDiscovery> {
+  async discovery(options: { selected?: ModelRef | null; accessMode?: ModelAccessMode } = {}): Promise<OpenCodeDiscovery> {
     if (this.discoveryCache && this.discoveryCache.expiresAt > Date.now()) return this.discoveryCache.discovery;
-    const status = await this.check({ selected: options.selected });
+    const status = await this.check({ selected: options.selected, accessMode: options.accessMode });
     if (!status.discovery) throw new Error("OpenCode discovery is unavailable until the connection succeeds.");
     return status.discovery;
   }
 
-  async resolveModel(selection: ModelRef | null, discovery?: OpenCodeDiscovery): Promise<ModelResolution | null> {
+  async resolveModel(
+    selection: ModelRef | null,
+    discovery?: OpenCodeDiscovery,
+    accessMode: ModelAccessMode = "ALL_ACCESSIBLE",
+  ): Promise<ModelResolution | null> {
     const current = discovery ?? await this.discovery({ selected: selection });
     if (selection) {
       const match = current.models.find((model) =>
@@ -381,7 +386,7 @@ export class ConnectionService {
         && model.availability === "available",
       );
       if (match) {
-        assertFreeOrLocal(match);
+        assertModelAllowed(match, accessMode);
         if (selection.variant && !match.variants.includes(selection.variant)) {
           throw new Error(`Variant "${selection.variant}" is not reported for ${match.key}.`);
         }
@@ -404,14 +409,18 @@ export class ConnectionService {
     return legacy ? { model: legacy, source: "legacy" } : null;
   }
 
-  validateSelection(discovery: OpenCodeDiscovery, model: ModelRef): DiscoveredModel {
+  validateSelection(
+    discovery: OpenCodeDiscovery,
+    model: ModelRef,
+    accessMode: ModelAccessMode = "ALL_ACCESSIBLE",
+  ): DiscoveredModel {
     const match = discovery.models.find((candidate) =>
       candidate.providerID === model.providerID
       && candidate.id === model.id
       && candidate.availability === "available",
     );
     if (!match) throw new Error(`${model.providerID}/${model.id} is not an available model reported by OpenCode.`);
-    assertFreeOrLocal(match);
+    assertModelAllowed(match, accessMode);
     if (model.variant && !match.variants.includes(model.variant)) {
       throw new Error(`Variant "${model.variant}" is not reported for ${match.key}. Reported variants: ${match.variants.join(", ") || "none"}.`);
     }
@@ -452,7 +461,7 @@ export class ConnectionService {
     return "Start OpenCode with `opencode serve --hostname 127.0.0.1 --port 4096`, confirm the URL and port, then retry.";
   }
 
-  private diagnosticsFor(discovery: OpenCodeDiscovery, selected: ModelRef | null) {
+  private diagnosticsFor(discovery: OpenCodeDiscovery, selected: ModelRef | null, accessMode: ModelAccessMode) {
     const diagnostics: ConnectionStatus["diagnostics"] = [];
     if (discovery.server.warning) {
       diagnostics.push({
@@ -509,13 +518,13 @@ export class ConnectionService {
           message: `${match.name} is present but unavailable (${match.status}).`,
           repair: "Enable the model or provider inside OpenCode, or choose another model.",
         });
-      } else if (!isFreeOrLocal(match)) {
+      } else if (!modelAllowed(match, accessMode)) {
         diagnostics.push({
-          code: "PAID_MODEL_BLOCKED",
+          code: "MODEL_ACCESS_POLICY_BLOCKED",
           severity: "error",
-          title: "Selected model is not free",
-          message: `${match.name} reports paid or unknown remote pricing. This release has no paid inference fallback.`,
-          repair: "Choose a free model or a local model. No paid call will be made.",
+          title: "Selected model is blocked by the access preference",
+          message: `${match.name} reports paid or unknown remote pricing while this project is set to Free and local only.`,
+          repair: "Choose a free/local model, or deliberately change Model access to All accessible models. The app will not substitute a model.",
         });
       } else if (selected.variant && !match.variants.includes(selected.variant)) {
         diagnostics.push({
@@ -566,14 +575,13 @@ function isFreeOrLocal(model: DiscoveredModel): boolean {
   return model.pricing === "free" || model.local === true;
 }
 
-/**
- * This release has no paid inference fallback. Local models are allowed because
- * they do not create a provider charge. A paid or unknown remote model can be
- * discovered and inspected but cannot be selected or used for a run.
- */
-function assertFreeOrLocal(model: DiscoveredModel): void {
-  if (isFreeOrLocal(model)) return;
-  throw new Error("Paid or unpriced remote models are not enabled for this release. Choose a free model or a local model.");
+function modelAllowed(model: DiscoveredModel, accessMode: ModelAccessMode): boolean {
+  return accessMode === "ALL_ACCESSIBLE" || isFreeOrLocal(model);
+}
+
+function assertModelAllowed(model: DiscoveredModel, accessMode: ModelAccessMode): void {
+  if (modelAllowed(model, accessMode)) return;
+  throw new Error("This project is set to Free and local only. Choose a free/local model or deliberately change the model access preference.");
 }
 
 export function safeErrorMessage(error: unknown): string {

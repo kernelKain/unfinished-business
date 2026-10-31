@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowRight, Eye, Hammer, PlugZap, ScrollText, Settings2, Sparkles } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import type { ConnectionStatus } from "../../shared/opencode.ts";
+import type { ProviderErrorDetails } from "../../shared/workflow.ts";
 import { modeDescriptor } from "../../shared/modes.ts";
 import {
   ApiError,
@@ -20,6 +21,7 @@ import {
   type WorkshopProject,
 } from "../api.ts";
 import { Brand } from "../components/Brand.tsx";
+import { ProviderErrorCard } from "../components/ProviderErrorCard.tsx";
 import { RunInspector } from "../components/RunInspector.tsx";
 import { SectionCard, EmptyState } from "../components/SectionCard.tsx";
 import { SpiritCharacter, type SpiritState } from "../components/SpiritCharacter.tsx";
@@ -38,6 +40,8 @@ export function WorkshopPage() {
   const [busy, setBusy] = useState(false);
   const [slow, setSlow] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [providerError, setProviderError] = useState<ProviderErrorDetails | null>(null);
+  const [dismissedProviderOperationId, setDismissedProviderOperationId] = useState<string | null>(null);
   const [exportNote, setExportNote] = useState<string | null>(null);
   const [setupOpen, setSetupOpen] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
@@ -58,6 +62,10 @@ export function WorkshopPage() {
     () => project?.operations.find((operation) => operation.status === "RUNNING" || operation.status === "QUEUED") ?? null,
     [project],
   );
+  const latestProviderOperation = useMemo(() => {
+    const latest = project?.operations.at(-1) ?? null;
+    return latest?.providerError ? latest : null;
+  }, [project]);
 
   useEffect(() => {
     if (!activeRun) return;
@@ -73,6 +81,7 @@ export function WorkshopPage() {
     setBusy(true);
     setSlow(false);
     setError(null);
+    setProviderError(null);
     const timer = window.setTimeout(() => setSlow(true), 8_000);
     try {
       const result = await work();
@@ -80,9 +89,13 @@ export function WorkshopPage() {
     } catch (caught) {
       const loaded = await loadProject().catch(() => null);
       if (loaded) setProject(loaded);
-      setError(caught instanceof ApiError
-        ? `${caught.message} ${caught.retryable ? "You can try a new request. The current section was not overwritten." : "Nothing was repeated."}`
-        : "The workshop lost its connection. Reload before trying again.");
+      if (caught instanceof ApiError && caught.providerError) {
+        setProviderError(caught.providerError);
+      } else {
+        setError(caught instanceof ApiError
+          ? `${caught.message} ${caught.retryable ? "You can try a new request. The current section was not overwritten." : "Nothing was repeated."}`
+          : "The workshop lost its connection. Reload before trying again.");
+      }
     } finally {
       window.clearTimeout(timer);
       setBusy(false);
@@ -120,6 +133,14 @@ export function WorkshopPage() {
     : section
       ? `${section.title} — section ${section.order} of ${project.sections.length}`
       : project.nextAction;
+  const storedProviderError = latestProviderOperation && latestProviderOperation.id !== dismissedProviderOperationId
+    ? latestProviderOperation.providerError
+    : null;
+  const visibleProviderError = providerError ?? storedProviderError;
+  const dismissProviderError = () => {
+    setProviderError(null);
+    if (latestProviderOperation) setDismissedProviderOperationId(latestProviderOperation.id);
+  };
 
   if (showOnboarding) {
     return (
@@ -229,7 +250,7 @@ export function WorkshopPage() {
                 <AlertTriangle size={18} aria-hidden="true" />
                 <div>
                   <strong>OpenCode is {connection.state.replaceAll("_", " ")}.</strong>
-                  <p>{connection.diagnostics[0]?.message ?? "The engine did not answer. Nothing was inferred."} No paid model will be used.</p>
+                  <p>{connection.diagnostics[0]?.message ?? "The engine did not answer. Nothing was inferred."} The app will not substitute another model.</p>
                   <button className="action secondary" type="button" onClick={() => setSetupOpen(true)}>Open setup</button>
                 </div>
               </div>
@@ -270,6 +291,16 @@ export function WorkshopPage() {
               </div>
             ) : null}
             {slow ? <p className="banner" role="status">This is taking longer than usual. The saved section is unchanged until a response arrives.</p> : null}
+            {visibleProviderError ? (
+              <ProviderErrorCard
+                error={visibleProviderError}
+                onChangeModel={() => {
+                  dismissProviderError();
+                  setSetupOpen(true);
+                }}
+                onDismiss={dismissProviderError}
+              />
+            ) : null}
             {error ? <p className="banner bad" role="alert">{error}</p> : null}
 
             {hostedDemo ? (
@@ -408,7 +439,7 @@ function connectionLabel(state: ConnectionStatus["state"] | undefined): string {
 }
 
 function modelFacts(model: NonNullable<ReturnType<typeof findSelectedModel>>): string {
-  return `${model.pricing === "free" ? "free" : model.pricing === "paid" ? "paid" : "price unknown"} · ${model.tools ? "tools" : "no tools"} · ${model.limits.context ? `${Math.round(model.limits.context / 1000)}k context` : "context unknown"}${model.local ? " · local" : ""}`;
+  return `${model.pricing === "free" ? "free" : model.pricing === "paid" ? "paid" : "price unknown"} · ${model.tools ? "tools" : "no tools"} · ${model.limits.context ? `${Math.round(model.limits.context / 1000)}k context` : "context unknown"}${model.local === true ? " · local" : model.local === false ? " · remote" : " · locality unknown"}`;
 }
 
 function OraclePanel(props: {

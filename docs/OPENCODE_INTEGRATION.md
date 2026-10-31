@@ -2,7 +2,7 @@
 
 **Status:** Implemented and locally verified.
 **Owner:** Engineering/integration.
-**Last verified:** 2026-10-31.
+**Last verified:** 2026-11-01.
 
 This document describes the supported OpenCode surface, not every endpoint OpenCode exposes. OpenCode remains the owner of inference, the agent loop, tools, permissions, and native sessions.
 
@@ -93,14 +93,17 @@ Normalized facts:
 
 ### Model selection policy
 
-Free DeepSeek (`opencode/deepseek-v4.1-flash-free`) is the intended route. The catalog is time-limited and account-dependent.
+The model comes from OpenCode's discovered catalog. There is no fixed model and no universal reasoning scale.
 
 - A selected model must be reported as available.
 - A selected variant must be one the model reports.
-- A paid or unpriced remote model is discovered and inspectable but cannot be selected or used for a run. This release has no paid fallback.
-- A local model is allowed because it creates no provider charge.
+- New projects default to **All accessible models** and allow any model OpenCode reports as available, including paid and unknown-price remote models.
+- A project may deliberately switch to **Free and local only**; paid and unknown-price remote models are then blocked at selection and again before a run.
+- A paid or unknown-price remote model requires an explicit first-use confirmation. The confirmation timestamp is stored in project state and is required before the first request as well as before selection.
+- A local model is allowed in either mode because it does not create an OpenCode provider charge in the normal local-runtime configuration.
+- The app never invents, substitutes, or auto-fallbacks to a different model.
 - If a selected model disappears, a Maker run is blocked until a currently reported model is selected.
-- A migrated v1 project preserves the legacy model identity only when the catalog still reports that free model.
+- A migrated v1/v2/v3 project keeps its previous free/local policy and selected identity where present.
 
 ## Application roles
 
@@ -139,10 +142,20 @@ Pending requests are read from OpenCode and filtered to project-owned sessions. 
 | Maker timeout | 180s | `ABANDONED`; reconcile before another run. A late result is not silently applied. |
 | Node check timeout | 30s | Failure is recorded as evidence; no passing claim. |
 | Session token budget | 200k | Exceeding it is a non-retryable budget failure with the native session retained. |
-| Session cost budget | $0 | Any reported non-zero cost fails; no paid fallback. |
-| Provider rate/quota | — | `PROVIDER_LIMITED`; no automatic retry. |
+| Session cost budget | unlimited | Optional deployment and per-project USD limits. The stricter limit wins. `0`, `disabled`, or `unlimited` disables the deployment limit. Cost is checked against values OpenCode reports for the session. |
+| Provider rate/quota | — | Structured `PROVIDER_RATE_LIMIT`/`PROVIDER_QUOTA`; no automatic retry. |
 
 A per-session tool-call budget is not enforced because OpenCode's stats API is not a reliable per-session counter. This limitation is exposed at `/api/runtime` and in the UI.
+
+### Provider failures
+
+Provider failures are normalized by `src/server/opencode/provider-errors.ts` into one of:
+
+`PROVIDER_DATA_POLICY`, `PROVIDER_AUTH`, `PROVIDER_RATE_LIMIT`, `PROVIDER_QUOTA`, `MODEL_UNAVAILABLE`, `MODEL_CONTEXT_LIMIT`, `PROVIDER_TEMPORARY`, or `UNKNOWN_PROVIDER_FAILURE`.
+
+Each error records a human explanation, whether saved work changed, a recommended repair, a retry/change-model action, retryability, and a technical block containing the provider, status code, provider code, project-owned session reference, a `provider-…` diagnostic reference, and a redacted safe detail. Authorization headers, API keys, passwords, cookies, and local paths are removed before the value leaves the server.
+
+The **Workspace privacy** preference (`PROVIDER_DEFAULT` or `NO_TRAINING_REQUIRED`) is stored with the project and shown beside the selected model. OpenCode does not expose every provider's training/retention contract, so this app cannot attest provider terms. A provider rejection that mentions training, privacy, data policy, or a data-use preference is classified as `PROVIDER_DATA_POLICY` with a `review-privacy` repair action instead of a generic failure.
 
 ## Credentials ownership
 

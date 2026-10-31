@@ -43,7 +43,7 @@ export const runtimeConfigSchema = z.object({
     makerTimeoutMs: z.number().int().positive(),
     nodeCheckTimeoutMs: z.number().int().positive(),
     maxSessionTokens: z.number().int().positive(),
-    maxSessionCostUsd: z.number().nonnegative(),
+    maxSessionCostUsd: z.number().positive().nullable(),
     toolCallBudget: z.null(),
     toolCallBudgetLimitation: z.string(),
   }),

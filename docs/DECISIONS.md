@@ -1,8 +1,8 @@
 # Decision ledger
 
-**Scope:** Product, interface, demo, hardening, and Phase 9 release decisions.
+**Scope:** Product, interface, demo, hardening, release, and upgrade decisions.
 **Owner:** Engineering.
-**Last verified:** 2026-10-31.
+**Last verified:** 2026-11-01.
 
 | ID | Decision | Alternatives considered | Rationale | Consequence |
 |---|---|---|---|---|
@@ -53,7 +53,7 @@
 | D8-01 | Use one canonical `UB_DEPLOYMENT_MODE` (`local`, `hosted-demo`, `private-hosted`) | Keep parallel `UB_MODE` values | Two mode dialects caused contradictory docs and startup behavior | Legacy alias accepted; `hosted-private` and `private-hosted` map to the same mode |
 | D8-02 | Make hosted-demo public and read-only, not password-protected | Reuse the private Basic Auth path for the demo | The demo contains no user data, secret, engine, or mutation; requiring credentials would make the judge path worse | No token, no OpenCode, every non-GET `/api/*` → `DEMO_READ_ONLY` |
 | D8-03 | Require session token on protected API reads as well as writes | Token only on mutations | State, connection, discovery, usage, and exports can contain project/native metadata | Browser client obtains the token once; manual API checks need the header |
-| D8-04 | Reject paid or unpriced remote models at selection | Accept any discovered model and rely on cost afterward | The release promises no paid fallback | Free/local models only; a paid model is discoverable but not selectable |
+| D8-04 | Reject paid or unpriced remote models at selection | Accept any discovered model and rely on cost afterward | The release promises no paid fallback | Superseded for new projects by U1-01; migrated projects retain this as the default policy |
 | D8-05 | Keep async Maker runs with explicit UNKNOWN/WAITING_PERMISSION states | Revert to a synchronous blocking request | Long native work must not hold the HTTP request; restart/reconnect must be honest | `202` accepted; polling/SSE, cancel/reconcile; no automatic retry |
 | D8-06 | Refuse to mark cancellation when native interruption fails | Mark CANCELLED anyway | Native effects may continue | Explicit `CANCEL_UNAVAILABLE`; reconcile instead |
 | D8-07 | Use a lock, fsync, backups, quarantine, and state v2 | Single overwrite or reset-on-corrupt | Approvals and evidence must survive crashes | Recovery is visible; both-corrupt state refuses reset |
@@ -79,8 +79,20 @@
 | U0-01 | Introduce schema v3 as an additive persisted contract | Mutate v2 in place; defer schema work until features ship | Later phases need stable fields without risking existing approvals/evidence | Explicit v1/v2 readers and one canonical v3 writer |
 | U0-02 | Make migration deterministic and idempotent with a fixed missing-time sentinel | Fill missing legacy timestamps with migration time | Wall-clock defaults make repeat migration produce different state | `1970-01-01T00:00:00.000Z` marks an unavailable legacy timestamp honestly |
 | U0-03 | Replace persisted `UNKNOWN` with `ABANDONED` and reserve `COMPLETED_UNAPPLIED` for late results | Keep `UNKNOWN`; treat any late success as applied | Unconfirmed outcome and observed-but-unapplied output are materially different | Existing unresolved operations keep native references and still block automatic replay |
-| U0-04 | Store model-access and budget preferences without claiming new enforcement | Wire preferences directly into selection/execution in Phase 0 | This phase prepares contracts and must not change product behavior materially | Existing free/local and runtime budget controls remain the only enforcement |
+| U0-04 | Store model-access and budget preferences without claiming new enforcement | Wire preferences directly into selection/execution in Phase 0 | This phase prepares contracts and must not change product behavior materially | Phase 0 did not enforce them; U1-01..U1-04 now wire access policy and optional limits into selection/execution |
 | U0-05 | Keep provider/timing fixtures synthetic, declarative, and test-only | Capture provider responses or private model output | Future tests need repeatability without secrets, network, quota, or private output | Later phases can import one catalog for policy, timeout, permission, and reconciliation tests |
+
+## Upgrade Phase 1 — model access and provider recovery
+
+| ID | Decision | Alternatives considered | Rationale | Consequence |
+|---|---|---|---|---|
+| U1-01 | Default new projects to `ALL_ACCESSIBLE`; keep `FREE_OR_LOCAL_ONLY` as an explicit project policy | Keep the global free-only restriction; allow all with no policy control | The requested product behavior is to use whatever the connected account can access, while preserving an intentional safe mode | Any reported available model can be selected; free/local mode blocks paid/unknown remote models at selection and run time |
+| U1-02 | Require an explicit first paid/unknown-price confirmation and persist its timestamp | Rely on the model list label; confirm on every request | A radio click or model label is not informed consent; repeating the prompt is noisy | `paidOrUnknownAcceptedAt` gates selection and the first request; the app never silently uses a paid route |
+| U1-03 | Make spending limits optional and enforce the stricter of deployment/project values | Keep a hardcoded `$0`; rely only on the provider dashboard | A global zero limit blocks legitimate paid use; unlimited with no ceiling is unsafe | `UB_MAX_SESSION_COST_USD` and project `maxCostUsd` are optional; cost is checked against OpenCode's reported session value |
+| U1-04 | Treat unknown price as confirmation-required, not as free | Assume zero cost; hide unpriced models | Missing price data is not evidence of zero cost | Unknown-price remote models require confirmation and a warning that cost may be reported only after a request |
+| U1-05 | Classify provider failures into fixed safe categories with a redacted technical block | Pass provider messages through; concatenate generic error text | Users need actionable repairs without exposing secrets or private output | Eight categories, saved-work status, diagnostic reference, and a dedicated card; raw authorization/API-key/password/path data is redacted |
+| U1-06 | Keep workspace privacy as intent, not an unverifiable guarantee | Claim the app enforces provider training terms | OpenCode does not expose every provider contract | UI copy states the limitation; provider rejections that mention training/data policy map to `PROVIDER_DATA_POLICY` and `review-privacy` |
+| U1-07 | Migrate v3 with `requireFreeOrLocal` mapped to the new mode and zero cost to unlimited | Reset all preferences to the new default | Existing projects expected free/local behavior and a disabled/zero limit | v3 projects preserve their prior effective policy; new projects get the new default |
 
 ## Open follow-ups (post-release)
 

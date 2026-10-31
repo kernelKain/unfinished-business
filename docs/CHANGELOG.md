@@ -4,6 +4,32 @@
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
+## 2026-11-01 — Upgrade Phase 1 model access and provider recovery
+
+### Added
+
+- Model access preferences: **All accessible models** (new-project default) and **Free and local only**.
+- Optional per-project USD spending limit, with `unlimited`/`disabled` and a deployment-wide `UB_MAX_SESSION_COST_USD` ceiling.
+- Explicit first-paid/unknown-price confirmation stored in project state and rechecked before a request.
+- Provider metadata display for provider, locality, pricing, limits, variants, and route privacy warnings.
+- Structured provider errors with eight categories, saved-work status, repair action, retryability, redacted technical details, and a `provider-…` diagnostic reference.
+- Provider error card in the workshop and a compact provider-error line in the Run Inspector.
+- Schema v4 and explicit v3 → v4 migration; v1/v2 also migrate to v4.
+
+### Changed
+
+- Removed the global free/local-only selection restriction; the policy is now per project.
+- Replaced the hardcoded `$0` session cost failure with an optional limit. The stricter deployment/project limit wins.
+- Provider data-policy/training rejections are classified and explained instead of producing generic concatenated text.
+- Migration preserves v3 selected models, provider allowlists, privacy preference, and positive limits; zero v3 limits become unlimited.
+- Generic credential-shaped redaction now covers `password=`, `api_key=`, `access_token=`, and similar key/value forms.
+
+### Not in this entry
+
+- No automatic retry, model substitution, provider-key entry, or payment authorization.
+- No claim that the app can verify a provider's training/retention contract.
+- No live provider inference, deployment, publication, or submission.
+
 ## 2026-11-01 — Upgrade Phase 0 product foundation
 
 ### Added

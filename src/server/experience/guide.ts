@@ -33,6 +33,11 @@ export interface SessionContext {
   workspace: string;
   model: ModelRef;
   agent: string | null;
+  budget?: {
+    maxCostUsd: number | null;
+    maxTotalTokens: number | null;
+    maxRunDurationMs: number | null;
+  };
   onSession?: (sessionId: string) => void;
 }
 
@@ -47,7 +52,7 @@ export interface GuideBudgets {
   guideTimeoutMs: number;
   makerTimeoutMs: number;
   maxSessionTokens: number;
-  maxSessionCostUsd: number;
+  maxSessionCostUsd: number | null;
 }
 
 export type GuideOptions = NativeClientOptions & { budgets?: Partial<GuideBudgets> };
@@ -79,7 +84,7 @@ const defaultBudgets: GuideBudgets = {
   guideTimeoutMs: 90_000,
   makerTimeoutMs: 180_000,
   maxSessionTokens: 200_000,
-  maxSessionCostUsd: 0,
+  maxSessionCostUsd: null,
 };
 
 const readOnlyPermissions = [
@@ -112,6 +117,40 @@ function tokenTotal(tokens: SpokenResult["tokens"]): number {
     + Math.max(0, tokens.reasoning)
     + Math.max(0, tokens.cache?.read ?? 0)
     + Math.max(0, tokens.cache?.write ?? 0);
+}
+
+/**
+ * Combines the deployment-wide budget with the project's optional overrides.
+ * A null/absent value means unlimited/disabled. The stricter limit wins.
+ */
+export function sessionBudgetViolation(
+  info: { cost: number; tokens?: SpokenResult["tokens"] },
+  budgets: Pick<GuideBudgets, "maxSessionCostUsd" | "maxSessionTokens">,
+  requested?: SessionContext["budget"],
+): string | null {
+  const costLimits = [budgets.maxSessionCostUsd, requested?.maxCostUsd]
+    .filter((value): value is number => typeof value === "number");
+  const costLimit = costLimits.length ? Math.min(...costLimits) : null;
+  if (costLimit !== null && info.cost > costLimit) {
+    return `Native session reported $${info.cost.toFixed(4)} cost, above the configured $${costLimit.toFixed(4)} session spending limit.`;
+  }
+  const total = tokenTotal(info.tokens);
+  const tokenLimit = requested?.maxTotalTokens
+    ? Math.min(budgets.maxSessionTokens, requested.maxTotalTokens)
+    : budgets.maxSessionTokens;
+  if (total > tokenLimit) {
+    return `Native session used ${total} tokens, above the configured ${tokenLimit} token budget.`;
+  }
+  return null;
+}
+
+export function effectiveTimeout(
+  kind: "guide" | "maker",
+  budgets: Pick<GuideBudgets, "guideTimeoutMs" | "makerTimeoutMs">,
+  requested?: SessionContext["budget"],
+): number {
+  const configured = kind === "guide" ? budgets.guideTimeoutMs : budgets.makerTimeoutMs;
+  return requested?.maxRunDurationMs ? Math.min(configured, requested.maxRunDurationMs) : configured;
 }
 
 function withSessionId(error: unknown, sessionId: string): unknown {
@@ -174,15 +213,15 @@ export class OpenCodeSpiritGuide implements SpiritGuide {
       cost: number;
       tokens?: SpokenResult["tokens"];
     },
+    requested?: SessionContext["budget"],
   ): void {
     assertSelectedModel(model, info.model);
-    if (info.cost > this.budgets.maxSessionCostUsd) {
-      throw new NativeBudgetError(`Native session reported cost above the configured budget (${this.budgets.maxSessionCostUsd}). No paid fallback is allowed.`);
-    }
-    const total = tokenTotal(info.tokens);
-    if (total > this.budgets.maxSessionTokens) {
-      throw new NativeBudgetError(`Native session used ${total} tokens, above the configured ${this.budgets.maxSessionTokens} token budget.`);
-    }
+    const violation = sessionBudgetViolation(info, this.budgets, requested);
+    if (violation) throw new NativeBudgetError(violation);
+  }
+
+  private timeoutFor(kind: "guide" | "maker", requested?: SessionContext["budget"]): number {
+    return effectiveTimeout(kind, this.budgets, requested);
   }
 
   private async openSession(
@@ -219,12 +258,12 @@ export class OpenCodeSpiritGuide implements SpiritGuide {
       try {
         // One request, one possible side effect. A short reply is parsed or
         // rejected; it is never silently re-prompted.
-        const generated = await timed("Native spirit", this.budgets.guideTimeoutMs,
+        const generated = await timed("Native spirit", this.timeoutFor("guide", input.budget),
           this.client().session.generate({ sessionID: sessionId, prompt: input.prompt }));
         const text = generated.text?.trim() ?? "";
         if (!text) throw new NativeSessionError("EMPTY_RESPONSE", "Native session returned no assistant text.");
         const info = await this.client().session.get({ sessionID: sessionId });
-        this.assertBudget(input.model, info);
+        this.assertBudget(input.model, info, input.budget);
         setOpenCodeResult(span, { sessionId, cost: info.cost, model: input.model });
         return { sessionId, messageId: null, text, cost: info.cost, tokens: info.tokens };
       } catch (error) {
@@ -248,7 +287,7 @@ export class OpenCodeSpiritGuide implements SpiritGuide {
               timer = setTimeout(() => {
                 timedOut = true;
                 resolve();
-              }, this.budgets.makerTimeoutMs);
+              }, this.timeoutFor("maker", input.budget));
               timer.unref?.();
             }),
           ]);
@@ -257,7 +296,7 @@ export class OpenCodeSpiritGuide implements SpiritGuide {
         }
         const info = await this.client().session.get({ sessionID: sessionId });
         if (info.outcome === "succeeded" || info.outcome === "failed" || info.outcome === "interrupted") timedOut = false;
-        this.assertBudget(input.model, info);
+        this.assertBudget(input.model, info, input.budget);
         const diff = await traceToolOperation("maker", input.conversationId, input.model, "opencode.session.diff", async (toolSpan) => {
           const result = await this.client().session.diff({ sessionID: sessionId });
           setOpenCodeResult(toolSpan, { sessionId, model: input.model });

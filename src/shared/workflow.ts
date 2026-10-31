@@ -7,9 +7,8 @@ import { z } from "zod";
  * demo fixture. Hashing, persistence, and project creation stay in
  * `src/server/workflow/model.ts` because they use Node's crypto module.
  *
- * Schema v3 is additive. It keeps every v2 workflow record and adds foundations
- * for source provenance, Oracle intake, structured memory, candidate section
- * revisions, per-project model preferences, and richer operation outcomes.
+ * Schema v4 keeps every v3 workflow record and activates the model-access,
+ * spending-limit, and provider-failure foundations introduced in v3.
  */
 
 export const LEGACY_FIXED_MODEL_KEY = "opencode/deepseek-v4.1-flash-free";
@@ -31,6 +30,46 @@ export const operationStatusSchema = z.enum([
   "CANCELLED",
   "ABANDONED",
 ]);
+
+export const providerErrorCategorySchema = z.enum([
+  "PROVIDER_DATA_POLICY",
+  "PROVIDER_AUTH",
+  "PROVIDER_RATE_LIMIT",
+  "PROVIDER_QUOTA",
+  "MODEL_UNAVAILABLE",
+  "MODEL_CONTEXT_LIMIT",
+  "PROVIDER_TEMPORARY",
+  "UNKNOWN_PROVIDER_FAILURE",
+]);
+
+export const providerErrorActionSchema = z.enum([
+  "retry",
+  "change-model",
+  "reconnect-provider",
+  "check-quota",
+  "reduce-context",
+  "review-privacy",
+]);
+
+export const providerErrorSchema = z.object({
+  category: providerErrorCategorySchema,
+  whatHappened: z.string(),
+  savedWorkChanged: z.enum(["no", "possibly"]),
+  savedWorkMessage: z.string(),
+  repair: z.string(),
+  action: providerErrorActionSchema,
+  retryable: z.boolean(),
+  technical: z.object({
+    provider: z.string(),
+    statusCode: z.number().int().nullable(),
+    providerCode: z.string().nullable(),
+    sessionReference: z.string().nullable(),
+    diagnosticReference: z.string(),
+    safeDetail: z.string(),
+  }),
+});
+
+export type ProviderErrorDetails = z.infer<typeof providerErrorSchema>;
 
 export const modelRefSchema = z.object({
   providerID: z.string().min(1),
@@ -118,6 +157,7 @@ export const operationSchema = operationCoreSchema.extend({
   statusReason: z.string().nullable().default(null),
   lastObservedAt: z.string().nullable().default(null),
   appliedAt: z.string().nullable().default(null),
+  providerError: providerErrorSchema.nullable().default(null),
 });
 
 const legacyOperationSchema = legacyOperationCoreSchema.extend({
@@ -219,7 +259,7 @@ export const projectMemorySchema = z.object({
   risks: z.array(memoryEntrySchema).default([]),
 });
 
-export const modelPreferencesSchema = z.object({
+export const modelPreferencesV3Schema = z.object({
   access: z.object({
     requireFreeOrLocal: z.boolean().default(true),
     allowedProviders: z.array(z.string()).default([]),
@@ -233,6 +273,30 @@ export const modelPreferencesSchema = z.object({
   }),
   budget: z.object({
     maxCostUsd: z.number().nonnegative().nullable().default(null),
+    maxTotalTokens: z.number().int().positive().nullable().default(null),
+    maxRunDurationMs: z.number().int().positive().nullable().default(null),
+  }).default({ maxCostUsd: null, maxTotalTokens: null, maxRunDurationMs: null }),
+});
+
+export const modelAccessModeSchema = z.enum(["ALL_ACCESSIBLE", "FREE_OR_LOCAL_ONLY"]);
+export type ModelAccessMode = z.infer<typeof modelAccessModeSchema>;
+
+export const modelPreferencesSchema = z.object({
+  access: z.object({
+    mode: modelAccessModeSchema.default("ALL_ACCESSIBLE"),
+    allowedProviders: z.array(z.string()).default([]),
+    allowedModels: z.array(modelRefSchema).default([]),
+    dataPolicy: z.enum(["PROVIDER_DEFAULT", "NO_TRAINING_REQUIRED"]).default("PROVIDER_DEFAULT"),
+    paidOrUnknownAcceptedAt: z.string().nullable().default(null),
+  }).default({
+    mode: "ALL_ACCESSIBLE",
+    allowedProviders: [],
+    allowedModels: [],
+    dataPolicy: "PROVIDER_DEFAULT",
+    paidOrUnknownAcceptedAt: null,
+  }),
+  budget: z.object({
+    maxCostUsd: z.number().positive().nullable().default(null),
     maxTotalTokens: z.number().int().positive().nullable().default(null),
     maxRunDurationMs: z.number().int().positive().nullable().default(null),
   }).default({ maxCostUsd: null, maxTotalTokens: null, maxRunDurationMs: null }),
@@ -295,7 +359,7 @@ export const projectV2Schema = legacyProjectCoreSchema.extend({
   engine: engineSelectionSchema.optional(),
 });
 
-export const projectSchema = projectCoreSchema.extend({
+export const projectV3Schema = projectCoreSchema.extend({
   schemaVersion: z.literal(3),
   mode: projectModeSchema,
   demoWorkspace: z.boolean(),
@@ -312,8 +376,37 @@ export const projectSchema = projectCoreSchema.extend({
     updatedAt: null,
   }),
   memory: projectMemorySchema.default({ facts: [], decisions: [], constraints: [], risks: [] }),
-  modelPreferences: modelPreferencesSchema.default({
+  modelPreferences: modelPreferencesV3Schema.default({
     access: { requireFreeOrLocal: true, allowedProviders: [], allowedModels: [], dataPolicy: "PROVIDER_DEFAULT" },
+    budget: { maxCostUsd: null, maxTotalTokens: null, maxRunDurationMs: null },
+  }),
+});
+
+export const projectSchema = projectCoreSchema.extend({
+  schemaVersion: z.literal(4),
+  mode: projectModeSchema,
+  demoWorkspace: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  engine: engineSelectionSchema,
+  source: projectSourceSchema.default({ kind: "workspace", label: null, externalId: null, importedAt: null }),
+  oracleIntake: oracleIntakeSchema.default({
+    status: "NOT_STARTED",
+    summary: null,
+    questions: [],
+    constraints: [],
+    successCriteria: [],
+    updatedAt: null,
+  }),
+  memory: projectMemorySchema.default({ facts: [], decisions: [], constraints: [], risks: [] }),
+  modelPreferences: modelPreferencesSchema.default({
+    access: {
+      mode: "ALL_ACCESSIBLE",
+      allowedProviders: [],
+      allowedModels: [],
+      dataPolicy: "PROVIDER_DEFAULT",
+      paidOrUnknownAcceptedAt: null,
+    },
     budget: { maxCostUsd: null, maxTotalTokens: null, maxRunDurationMs: null },
   }),
 });

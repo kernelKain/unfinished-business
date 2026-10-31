@@ -226,6 +226,20 @@ test("loadConfig enforces mode-specific secure defaults", () => {
   assert.ok(isLoopbackHost("localhost"));
 });
 
+test("session spending limits support unlimited, disabled, and positive values", () => {
+  const base = { NODE_ENV: "development", OPENCODE_BASE_URL: "http://127.0.0.1:4096" };
+  for (const value of ["unlimited", "disabled", "0", "0.0"]) {
+    const config = loadConfig({ ...base, UB_MAX_SESSION_COST_USD: value });
+    assert.equal(config.limits.maxSessionCostUsd, null);
+    assert.equal(publicRuntimeConfig(config).budgets.maxSessionCostUsd, null);
+  }
+  const positive = loadConfig({ ...base, UB_MAX_SESSION_COST_USD: "2.75" });
+  assert.equal(positive.limits.maxSessionCostUsd, 2.75);
+  assert.equal(publicRuntimeConfig(positive).budgets.maxSessionCostUsd, 2.75);
+  assert.throws(() => loadConfig({ ...base, UB_MAX_SESSION_COST_USD: "-1" }), /positive number/i);
+  assert.throws(() => loadConfig({ ...base, UB_MAX_SESSION_COST_USD: "not-a-number" }), /positive number/i);
+});
+
 test("redacts credentials, cookies, provider keys, DSNs, identity, and local paths", () => {
   const source = [
     "Authorization: Bearer abc.def.ghi",

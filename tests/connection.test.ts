@@ -45,6 +45,15 @@ function rawClient(overrides: Partial<Record<keyof NativeClientLike, unknown>> =
             limit: { context: 4_096, output: 512 },
             capabilities: { tools: false, input: ["text"], output: ["text"] },
           },
+          {
+            id: "mystery-model",
+            providerID: "acme",
+            name: "Mystery Model",
+            status: "active" as const,
+            enabled: true,
+            limit: { context: 32_000, output: 4_000 },
+            capabilities: { tools: true, input: ["text"], output: ["text"] },
+          },
         ],
       }),
     },
@@ -196,6 +205,46 @@ test("selected local model limits produce actionable diagnostics", async () => {
   });
   assert.equal(status.state, "degraded");
   assert.ok(status.diagnostics.some((diagnostic) => diagnostic.code === "LOCAL_MODEL_LIMITS"));
+});
+
+test("access policy allows every reported model or intentionally restricts to free/local", async () => {
+  const { connection } = await service(rawClient());
+  const all = await connection.check({
+    baseUrl: "http://127.0.0.1:4096",
+    selected: { providerID: "acme", id: "paid-model", variant: null },
+    accessMode: "ALL_ACCESSIBLE",
+  });
+  assert.ok(all.discovery);
+  assert.equal(all.state, "degraded");
+  const paid = connection.validateSelection(all.discovery!, {
+    providerID: "acme",
+    id: "paid-model",
+    variant: null,
+  }, "ALL_ACCESSIBLE");
+  assert.equal(paid.pricing, "paid");
+  const unknown = connection.validateSelection(all.discovery!, {
+    providerID: "acme",
+    id: "mystery-model",
+    variant: null,
+  }, "ALL_ACCESSIBLE");
+  assert.equal(unknown.pricing, "unknown");
+
+  const freeOnly = await connection.check({
+    baseUrl: "http://127.0.0.1:4096",
+    selected: { providerID: "acme", id: "paid-model", variant: null },
+    accessMode: "FREE_OR_LOCAL_ONLY",
+  });
+  assert.ok(freeOnly.diagnostics.some((diagnostic) => diagnostic.code === "MODEL_ACCESS_POLICY_BLOCKED"));
+  assert.throws(() => connection.validateSelection(freeOnly.discovery!, {
+    providerID: "acme",
+    id: "paid-model",
+    variant: null,
+  }, "FREE_OR_LOCAL_ONLY"), /Free and local only/);
+  assert.equal(connection.validateSelection(freeOnly.discovery!, {
+    providerID: "ollama",
+    id: "gemma4:e4b",
+    variant: null,
+  }, "FREE_OR_LOCAL_ONLY").local, true);
 });
 
 test("connection recovers after the server becomes reachable", async () => {

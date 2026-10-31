@@ -5,7 +5,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { LandingPage } from "../src/web/landing/LandingPage.tsx";
 import { DemoPage } from "../src/web/demo/DemoPage.tsx";
 import { SpiritCharacter, type SpiritState } from "../src/web/components/SpiritCharacter.tsx";
+import { ProviderErrorCard } from "../src/web/components/ProviderErrorCard.tsx";
 import { RunInspector } from "../src/web/components/RunInspector.tsx";
+import { providerErrorSchema } from "../src/shared/workflow.ts";
 import { demoFixture } from "../src/shared/demo.ts";
 import {
   demoCapabilities,
@@ -166,6 +168,44 @@ test("empty Run Inspector states do not imply success", () => {
   assert.match(copy, /No check observed/);
   assert.match(copy, /Empty is the honest state/);
   assert.doesNotMatch(copy, /PASS/);
+});
+
+test("provider error cards expose safe repair and technical details", () => {
+  const error = providerErrorSchema.parse({
+    category: "PROVIDER_DATA_POLICY",
+    whatHappened: "The provider route conflicts with the workspace privacy preference.",
+    savedWorkChanged: "no",
+    savedWorkMessage: "The saved workshop content was not changed by this failed request.",
+    repair: "Choose a compliant provider route or deliberately review the workspace privacy preference.",
+    action: "review-privacy",
+    retryable: false,
+    technical: {
+      provider: "acme",
+      statusCode: 403,
+      providerCode: "PROVIDER_POLICY_REJECTED",
+      sessionReference: "ses_safe_reference",
+      diagnosticReference: "provider-fixture-reference",
+      safeDetail: "Training on request data was rejected.",
+    },
+  });
+  const html = renderToStaticMarkup(createElement(ProviderErrorCard, {
+    error,
+    onChangeModel: () => {},
+    onDismiss: () => {},
+  }));
+  const copy = text(html);
+  assert.match(copy, /Provider request needs attention/);
+  assert.match(copy, /What happened/);
+  assert.match(copy, /Saved work/);
+  assert.match(copy, /Recommended repair/);
+  assert.match(copy, /Review provider or model/);
+  assert.match(html, /role="alert"/);
+  assert.match(html, /data-category="PROVIDER_DATA_POLICY"/);
+  assert.match(html, /Technical details/);
+  assert.match(copy, /provider-fixture-reference/);
+  assert.match(copy, /ses_safe_reference/);
+  assert.match(copy, /Training on request data was rejected/);
+  assert.doesNotMatch(html, /sk-[A-Za-z0-9_-]{16,}/);
 });
 
 test("FAQ answers cover the open-source engine and the demo's limits", () => {

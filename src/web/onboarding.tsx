@@ -6,6 +6,7 @@ import {
   checkConnection,
   configureConnection,
   selectModel,
+  updateModelPreferences,
   type WorkshopProject,
 } from "./api.ts";
 
@@ -24,6 +25,20 @@ function pricingLabel(model: DiscoveredModel): string {
   if (model.pricing === "free") return "Free";
   if (model.pricing === "paid") return "Paid";
   return "Price not reported";
+}
+
+export function modelPrivacyWarning(model: DiscoveredModel): string {
+  if (model.local === true) {
+    return "Local route: prompts stay on the configured local runtime unless that runtime forwards them elsewhere.";
+  }
+  if (model.local === false) {
+    return "Remote route: prompts and relevant workspace context are sent through OpenCode to this provider; the provider's retention and training terms apply.";
+  }
+  return "Locality was not reported. Treat prompts and relevant workspace context as leaving this machine unless you have verified the provider route.";
+}
+
+export function modelAllowed(model: DiscoveredModel, mode: WorkshopProject["modelPreferences"]["access"]["mode"]): boolean {
+  return mode === "ALL_ACCESSIBLE" || model.pricing === "free" || model.local === true;
 }
 
 function statusCopy(state: ConnectionStatus["state"]): { title: string; detail: string; tone: string } {
@@ -71,9 +86,19 @@ export function Onboarding(props: {
       ?? "",
   );
   const [variant, setVariant] = useState(selected?.variant ?? "");
+  const [accessMode, setAccessMode] = useState(props.project.modelPreferences.access.mode);
+  const [dataPolicy, setDataPolicy] = useState(props.project.modelPreferences.access.dataPolicy);
+  const [limitEnabled, setLimitEnabled] = useState(props.project.modelPreferences.budget.maxCostUsd !== null);
+  const [costLimit, setCostLimit] = useState(props.project.modelPreferences.budget.maxCostUsd?.toString() ?? "");
+  const [costAccepted, setCostAccepted] = useState(Boolean(props.project.modelPreferences.access.paidOrUnknownAcceptedAt));
   const copy = statusCopy(props.connection.state);
   const discovery = props.connection.discovery;
   const chosen = discovery?.models.find((model) => model.key === chosenKey) ?? null;
+  const visibleModels = (discovery?.models ?? []).filter((model) => model.availability === "available" && modelAllowed(model, accessMode));
+  const requiresCostConfirmation = Boolean(chosen
+    && chosen.local !== true
+    && chosen.pricing !== "free"
+    && !props.project.modelPreferences.access.paidOrUnknownAcceptedAt);
 
   async function connect() {
     setBusy(true);
@@ -105,15 +130,28 @@ export function Onboarding(props: {
 
   async function finish() {
     if (!chosen) return;
+    const parsedLimit = limitEnabled ? Number(costLimit) : null;
+    if (limitEnabled && (!Number.isFinite(parsedLimit) || (parsedLimit ?? 0) <= 0)) {
+      setError("Enter a positive USD session spending limit, or choose Unlimited / disabled.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      const result = await selectModel(props.project, {
+      const preferences = await updateModelPreferences(props.project, {
+        accessMode,
+        dataPolicy,
+        maxCostUsd: parsedLimit,
+      });
+      props.onProject(preferences.project);
+      const result = await selectModel(preferences.project, {
         providerID: chosen.providerID,
         id: chosen.id,
         variant: variant || null,
-      });
+      }, costAccepted);
       props.onProject(result.project);
+      const refreshed = await checkConnection().catch(() => null);
+      if (refreshed) props.onConnection(refreshed);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "The model selection could not be saved.");
     } finally {
@@ -202,8 +240,44 @@ export function Onboarding(props: {
         <div className="wizard-card">
           <h2><Sparkles size={20} aria-hidden="true" /> 3. Choose a model</h2>
           {discovery ? <DiscoverySummary discovery={discovery} /> : null}
+          <div className="policy-grid">
+            <label>
+              Model access
+              <select value={accessMode} onChange={(event) => {
+                const mode = event.target.value as typeof accessMode;
+                setAccessMode(mode);
+                const first = (discovery?.models ?? []).find((model) => model.availability === "available" && modelAllowed(model, mode));
+                if (!first) {
+                  setChosenKey("");
+                  setVariant("");
+                } else if (!modelAllowed(chosen ?? first, mode)) {
+                  setChosenKey(first.key);
+                  setVariant("");
+                }
+              }}>
+                <option value="ALL_ACCESSIBLE">All accessible models</option>
+                <option value="FREE_OR_LOCAL_ONLY">Free and local only</option>
+              </select>
+            </label>
+            <label>
+              Workspace privacy
+              <select value={dataPolicy} onChange={(event) => setDataPolicy(event.target.value as typeof dataPolicy)}>
+                <option value="PROVIDER_DEFAULT">Provider default</option>
+                <option value="NO_TRAINING_REQUIRED">Require no training on requests</option>
+              </select>
+            </label>
+            <label className="checkbox-field">
+              <input type="checkbox" checked={limitEnabled} onChange={(event) => setLimitEnabled(event.target.checked)} />
+              Set a session spending limit
+            </label>
+            <label>
+              Limit (USD)
+              <input type="number" min="0.01" step="0.01" value={costLimit} disabled={!limitEnabled} onChange={(event) => setCostLimit(event.target.value)} placeholder="Unlimited / disabled" />
+            </label>
+          </div>
+          <p className="note">The default is All accessible models. A disabled limit means unlimited; unknown-price routes may not report enough cost data for the limit to stop a request before billing. OpenCode does not expose every provider's training terms, so the privacy preference cannot be attested by this app; provider rejections are explained in the run card.</p>
           <div className="model-list" role="radiogroup" aria-label="Available models">
-            {(discovery?.models ?? []).filter((model) => model.availability === "available").map((model) => (
+            {visibleModels.map((model) => (
               <label key={model.key} className={model.key === chosenKey ? "model-option selected" : "model-option"}>
                 <input
                   type="radio"
@@ -234,7 +308,7 @@ export function Onboarding(props: {
             <div className="model-detail">
               <p><strong>{modelLabel(chosen)}</strong></p>
               <p className="meta">
-                {pricingLabel(chosen)} · context {formatTokens(chosen.limits.context)} · input {formatTokens(chosen.limits.input)} · output {formatTokens(chosen.limits.output)}
+                Provider {chosen.providerID} · {chosen.local === true ? "local" : chosen.local === false ? "remote" : "locality not reported"} · {pricingLabel(chosen)} · context {formatTokens(chosen.limits.context)} · input {formatTokens(chosen.limits.input)} · output {formatTokens(chosen.limits.output)}
               </p>
               <label>
                 Variant
@@ -244,13 +318,20 @@ export function Onboarding(props: {
                 </select>
               </label>
               <p className="note">Only variants reported for this model are listed. There is no universal low/medium/high scale.</p>
+              <p className="note privacy-warning">{modelPrivacyWarning(chosen)}</p>
+              {requiresCostConfirmation ? (
+                <label className="confirmation-card">
+                  <input type="checkbox" checked={costAccepted} onChange={(event) => setCostAccepted(event.target.checked)} />
+                  <span>I understand this remote model is {chosen.pricing === "paid" ? "paid" : "missing price data"}, provider charges may apply, and no request will be made until I confirm.</span>
+                </label>
+              ) : null}
             </div>
           ) : (
             <p className="banner bad">No available model is reported. Connect a provider inside OpenCode, then retry discovery.</p>
           )}
           <div className="wizard-actions">
             <button className="action secondary" type="button" onClick={() => setPhase("connect")}>Back</button>
-            <button className="action" type="button" disabled={!chosen || busy} onClick={() => void finish()}>
+            <button className="action" type="button" disabled={!chosen || busy || (requiresCostConfirmation && !costAccepted)} onClick={() => void finish()}>
               {busy ? "Saving…" : "Use this model"}
             </button>
           </div>

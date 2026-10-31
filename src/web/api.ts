@@ -5,6 +5,7 @@ import type {
   SessionSummary,
   SessionUsage,
 } from "../shared/opencode.ts";
+import type { ProviderErrorDetails } from "../shared/workflow.ts";
 
 export interface EngineModel {
   providerID: string;
@@ -24,6 +25,20 @@ export interface WorkshopProject {
     source: "none" | "user" | "migrated-legacy" | "auto-discovery";
     updatedAt: string | null;
     legacyModel: string | null;
+  };
+  modelPreferences: {
+    access: {
+      mode: "ALL_ACCESSIBLE" | "FREE_OR_LOCAL_ONLY";
+      allowedProviders: string[];
+      allowedModels: EngineModel[];
+      dataPolicy: "PROVIDER_DEFAULT" | "NO_TRAINING_REQUIRED";
+      paidOrUnknownAcceptedAt: string | null;
+    };
+    budget: {
+      maxCostUsd: number | null;
+      maxTotalTokens: number | null;
+      maxRunDurationMs: number | null;
+    };
   };
   sections: Array<{
     id: string;
@@ -45,6 +60,7 @@ export interface WorkshopProject {
     agent: string | null;
     startedAt: string | null;
     finishedAt: string | null;
+    providerError: ProviderErrorDetails | null;
   }>;
   capabilities: Array<{
     id: string;
@@ -75,6 +91,8 @@ export class ApiError extends Error {
     message: string,
     readonly code: string,
     readonly retryable: boolean,
+    readonly providerError: ProviderErrorDetails | null = null,
+    readonly requestId: string | null = null,
   ) {
     super(message);
   }
@@ -118,9 +136,21 @@ async function request<T>(path: string, init?: { method?: string; body?: unknown
     headers,
     body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
   });
-  const body = await response.json() as T & { message?: string; code?: string; retryable?: boolean };
+  const body = await response.json() as T & {
+    message?: string;
+    code?: string;
+    retryable?: boolean;
+    providerError?: ProviderErrorDetails | null;
+    requestId?: string;
+  };
   if (!response.ok) {
-    throw new ApiError(body.message ?? "The workshop could not complete that action.", body.code ?? "REQUEST_FAILED", Boolean(body.retryable));
+    throw new ApiError(
+      body.message ?? "The workshop could not complete that action.",
+      body.code ?? "REQUEST_FAILED",
+      Boolean(body.retryable),
+      body.providerError ?? null,
+      body.requestId ?? null,
+    );
   }
   return body;
 }
@@ -149,7 +179,7 @@ export function loadDiscovery() {
   return request<OpenCodeDiscovery>("/api/opencode/discovery");
 }
 
-export function selectModel(project: WorkshopProject, model: EngineModel) {
+export function selectModel(project: WorkshopProject, model: EngineModel, acceptPaidOrUnknown = false) {
   return request<ActionResult>("/api/engine/selection", {
     method: "POST",
     body: {
@@ -158,6 +188,25 @@ export function selectModel(project: WorkshopProject, model: EngineModel) {
       providerID: model.providerID,
       id: model.id,
       variant: model.variant,
+      acceptPaidOrUnknown,
+    },
+  });
+}
+
+export function updateModelPreferences(
+  project: WorkshopProject,
+  input: {
+    accessMode: WorkshopProject["modelPreferences"]["access"]["mode"];
+    dataPolicy: WorkshopProject["modelPreferences"]["access"]["dataPolicy"];
+    maxCostUsd: number | null;
+  },
+) {
+  return request<ActionResult>("/api/model-preferences", {
+    method: "POST",
+    body: {
+      actionId: crypto.randomUUID(),
+      expectedRevision: project.revision,
+      ...input,
     },
   });
 }

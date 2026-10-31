@@ -66,6 +66,15 @@ export function RunInspector({
                   {operation.nativeSessionId ? `Native session ${trimSession(operation.nativeSessionId)}` : "No native session reference"}
                   {operation.model ? ` · ${operation.model.providerID}/${operation.model.id}${operation.model.variant ? `#${operation.model.variant}` : ""}` : ""}
                 </p>
+                {operation.providerError ? (
+                  <p className="run-provider-error">
+                    <strong>{operation.providerError.category.replaceAll("_", " ")}</strong>
+                    {" · "}
+                    {operation.providerError.savedWorkChanged === "no" ? "Saved work unchanged." : "Saved work may have changed."}
+                    {" "}
+                    Diagnostic {operation.providerError.technical.diagnosticReference}.
+                  </p>
+                ) : null}
               </li>
             ))}
           </ol>

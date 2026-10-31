@@ -20,6 +20,7 @@ import type {
 import {
   ApiError,
   cancelRun,
+  checkConnection,
   clearRevert,
   commitRevert,
   compactSession,
@@ -35,9 +36,10 @@ import {
   resumeSession,
   selectModel,
   stageRevert,
+  updateModelPreferences,
   type WorkshopProject,
 } from "./api.ts";
-import { Diagnostics, formatTokens, modelLabel } from "./onboarding.tsx";
+import { Diagnostics, formatTokens, modelAllowed, modelLabel, modelPrivacyWarning } from "./onboarding.tsx";
 
 export function OpenCodePanel(props: {
   connection: ConnectionStatus;
@@ -57,22 +59,32 @@ export function OpenCodePanel(props: {
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [accessMode, setAccessMode] = useState(props.project.modelPreferences.access.mode);
+  const [dataPolicy, setDataPolicy] = useState(props.project.modelPreferences.access.dataPolicy);
+  const [limitEnabled, setLimitEnabled] = useState(props.project.modelPreferences.budget.maxCostUsd !== null);
+  const [costLimit, setCostLimit] = useState(props.project.modelPreferences.budget.maxCostUsd?.toString() ?? "");
+  const [costAccepted, setCostAccepted] = useState(Boolean(props.project.modelPreferences.access.paidOrUnknownAcceptedAt));
 
   const chosen = discovery?.models.find((model) => model.key === selectedKey) ?? null;
   const grouped = useMemo(() => {
     const map = new Map<string, DiscoveredModel[]>();
-    for (const model of discovery?.models.filter((candidate) => candidate.availability === "available") ?? []) {
+    for (const model of discovery?.models.filter((candidate) => candidate.availability === "available" && modelAllowed(candidate, accessMode)) ?? []) {
       const list = map.get(model.providerID) ?? [];
       list.push(model);
       map.set(model.providerID, list);
     }
     return [...map.entries()];
-  }, [discovery]);
+  }, [discovery, accessMode]);
 
   useEffect(() => {
     setSelectedKey(selectedModel?.key ?? "");
     setVariant(props.project.engine.model?.variant ?? "");
-  }, [selectedModel?.key, props.project.engine.model?.variant]);
+    setAccessMode(props.project.modelPreferences.access.mode);
+    setDataPolicy(props.project.modelPreferences.access.dataPolicy);
+    setLimitEnabled(props.project.modelPreferences.budget.maxCostUsd !== null);
+    setCostLimit(props.project.modelPreferences.budget.maxCostUsd?.toString() ?? "");
+    setCostAccepted(Boolean(props.project.modelPreferences.access.paidOrUnknownAcceptedAt));
+  }, [selectedModel?.key, props.project.engine.model?.variant, props.project.modelPreferences]);
 
   async function refresh() {
     if (!discovery) return;
@@ -102,15 +114,28 @@ export function OpenCodePanel(props: {
 
   async function saveModel() {
     if (!chosen) return;
+    const parsedLimit = limitEnabled ? Number(costLimit) : null;
+    if (limitEnabled && (!Number.isFinite(parsedLimit) || (parsedLimit ?? 0) <= 0)) {
+      setError("Enter a positive USD session spending limit, or choose Unlimited / disabled.");
+      return;
+    }
     setBusy("model");
     setError(null);
     try {
-      const result = await selectModel(props.project, {
+      const preferences = await updateModelPreferences(props.project, {
+        accessMode,
+        dataPolicy,
+        maxCostUsd: parsedLimit,
+      });
+      props.onProject(preferences.project);
+      const result = await selectModel(preferences.project, {
         providerID: chosen.providerID,
         id: chosen.id,
         variant: variant || null,
-      });
+      }, costAccepted);
       props.onProject(result.project);
+      const refreshed = await checkConnection().catch(() => null);
+      if (refreshed) props.onConnection(refreshed);
       setNote(`Saved ${chosen.providerID}/${chosen.id}${variant ? `#${variant}` : ""}. The next run records this model.`);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "The model could not be saved.");
@@ -118,6 +143,11 @@ export function OpenCodePanel(props: {
       setBusy(null);
     }
   }
+
+  const requiresCostConfirmation = Boolean(chosen
+    && chosen.local !== true
+    && chosen.pricing !== "free"
+    && !props.project.modelPreferences.access.paidOrUnknownAcceptedAt);
 
   async function sessionAction(label: string, work: () => Promise<unknown>) {
     setBusy(label);
@@ -165,6 +195,38 @@ export function OpenCodePanel(props: {
           <h3><SparkleIcon /> Model and reasoning</h3>
           {discovery ? (
             <>
+              <div className="policy-grid">
+                <label>
+                  Model access
+                  <select value={accessMode} onChange={(event) => {
+                    const mode = event.target.value as typeof accessMode;
+                    setAccessMode(mode);
+                    if (chosen && !modelAllowed(chosen, mode)) {
+                      setSelectedKey("");
+                      setVariant("");
+                    }
+                  }}>
+                    <option value="ALL_ACCESSIBLE">All accessible models</option>
+                    <option value="FREE_OR_LOCAL_ONLY">Free and local only</option>
+                  </select>
+                </label>
+                <label>
+                  Workspace privacy
+                  <select value={dataPolicy} onChange={(event) => setDataPolicy(event.target.value as typeof dataPolicy)}>
+                    <option value="PROVIDER_DEFAULT">Provider default</option>
+                    <option value="NO_TRAINING_REQUIRED">Require no training on requests</option>
+                  </select>
+                </label>
+                <label className="checkbox-field">
+                  <input type="checkbox" checked={limitEnabled} onChange={(event) => setLimitEnabled(event.target.checked)} />
+                  Set a session spending limit
+                </label>
+                <label>
+                  Limit (USD)
+                  <input type="number" min="0.01" step="0.01" value={costLimit} disabled={!limitEnabled} onChange={(event) => setCostLimit(event.target.value)} placeholder="Unlimited / disabled" />
+                </label>
+              </div>
+              <p className="note">All accessible models is the default for new projects. The optional limit is enforced against cost OpenCode reports; unknown-price providers may report cost only after a request. OpenCode does not expose every provider's training terms, so this app cannot attest the privacy preference; provider rejections are explained in the run card.</p>
               <div className="inline-fields">
                 <label>
                   Available model
@@ -184,13 +246,20 @@ export function OpenCodePanel(props: {
                     {(chosen?.variants ?? []).map((id) => <option key={id} value={id}>{id}</option>)}
                   </select>
                 </label>
-                <button className="action" type="button" disabled={!chosen || busy !== null} onClick={() => void saveModel()}>Save model</button>
+                <button className="action" type="button" disabled={!chosen || busy !== null || (requiresCostConfirmation && !costAccepted)} onClick={() => void saveModel()}>Save model and policy</button>
               </div>
               {chosen ? (
                 <p className="meta">
-                  {chosen.pricing === "free" ? "Free" : chosen.pricing === "paid" ? "Paid" : "Price not reported"} · context {formatTokens(chosen.limits.context)} · output {formatTokens(chosen.limits.output)} ·{" "}
-                  {chosen.tools ? "tools supported" : "no tool support"} · {chosen.modalities.input.join("/")} input · {chosen.local ? "local provider" : "remote/unknown locality"}
+                  {chosen.pricing === "free" ? "Free" : chosen.pricing === "paid" ? "Paid" : "Price not reported"} · context {formatTokens(chosen.limits.context)} · input {formatTokens(chosen.limits.input)} · output {formatTokens(chosen.limits.output)} ·{" "}
+                  provider {chosen.providerID} · {chosen.tools ? "tools supported" : "no tool support"} · {chosen.modalities.input.join("/")} input · {chosen.local === true ? "local provider" : chosen.local === false ? "remote provider" : "locality not reported"}
                 </p>
+              ) : null}
+              {chosen ? <p className="note privacy-warning">{modelPrivacyWarning(chosen)}</p> : null}
+              {requiresCostConfirmation ? (
+                <label className="confirmation-card">
+                  <input type="checkbox" checked={costAccepted} onChange={(event) => setCostAccepted(event.target.checked)} />
+                  <span>I understand this remote model is {chosen?.pricing === "paid" ? "paid" : "missing price data"}, provider charges may apply, and no request will be made until I confirm.</span>
+                </label>
               ) : null}
               <p className="note">Only variants returned for the chosen model appear here. Model changes take effect on the next run; an in-flight session keeps its own model.</p>
             </>

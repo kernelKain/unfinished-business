@@ -1,9 +1,9 @@
 # Evidence index and requirements matrix
 
-**Status:** Upgrade Phase 0 complete and verified.
+**Status:** Upgrade Phase 1 complete and verified.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
-**Baseline revision:** `7d45e439bddd28bd9d9dcffa3541353c625db40a` (`chore: verify release candidate and migrate documentation`). Baseline typecheck, 111 tests, and production build passed before Phase 0 edits.
+**Baseline revision:** `c476018` (`chore(workshop): prepare phased product upgrade`). Phase 0's 118 tests and build passed before Phase 1 edits; Phase 1 ends at 139 tests.
 **Environment:** Linux, Node `22.22.1`, npm `9.2.0`, pinned OpenCode `2.0.32`, system Chromium. No provider credentials were used for Phase 9 inference.
 
 Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observed failure; **UNAVAILABLE** = prerequisite absent; **DEFERRED** = explicitly out of this release; **BLOCKED** = required prerequisite missing.
@@ -22,7 +22,11 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 | OpenCode onboarding | Discover providers/models/agents/variants/permissions without leaking secrets | VERIFIED | `tests/connection.test.ts`, `tests/onboarding.test.ts`; live app `/api/connection` discovered 9 models and no password-shaped leak | Empty live config reported 0 providers/agents/commands |
 | OpenCode onboarding | Unavailable model/provider is visible and blocks a run | VERIFIED | `tests/onboarding.test.ts`, `tests/runs.test.ts` | — |
 | OpenCode controls | Project-owned session listing/resume/fork/compact/revert/permissions/usage | VERIFIED | `tests/sessions.test.ts` | Arbitrary session enumeration is deliberately unavailable |
-| OpenCode controls | Paid/unpriced model cannot be selected or used | VERIFIED | `tests/connection.test.ts` policy + `validateSelection`; service model context | No live paid call attempted |
+| Model access | New projects allow every model OpenCode reports as available; free/local-only remains intentional | VERIFIED | `tests/model-access.test.ts`, `tests/connection.test.ts`; `/api/model-preferences`; access-mode diagnostics | No live paid call attempted |
+| Model access | Paid/unknown-price remote models require explicit first-use confirmation before selection and request | VERIFIED | `tests/model-access.test.ts`, `tests/experience.test.ts`; persisted `paidOrUnknownAcceptedAt`; runtime `MODEL_COST_CONFIRMATION_REQUIRED` | Cost guard is only as good as OpenCode's reported pricing/cost |
+| Budgets | Optional project/deployment spending limit with unlimited state and stricter-limit precedence | VERIFIED | `tests/budgets.test.ts`, `tests/model-access.test.ts`, `tests/security.test.ts`; guide budget enforcement | Unknown-price providers may report cost only after a request |
+| Provider errors | Eight safe categories, saved-work status, repair/retry action, redacted technical reference | VERIFIED | `tests/provider-errors.test.ts`, `tests/experience.test.ts`; provider error card and Run Inspector line | Category inference is heuristic; no live provider error reproduced |
+| Provider privacy | Training/data-policy rejection gets a specific explanation and review-privacy repair | VERIFIED | `tests/provider-errors.test.ts` synthetic privacy fixture; provider error integration test | App cannot attest every provider's contract |
 | Navigation | Four stages, current section, and exact-version approval gate | VERIFIED | `tests/workflow.test.ts`, `tests/experience.test.ts`, `tests/http-workflow.test.ts`; visual suite | — |
 | Navigation | Approval does not grant native tool permission; denial remains denial | VERIFIED | `tests/native-permissions.test.ts`; guide permission arrays | App is a workflow authority, not an OS sandbox |
 | Landing/theme | Landing, workshop, and demo routes are distinct and truthful | VERIFIED | `tests/web.test.ts`, `tests/visual/landing.spec.ts`; snapshots | — |
@@ -38,10 +42,10 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 | Security | Redaction in state/exports/errors/logs/Sentry hooks | VERIFIED | `tests/http-hardening.test.ts`, `tests/security.test.ts` | Sentry live delivery not verified |
 | Security | Atomic state, lock, backups, quarantine, disk failure | VERIFIED | `tests/store-hardening.test.ts`, `tests/recovery.test.ts` | Single-writer, single-project |
 | Recovery | Previous snapshot offered; corrupt bytes preserved; no silent reset | VERIFIED | `tests/recovery.test.ts`, `tests/store-hardening.test.ts` | Both-corrupt state requires operator restore |
-| Migration | v1 and both supported v2 shapes migrate deterministically and idempotently to v3 without losing workflow records or selected model | VERIFIED | `tests/migration.test.ts`, `tests/store-hardening.test.ts` | Future schema versions are refused/preserved |
-| Serialization | Schema v3 JSON round-trip preserves source, intake, memory, candidates, preferences, operations, approvals, and evidence | VERIFIED | `tests/migration.test.ts` | Preferences are stored foundations, not newly enforced behavior |
+| Migration | v1, both supported v2 shapes, and v3 migrate deterministically and idempotently to v4 without losing workflow records or selected model | VERIFIED | `tests/migration.test.ts`, `tests/store-hardening.test.ts` | Future schema versions are refused/preserved |
+| Serialization | Schema v4 JSON round-trip preserves source, intake, memory, candidates, access/budget policy, provider errors, operations, approvals, and evidence | VERIFIED | `tests/migration.test.ts`, `tests/provider-errors.test.ts` | Model cost/privacy facts remain provider-owned |
 | Accessibility | Keyboard/focus/dialog/tabs/zoom/overflow/reduced motion/contrast | VERIFIED | `tests/visual/landing.spec.ts`, `tests/visual/demo.spec.ts` (18 tests) | Automated checks do not replace a screen-reader audit |
-| Performance | Bundle/asset budgets | VERIFIED | `npm run budget`: initial JS 193.8 KiB gzip, all JS 264.1 KiB, CSS 14.2 KiB, hero 570.9 KiB, largest 86.7 KiB | Vite reports a >500 KiB minified initial chunk warning; gzip budget passes |
+| Performance | Bundle/asset budgets | VERIFIED | `npm run budget`: initial JS 194.0 KiB gzip, all JS 266.4 KiB, CSS 14.5 KiB, hero 570.9 KiB, largest 86.7 KiB | Vite reports a >500 KiB minified initial chunk warning; gzip budget passes |
 | Documentation | Canonical routes/schema/env/modes/UI terms and history pointers | VERIFIED | This documentation set; link scan | Ongoing maintenance |
 | Documentation | Runtime prompts separated from implementation prompts | VERIFIED | `src/server/prompts/loader.ts`, `tests/prompts.test.ts`, `docs/prompts/README.md` | Loader reads a fixed map |
 | Dependency audit | No high/critical production advisory | VERIFIED at high threshold | `npm audit --omit=dev --audit-level=high` exit 0 | 6 moderate `glob`/`minimatch` advisories remain in the Sentry bundler path; `npm audit` exits 1 |
@@ -57,14 +61,14 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 |---|---|
 | `npm ci` | PASS — exact lockfile install |
 | `npm run typecheck` | PASS |
-| `npm test` | PASS — 118 tests, 0 failures |
+| `npm test` | PASS — 139 tests, 0 failures |
 | `npm run build` | PASS — `dist/web` produced; one large-chunk warning |
-| `npm run budget` | PASS — all five budgets; all JS 264.1 KiB gzip |
+| `npm run budget` | PASS — all five budgets; all JS 266.4 KiB gzip |
 | `npm run test:visual` | PASS — 18 tests |
 | `npm audit --omit=dev --audit-level=high` | PASS (exit 0); 6 moderate advisories reported |
 | `npm audit` | FAIL (exit 1) — same 6 moderate advisories; no high/critical |
 | `node scripts/preflight.mjs` | PASS as `PREFLIGHT_ONLY`; not an integration proof |
-| Local smoke | PASS — health, mode descriptor, token issue, project read (workspace omitted), `/workshop` HTML |
+| Local smoke | PASS — health, mode descriptor, token issue, project read with schema v4/`ALL_ACCESSIBLE`/unlimited, `/api/runtime` unlimited, `/workshop` and `/demo` HTML |
 | Hosted-demo smoke | PASS — fixture project, `/api/session` 403, mutation `DEMO_READ_ONLY`, `/api/engine` 503/no engine, `/demo` HTML |
 | OpenCode compatibility probe | PASS — server 2.0.32, compatible major, 9 models, disposable session create/read/remove; no prompt/model call |
 | Local app + live OpenCode | PASS — `/api/connection` `connected`, 9 models; `/api/engine` 200 with no model selected; no password in response |
@@ -82,9 +86,10 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 
 ### Tests and reports
 
-- `tests/` — 118 unit/integration/component tests.
+- `tests/` — 139 unit/integration/component tests.
 - `tests/visual/` — 18 Playwright visual/accessibility tests with committed snapshots.
-- `tests/migration.test.ts` — deterministic/idempotent v1/v2 → v3 migration and serialization coverage.
+- `tests/migration.test.ts` — deterministic/idempotent v1/v2/v3 → v4 migration and serialization coverage.
+- `tests/model-access.test.ts`, `tests/budgets.test.ts`, `tests/provider-errors.test.ts` — model policy, spending-limit, and provider failure coverage.
 - `tests/phase-zero-fixtures.test.ts` — reusable provider, timing, late-result, permission, and reconciliation fixture coverage.
 - `tests/experience-hardening.test.ts` — Maker timeout/permission/budget/cancel/reconcile matrix.
 - `tests/http-hardening.test.ts`, `tests/security.test.ts`, `tests/store-hardening.test.ts` — security/recovery matrix.

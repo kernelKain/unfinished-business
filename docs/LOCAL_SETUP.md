@@ -18,10 +18,10 @@ The browser app does not receive provider credentials or the OpenCode password. 
 
 - Linux (first release target), Node **22.14+**, npm.
 - A supported OpenCode 2.x server. The repository pins `@opencode/cli-linux-x64-baseline@2.0.32`.
-- A free-model route that answers on your OpenCode account. The intended route is `opencode/deepseek-v4.1-flash-free`; availability is time-limited and not guaranteed.
+- At least one model route that answers on your OpenCode account, or a local model. The free `opencode/deepseek-v4.1-flash-free` route is still available when the provider reports it, but availability is time-limited and not guaranteed.
 - A writable `UB_DATA_DIR` whose demo/spirit child directories stay inside that root. Do not point it at `/`, your home, the repository root, or a broad system directory.
 
-No paid inference fallback is configured.
+New projects allow any model OpenCode reports as available. A paid or unknown-price remote model requires an explicit confirmation, and the optional spending limit is enforced only against cost OpenCode reports. There is no silent model substitution or automatic paid fallback.
 
 ## 1. Install
 
@@ -55,7 +55,7 @@ UB_DATA_DIR=.unfinished-business
 - `UB_DATA_DIR` stores project metadata plus the isolated demo and spirit workspaces. It is gitignored.
 - Do not put provider API keys in `.env`. Provider accounts belong inside OpenCode.
 
-The security and budget variables in `.env.example` have safe defaults. Review them before changing timeouts, request limits, retention, or redaction.
+The security and budget variables in `.env.example` have safe defaults. `UB_MAX_SESSION_COST_USD` defaults to `unlimited`; set a positive USD value to enforce a deployment-wide limit, or use `0`/`disabled` to disable it. A per-project limit can be stricter. Review timeouts, request limits, retention, and redaction before changing them.
 
 ## 3. Start OpenCode (terminal 1)
 
@@ -131,9 +131,11 @@ If OpenCode is reachable but no model is selected, `/workshop` opens the first-r
 1. Start OpenCode and note the server password.
 2. Enter the URL (`http://127.0.0.1:4096`) and password in the wizard. The password is held in memory; it is not written to project JSON, browser storage, logs, or Sentry.
 3. Provider accounts are connected inside OpenCode with `/connect`; the app never asks for provider API keys.
-4. The wizard lists only models OpenCode reports as available, including free/paid/unknown pricing, limits, modalities, tools, and reported variants.
-5. Choose a free or local model and, only if reported, a variant. Paid/unpriced remote models cannot be selected.
-6. If the catalog later changes, the app blocks a Maker run until a currently reported model is selected.
+4. The wizard lists only models OpenCode reports as available, including provider, local/remote locality, free/paid/unknown pricing, limits, modalities, tools, and reported variants.
+5. Choose a model and, only if reported, a variant. The default access policy is **All accessible models**. Choose **Free and local only** to intentionally reject paid/unknown-price remote models.
+6. For a paid or unknown-price remote model, confirm that provider charges may apply before the first request. The confirmation is stored in the project; the app never treats a model reply as confirmation.
+7. Set an optional positive USD session spending limit, or leave it unlimited/disabled. The limit is checked against cost OpenCode reports after a session; unknown-price providers may report cost only after a request.
+8. If the catalog later changes, the app blocks a Maker run until a currently reported model is selected. It never substitutes one automatically.
 
 ## 6. Build and serve one process
 
@@ -178,11 +180,15 @@ Connect a provider inside OpenCode with `/connect`, choose a model with `/models
 
 ### The selected model disappeared
 
-The app blocks a Maker run until a currently reported model is selected. Reopen the OpenCode panel, choose an available free/local model, and save it. An in-flight run keeps its own recorded model.
+The app blocks a Maker run until a currently reported model is selected. Reopen the OpenCode panel, choose an available model that satisfies the project's access policy, and save it. An in-flight run keeps its own recorded model.
 
 ### The free model is unavailable
 
-The route is time-limited and account-dependent. The app will not silently switch to a paid model. Check the OpenCode server output and your model access, then retry.
+The route is time-limited and account-dependent. Choose another model OpenCode reports, or switch the project to **All accessible models**. The app will not silently substitute a model. If you choose a paid or unknown-price route, review and confirm the cost warning first.
+
+### A provider request failed
+
+Use the provider error card: it states what happened, whether saved work changed, and the recommended repair. Reconnect a provider inside OpenCode for authentication errors, check quota/billing for quota errors, or choose another reported model. Technical details include a safe diagnostic reference; secret-shaped values and local paths are redacted. The same operation remains visible in the Run Inspector after the card is dismissed.
 
 ### `npm run dev` exits immediately
 

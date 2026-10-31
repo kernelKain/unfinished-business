@@ -241,9 +241,8 @@ export async function probeNativeEngine(options: NativeClientOptions): Promise<N
       client.model.list(),
     ]);
     const versionCompatible = new RegExp(`^${REQUIRED_OPENCODE_MAJOR}\\.`).test(server.version);
-    const modelAvailable = models.data.some((model) =>
-      `${model.providerID}/${model.id}` === FREE_DEEPSEEK_MODEL,
-    );
+    const reportedModel = models.data.find((model) => model.enabled !== false) ?? null;
+    const modelAvailable = reportedModel !== null;
 
     return nativeEngineStatusSchema.parse({
       available: true,
@@ -251,12 +250,12 @@ export async function probeNativeEngine(options: NativeClientOptions): Promise<N
       versionCompatible,
       authenticated: true,
       mode,
-      model: FREE_DEEPSEEK_MODEL,
+      model: reportedModel ? `${reportedModel.providerID}/${reportedModel.id}` : null,
       modelAvailable,
       limitation: versionCompatible
         ? modelAvailable
           ? null
-          : "The required free DeepSeek model is not in the native catalog."
+          : "OpenCode reported no available model in the native catalog."
         : `OpenCode ${server.version} is not compatible with this build; version ${REQUIRED_OPENCODE_MAJOR}.x is required.`,
     });
   } catch (error) {
@@ -269,7 +268,7 @@ export async function probeNativeEngine(options: NativeClientOptions): Promise<N
       versionCompatible: !version,
       authenticated: !auth,
       mode,
-      model: FREE_DEEPSEEK_MODEL,
+      model: null,
       modelAvailable: false,
       limitation: error instanceof NetworkPolicyError
         ? sanitized

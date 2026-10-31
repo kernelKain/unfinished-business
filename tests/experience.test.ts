@@ -30,6 +30,17 @@ const model: DiscoveredModel = {
   cost: [{ tierSize: null, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }],
 };
 
+const paidModel: DiscoveredModel = {
+  ...model,
+  key: "acme/paid-model",
+  providerID: "acme",
+  id: "paid-model",
+  name: "Paid Model",
+  local: false,
+  pricing: "paid",
+  cost: [{ tierSize: null, input: 3, output: 15, cacheRead: 1, cacheWrite: 2 }],
+};
+
 const discovery: OpenCodeDiscovery = {
   server: { version: "2.0.32", compatible: true, testedVersion: "2.0.32", warning: null },
   providers: [{ id: "opencode", name: "OpenCode", activation: "enabled", ready: "ready", modelCount: 1, detail: "1 model." }],
@@ -52,14 +63,23 @@ const discovery: OpenCodeDiscovery = {
   limitations: [],
 };
 
-function engine() {
+function engine(selected: DiscoveredModel = model) {
+  const selectedDiscovery = selected === model
+    ? discovery
+    : {
+        ...discovery,
+        providers: [{ id: selected.providerID, name: selected.providerID, activation: "enabled" as const, ready: "ready" as const, modelCount: 1, detail: "1 model." }],
+        models: [selected],
+      };
   return {
-    async discovery() { return discovery; },
+    async discovery() { return selectedDiscovery; },
     async resolveModel(selection: { providerID: string; id: string } | null) {
-      return selection?.providerID === model.providerID && selection.id === model.id ? { model, source: "selected" as const } : null;
+      return selection?.providerID === selected.providerID && selection.id === selected.id
+        ? { model: selected, source: "selected" as const }
+        : null;
     },
     async chooseDefaultModel() { return null; },
-    validateSelection() { return model; },
+    validateSelection() { return selected; },
   };
 }
 
@@ -89,12 +109,12 @@ function guide(speakText: string[], options?: { diff?: string; calls?: { speak: 
   };
 }
 
-async function workshop(spirit: SpiritGuide) {
+async function workshop(spirit: SpiritGuide, selected: DiscoveredModel = model) {
   const directory = await mkdtemp(join(tmpdir(), "ub-experience-"));
   const store = new AtomicProjectStore(join(directory, "project.json"));
   const initial = createProject(directory);
   initial.engine = {
-    model: { providerID: "opencode", id: "flint-40b-free", variant: null },
+    model: { providerID: selected.providerID, id: selected.id, variant: null },
     source: "user",
     updatedAt: null,
     legacyModel: null,
@@ -109,7 +129,7 @@ test('ledger', () => assert.equal(1, 1));
     safeDirectory: directory,
     demoWorkspace: directory,
     promptRoot: process.cwd(),
-    engine: engine(),
+    engine: engine(selected),
   });
   const app = createApp({ service, sessionToken: "test-token", experience });
   return { app, store, service };
@@ -126,6 +146,57 @@ async function waitFor<T>(work: () => Promise<T | null>, timeout = 5_000): Promi
   }
   throw new Error("Timed out waiting for background state.");
 }
+
+test("a paid model cannot make its first request before the user confirms the policy", async () => {
+  let calls = 0;
+  const spirit = guide([]);
+  spirit.speak = async () => {
+    calls += 1;
+    return { sessionId: "ses_paid", messageId: null, text: "{}", cost: 0 };
+  };
+  const { app, store } = await workshop(spirit, paidModel);
+  const response = await app.request("/api/messages", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ actionId: "paid-unconfirmed", expectedRevision: 0, intent: "clarify", text: "Students lose umbrellas." }),
+  });
+  assert.equal(response.status, 409);
+  const body = await response.json();
+  assert.equal(body.code, "MODEL_COST_CONFIRMATION_REQUIRED");
+  assert.match(body.message, /confirm/i);
+  assert.equal(calls, 0);
+  assert.equal((await store.load()).state.operations.length, 0);
+});
+
+test("a provider privacy rejection returns a structured, redacted repair path", async () => {
+  const spirit = guide([]);
+  spirit.speak = async () => {
+    throw Object.assign(
+      new Error("Provider policy rejected this route: it requires training on request data. apiKey=sk-live-secret-1234567890"),
+      { status: 403, code: "PROVIDER_POLICY_REJECTED" },
+    );
+  };
+  const { app, store } = await workshop(spirit);
+  const response = await app.request("/api/messages", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ actionId: "provider-policy", expectedRevision: 0, intent: "clarify", text: "Students lose umbrellas." }),
+  });
+  assert.equal(response.status, 403);
+  const body = await response.json();
+  assert.equal(body.code, "PROVIDER_DATA_POLICY");
+  assert.equal(body.providerError.category, "PROVIDER_DATA_POLICY");
+  assert.equal(body.providerError.action, "review-privacy");
+  assert.equal(body.providerError.savedWorkChanged, "no");
+  assert.match(body.providerError.technical.diagnosticReference, /^provider-/);
+  assert.match(body.providerError.repair, /privacy|provider/i);
+  assert.doesNotMatch(JSON.stringify(body), /sk-live-secret-1234567890/);
+
+  const operation = (await store.load()).state.operations.at(-1);
+  assert.equal(operation?.status, "FAILED");
+  assert.equal(operation?.providerError?.category, "PROVIDER_DATA_POLICY");
+  assert.equal(operation?.providerError?.technical.statusCode, 403);
+});
 
 test("oracle proposal cannot approve the product by itself", async () => {
   const { app } = await workshop(guide([

@@ -11,8 +11,10 @@ import {
   legacyOperationStatusSchema,
   makerScopeSchema,
   memoryEntrySchema,
+  modelAccessModeSchema,
   modelRefSchema,
   modelPreferencesSchema,
+  modelPreferencesV3Schema,
   nativeSessionRefSchema,
   operationSchema,
   operationStatusSchema,
@@ -24,6 +26,7 @@ import {
   projectSourceSchema,
   projectV1Schema,
   projectV2Schema,
+  projectV3Schema,
   sectionSchema,
   sectionStatusSchema,
   transcriptEntrySchema,
@@ -51,8 +54,10 @@ export {
   legacyOperationStatusSchema,
   makerScopeSchema,
   memoryEntrySchema,
+  modelAccessModeSchema,
   modelRefSchema,
   modelPreferencesSchema,
+  modelPreferencesV3Schema,
   nativeSessionRefSchema,
   operationSchema,
   operationStatusSchema,
@@ -64,6 +69,7 @@ export {
   projectSourceSchema,
   projectV1Schema,
   projectV2Schema,
+  projectV3Schema,
   sectionSchema,
   sectionStatusSchema,
   transcriptEntrySchema,
@@ -79,7 +85,7 @@ export {
   type SpiritRole,
 };
 
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 export const MIGRATION_TIMESTAMP = "1970-01-01T00:00:00.000Z";
 
 export class UnsupportedSchemaVersionError extends Error {
@@ -139,7 +145,7 @@ export function createProject(
   }));
   const now = options?.now ?? new Date().toISOString();
   return refreshNextAction(projectSchema.parse({
-    schemaVersion: 3,
+    schemaVersion: 4,
     id: randomUUID(),
     revision: 0,
     mode,
@@ -190,7 +196,13 @@ export function createProject(
     },
     memory: { facts: [], decisions: [], constraints: [], risks: [] },
     modelPreferences: {
-      access: { requireFreeOrLocal: true, allowedProviders: [], allowedModels: [], dataPolicy: "PROVIDER_DEFAULT" },
+      access: {
+        mode: "ALL_ACCESSIBLE",
+        allowedProviders: [],
+        allowedModels: [],
+        dataPolicy: "PROVIDER_DEFAULT",
+        paidOrUnknownAcceptedAt: null,
+      },
       budget: { maxCostUsd: null, maxTotalTokens: null, maxRunDurationMs: null },
     },
   }));
@@ -203,7 +215,7 @@ export interface MigrationResult {
 }
 
 /**
- * Reads every supported prior shape as schema v3.
+ * Reads every supported prior shape as schema v4.
  *
  * The guided-interface line wrote v2 with engine selection but no mode or
  * timestamps. The hardening line wrote v2 with mode/timestamps but no engine.
@@ -238,7 +250,7 @@ export function migrateProject(raw: unknown): MigrationResult {
     const product = legacy.product;
     const project = projectSchema.parse({
       ...legacy,
-      schemaVersion: 3,
+      schemaVersion: 4,
       mode,
       demoWorkspace: "demoWorkspace" in legacy ? legacy.demoWorkspace ?? true : true,
       createdAt,
@@ -255,6 +267,7 @@ export function migrateProject(raw: unknown): MigrationResult {
         statusReason: operation.status === "UNKNOWN" ? "legacy-unknown-outcome" : null,
         lastObservedAt: null,
         appliedAt: null,
+        providerError: null,
       })),
       evidence: legacy.evidence.map((evidence) => ({
         ...evidence,
@@ -278,11 +291,43 @@ export function migrateProject(raw: unknown): MigrationResult {
       },
       memory: { facts: [], decisions: [], constraints: [], risks: [] },
       modelPreferences: {
-        access: { requireFreeOrLocal: true, allowedProviders: [], allowedModels: [], dataPolicy: "PROVIDER_DEFAULT" },
+        access: {
+          mode: "FREE_OR_LOCAL_ONLY",
+          allowedProviders: [],
+          allowedModels: [],
+          dataPolicy: "PROVIDER_DEFAULT",
+          paidOrUnknownAcceptedAt: null,
+        },
         budget: { maxCostUsd: null, maxTotalTokens: null, maxRunDurationMs: null },
       },
     });
     return { project, fromVersion: version, migrated: true };
+  }
+
+  if (version === 3) {
+    const legacy = projectV3Schema.parse(source);
+    const project = projectSchema.parse({
+      ...legacy,
+      schemaVersion: 4,
+      operations: legacy.operations.map((operation) => ({ ...operation, providerError: null })),
+      modelPreferences: {
+        access: {
+          mode: legacy.modelPreferences.access.requireFreeOrLocal ? "FREE_OR_LOCAL_ONLY" : "ALL_ACCESSIBLE",
+          allowedProviders: legacy.modelPreferences.access.allowedProviders,
+          allowedModels: legacy.modelPreferences.access.allowedModels,
+          dataPolicy: legacy.modelPreferences.access.dataPolicy,
+          paidOrUnknownAcceptedAt: null,
+        },
+        budget: {
+          maxCostUsd: legacy.modelPreferences.budget.maxCostUsd && legacy.modelPreferences.budget.maxCostUsd > 0
+            ? legacy.modelPreferences.budget.maxCostUsd
+            : null,
+          maxTotalTokens: legacy.modelPreferences.budget.maxTotalTokens,
+          maxRunDurationMs: legacy.modelPreferences.budget.maxRunDurationMs,
+        },
+      },
+    });
+    return { project, fromVersion: 3, migrated: true };
   }
 
   const missingDefaults = !("source" in source)
@@ -293,7 +338,8 @@ export function migrateProject(raw: unknown): MigrationResult {
     || source.sections.some((section) => !section || typeof section !== "object" || !("candidateRevisions" in section))
     || !Array.isArray(source.operations)
     || source.operations.some((operation) => !operation || typeof operation !== "object"
-      || !("statusReason" in operation) || !("lastObservedAt" in operation) || !("appliedAt" in operation));
+      || !("statusReason" in operation) || !("lastObservedAt" in operation) || !("appliedAt" in operation)
+      || !("providerError" in operation));
   const project = projectSchema.parse(source);
   return { project, fromVersion: version, migrated: missingDefaults };
 }

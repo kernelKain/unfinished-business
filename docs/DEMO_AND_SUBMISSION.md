@@ -2,7 +2,7 @@
 
 **Status:** Deterministic guided demo and release evidence complete. A real recorded video, published article, and submission remain pending explicit authorization.
 **Owner:** Demo/submission.
-**Last verified:** 2026-11-01 (18 visual/accessibility tests; 118 unit/integration tests).
+**Last verified:** 2026-11-01 (18 visual/accessibility tests; 139 unit/integration tests).
 
 ## Two different demos
 

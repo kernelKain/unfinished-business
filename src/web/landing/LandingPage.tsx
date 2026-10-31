@@ -179,7 +179,7 @@ export function LandingPage() {
               <ul className="check-list">
                 <li><Check size={15} aria-hidden="true" /><span>Node 22.14 or newer.</span></li>
                 <li><Check size={15} aria-hidden="true" /><span>A gitignored <span className="mono">.env</span> copied from <span className="mono">.env.example</span>.</span></li>
-                <li><Check size={15} aria-hidden="true" /><span>OpenCode 2.x and a free-model route that answers on your account.</span></li>
+                <li><Check size={15} aria-hidden="true" /><span>OpenCode 2.x and a model route that answers on your account, or a local model.</span></li>
               </ul>
               <p>
                 The app and OpenCode bind to loopback by default. The browser never receives the OpenCode

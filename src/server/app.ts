@@ -63,6 +63,12 @@ const modelSelectionSchema = actionSchema.extend({
   providerID: z.string().min(1).max(256),
   id: z.string().min(1).max(512),
   variant: z.string().min(1).max(128).nullable().optional(),
+  acceptPaidOrUnknown: z.boolean().optional().default(false),
+});
+const modelPreferencesRequestSchema = actionSchema.extend({
+  accessMode: z.enum(["ALL_ACCESSIBLE", "FREE_OR_LOCAL_ONLY"]),
+  dataPolicy: z.enum(["PROVIDER_DEFAULT", "NO_TRAINING_REQUIRED"]),
+  maxCostUsd: z.number().positive().max(10_000).nullable(),
 });
 const revertStageSchema = z.object({
   messageID: z.string().min(1).max(256),
@@ -108,7 +114,7 @@ const defaultLimits: LimitsConfig = {
   makerTimeoutMs: 180_000,
   nodeCheckTimeoutMs: 30_000,
   maxSessionTokens: 200_000,
-  maxSessionCostUsd: 0,
+  maxSessionCostUsd: null,
 };
 
 function defaultRuntime(): RuntimeConfig {
@@ -118,7 +124,7 @@ function defaultRuntime(): RuntimeConfig {
     demoWorkspace: true,
     authRequired: false,
     originProtection: true,
-    opencode: { baseUrlKind: "loopback", model: "opencode/deepseek-v4.1-flash-free" },
+    opencode: { baseUrlKind: "loopback", model: null },
     budgets: {
       guideTimeoutMs: defaultLimits.guideTimeoutMs,
       makerTimeoutMs: defaultLimits.makerTimeoutMs,
@@ -418,6 +424,7 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
           ...(input.username !== undefined ? { username: input.username } : {}),
           ...(input.password !== undefined ? { password: input.password } : {}),
           selected: project.engine.model,
+          accessMode: project.modelPreferences.access.mode,
         });
         return context.json(status);
       } catch (error) {
@@ -452,7 +459,10 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
     app.get("/api/opencode/discovery", async (context) => {
       try {
         const project = await workflow.service.get();
-        return context.json(await workflow.connection!.discovery({ selected: project.engine.model }));
+        return context.json(await workflow.connection!.discovery({
+          selected: project.engine.model,
+          accessMode: project.modelPreferences.access.mode,
+        }));
       } catch (error) {
         return connectionError(context, error);
       }
@@ -462,17 +472,37 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
       try {
         const input = modelSelectionSchema.parse(await context.req.json());
         const project = await workflow.service.get();
-        const discovery = await workflow.connection!.discovery({ selected: project.engine.model });
+        const discovery = await workflow.connection!.discovery({
+          selected: project.engine.model,
+          accessMode: project.modelPreferences.access.mode,
+        });
         const selected = {
           providerID: input.providerID,
           id: input.id,
           variant: input.variant ?? null,
         };
-        workflow.connection!.validateSelection(discovery, selected);
+        const discovered = workflow.connection!.validateSelection(
+          discovery,
+          selected,
+          project.modelPreferences.access.mode,
+        );
+        const requiresConfirmation = discovered.local !== true && discovered.pricing !== "free";
+        if (requiresConfirmation
+          && !project.modelPreferences.access.paidOrUnknownAcceptedAt
+          && !input.acceptPaidOrUnknown) {
+          return context.json({
+            code: "MODEL_COST_CONFIRMATION_REQUIRED",
+            message: discovered.pricing === "paid"
+              ? "This remote model reports paid pricing. Confirm that provider charges may apply before saving it."
+              : "This remote model does not report pricing. Confirm that charges may apply and the session limit can only enforce cost OpenCode reports.",
+            retryable: false,
+          }, 409);
+        }
         const result = await workflow.service.execute(input.actionId, {
           providerID: input.providerID,
           id: input.id,
           variant: input.variant ?? null,
+          acceptPaidOrUnknown: input.acceptPaidOrUnknown,
         }, input.expectedRevision, (current) => {
           const next = structuredClone(current);
           next.engine = {
@@ -481,12 +511,36 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
             updatedAt: new Date().toISOString(),
             legacyModel: current.engine.legacyModel,
           };
+          if (requiresConfirmation && !next.modelPreferences.access.paidOrUnknownAcceptedAt) {
+            next.modelPreferences.access.paidOrUnknownAcceptedAt = new Date().toISOString();
+          }
           return next;
         });
         return context.json(result);
       } catch (error) {
         if (error instanceof z.ZodError) return invalidRequest(context, "Invalid model selection.");
         return modelSelectionError(context, error);
+      }
+    });
+
+    app.post("/api/model-preferences", async (context) => {
+      try {
+        const input = modelPreferencesRequestSchema.parse(await context.req.json());
+        const result = await workflow.service.execute(input.actionId, {
+          accessMode: input.accessMode,
+          dataPolicy: input.dataPolicy,
+          maxCostUsd: input.maxCostUsd,
+        }, input.expectedRevision, (current) => {
+          const next = structuredClone(current);
+          next.modelPreferences.access.mode = input.accessMode;
+          next.modelPreferences.access.dataPolicy = input.dataPolicy;
+          next.modelPreferences.budget.maxCostUsd = input.maxCostUsd;
+          return next;
+        });
+        return context.json(result);
+      } catch (error) {
+        if (error instanceof z.ZodError) return invalidRequest(context, "Invalid model access or spending preference.");
+        return workflowError(context, error, "Invalid model preference update.", log);
       }
     });
   } else if (isDemo) {
@@ -840,7 +894,10 @@ async function currentConnection(workflow: WorkflowHttpOptions) {
   const project = await workflow.service.get();
   const cached = connection.status();
   if (cached.checkedAt === null && cached.baseUrl) {
-    return connection.check({ selected: project.engine.model });
+    return connection.check({
+      selected: project.engine.model,
+      accessMode: project.modelPreferences.access.mode,
+    });
   }
   return cached;
 }
@@ -859,7 +916,9 @@ function engineSummary(
   const modelAvailable = Boolean(discovered
     && discovered.availability === "available"
     && (selected?.variant ? discovered.variants.includes(selected.variant) : true)
-    && (discovered.pricing === "free" || discovered.local === true));
+    && (project.modelPreferences.access.mode === "ALL_ACCESSIBLE"
+      || discovered.pricing === "free"
+      || discovered.local === true));
   const diagnostic = status.diagnostics.find((item) => item.severity === "error")
     ?? status.diagnostics.find((item) => item.severity === "warning");
   return {
@@ -964,6 +1023,7 @@ function workflowError(context: Context, error: unknown, validationMessage: stri
       message: safePublicError(error, validationMessage, { hideLocalPaths: true }),
       retryable: error.retryable,
       operationId: error.operationId,
+      providerError: error.providerError,
       requestId: context.get("requestId" as never) as string | undefined,
     }, error.status as 400);
   }

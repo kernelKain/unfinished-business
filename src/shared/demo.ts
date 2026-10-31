@@ -262,6 +262,7 @@ const demoOperations: Operation[] = [
     statusReason: null,
     lastObservedAt: "2026-10-31T08:00:02.000Z",
     appliedAt: "2026-10-31T08:00:02.000Z",
+    providerError: null,
   },
   {
     id: "op-demo-architect",
@@ -278,6 +279,7 @@ const demoOperations: Operation[] = [
     statusReason: null,
     lastObservedAt: "2026-10-31T08:01:03.000Z",
     appliedAt: "2026-10-31T08:01:03.000Z",
+    providerError: null,
   },
   {
     id: "op-demo-scope",
@@ -294,6 +296,7 @@ const demoOperations: Operation[] = [
     statusReason: null,
     lastObservedAt: "2026-10-31T08:02:01.000Z",
     appliedAt: "2026-10-31T08:02:01.000Z",
+    providerError: null,
   },
   {
     id: "op-demo-maker",
@@ -310,6 +313,7 @@ const demoOperations: Operation[] = [
     statusReason: null,
     lastObservedAt: "2026-10-31T08:03:09.000Z",
     appliedAt: "2026-10-31T08:03:09.000Z",
+    providerError: null,
   },
   {
     id: "op-demo-check",
@@ -326,6 +330,7 @@ const demoOperations: Operation[] = [
     statusReason: null,
     lastObservedAt: "2026-10-31T08:04:04.000Z",
     appliedAt: "2026-10-31T08:04:04.000Z",
+    providerError: null,
   },
   {
     id: "op-demo-witness",
@@ -342,6 +347,7 @@ const demoOperations: Operation[] = [
     statusReason: null,
     lastObservedAt: "2026-10-31T08:05:05.000Z",
     appliedAt: "2026-10-31T08:05:05.000Z",
+    providerError: null,
   },
 ];
 
@@ -400,7 +406,7 @@ const projectSections = sectionIds.map((id, index) => ({
 }));
 
 const demoProject: Project = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   id: "demo-campus-umbrella-relay",
   revision: 14,
   mode: "hosted-demo",
@@ -499,7 +505,13 @@ const demoProject: Project = {
   },
   memory: { facts: [], decisions: [], constraints: [], risks: [] },
   modelPreferences: {
-    access: { requireFreeOrLocal: true, allowedProviders: [], allowedModels: [], dataPolicy: "PROVIDER_DEFAULT" },
+    access: {
+      mode: "ALL_ACCESSIBLE",
+      allowedProviders: [],
+      allowedModels: [],
+      dataPolicy: "PROVIDER_DEFAULT",
+      paidOrUnknownAcceptedAt: null,
+    },
     budget: { maxCostUsd: null, maxTotalTokens: null, maxRunDurationMs: null },
   },
 };

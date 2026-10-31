@@ -1,6 +1,6 @@
 # Implementation plan and phase record
 
-**Status:** Upgrade Phase 0 complete and verified.
+**Status:** Upgrade Phase 1 complete and verified.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
@@ -18,6 +18,7 @@
 | Phase 8 — Hardening | Modes, workspace/network policy, HTTP security, atomic schema v2, migration, retention, redaction, budgets, failure matrix | Complete and verified before Phase 9 |
 | Phase 9 — Release gate | Reconciled both lines, canonical docs, migration fixtures, full matrix, local/demo/OpenCode evidence, evidence index | Complete; final phase commit recorded by `git log -1` |
 | Upgrade Phase 0 — Product-upgrade preparation | Baseline record, schema v3, explicit v1/v2 migration, richer operation states, reusable provider/timing/reconciliation fixtures | Complete and verified; commit recorded by `git log -1` after phase handoff |
+| Upgrade Phase 1 — Model access and provider recovery | All accessible models, per-project access policy, optional spending limits, paid/unknown-price confirmation, structured provider errors, schema v4 migration | Complete and verified; commit recorded by `git log -1` after phase handoff |
 
 The guided-interface line (`origin/main` at `b2d2654`) and the hardening line (`origin/phase-8-hardening` at `8c50439`) both descended from `2205774`. Phase 9 integrates them rather than choosing one and losing the other. The release candidate therefore keeps the landing page, onboarding, deterministic demo, security middleware, state migration, retention, and recovery in one build.
 
@@ -48,6 +49,40 @@ The guided-interface line (`origin/main` at `b2d2654`) and the hardening line (`
 - [x] Final typecheck, 118 tests, build, budget, 18-test visual suite, high-severity audit, and diff/security review pass.
 
 Phase 0 acceptance passed on 2026-11-01. The visual harness uses an unused loopback OpenCode port so an unrelated local OpenCode process cannot change first-run screenshots.
+
+## Upgrade Phase 1 — model access and provider recovery
+
+### Outcome
+
+The product can use any model OpenCode reports as available to the connected account, while preserving an intentional free/local-only policy, explicit paid/unknown-price consent, optional spending limits, and actionable provider failure recovery.
+
+**Phase commit:** `feat(models): support all accessible OpenCode models`.
+
+### Work units
+
+| Unit | Outcome | Evidence |
+|---|---|---|
+| U1-1 schema and migration | Schema v4 activates access mode, privacy preference, paid/unknown acceptance, optional limits, and operation provider errors; v3 migrates with prior effective policy preserved | `src/shared/workflow.ts`, `src/server/workflow/model.ts`, `tests/migration.test.ts` |
+| U1-2 access policy | All-accessible default; free/local-only remains available; selection and run paths share the same policy | `src/server/opencode/connection.ts`, `src/server/experience/service.ts`, `tests/model-access.test.ts`, `tests/connection.test.ts` |
+| U1-3 confirmation gate | Paid/unknown-price selection and first request require an explicit persisted confirmation; no silent substitution | `/api/engine/selection`, model context, `tests/model-access.test.ts`, `tests/experience.test.ts` |
+| U1-4 budgets | Unlimited/disabled and positive project/deployment limits; stricter limit wins; unknown-price limitation disclosed | `src/server/experience/guide.ts`, `src/server/config.ts`, `tests/budgets.test.ts`, `tests/security.test.ts` |
+| U1-5 provider errors | Eight safe categories, saved-work status, repair/retry action, redacted technical details, diagnostic reference | `src/server/opencode/provider-errors.ts`, `src/shared/workflow.ts`, `tests/provider-errors.test.ts` |
+| U1-6 interface | Model metadata, privacy warning, cost confirmation, provider error card, Run Inspector provider line | `src/web/onboarding.tsx`, `src/web/opencode-panel.tsx`, `src/web/components/ProviderErrorCard.tsx`, `src/web/workshop/WorkshopPage.tsx` |
+| U1-7 documentation | README, architecture, decisions, integration, setup, operations, evidence, release notes, changelog | canonical documentation set |
+
+### Acceptance status
+
+- [x] Paid, free, local, and unknown-price models reported as available can be selected under the appropriate policy.
+- [x] Free/local-only mode still blocks other models intentionally, including when an acceptance flag is supplied.
+- [x] Paid/unknown-price requests require an explicit first-use confirmation and are blocked at runtime if absent.
+- [x] No paid request is made silently; no model is invented or substituted.
+- [x] Optional unlimited/positive spending limits are stored and enforced; zero/negative input is rejected.
+- [x] Provider privacy/training rejections produce `PROVIDER_DATA_POLICY` and a review-privacy repair.
+- [x] Generic provider failures retain a safe `provider-…` diagnostic reference with secrets and paths redacted.
+- [x] v3 projects migrate to v4 with their selected model and prior effective access policy; v1/v2 also migrate safely.
+- [x] Final typecheck, 139 tests, build, budget, visual suite, and diff/security review pass.
+
+Phase 1 acceptance passed on 2026-11-01. No live provider inference was used for the new tests.
 
 ## Phase 8 hardening units
 

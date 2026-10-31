@@ -1,8 +1,8 @@
 # UX and visual system — Ghostlight Hacker Workshop
 
-**Status:** Implemented release candidate; Phase 9 reconciled modes, security copy, and source freshness.
+**Status:** Implemented release candidate; Upgrade Phase 1 added model policy, cost confirmation, privacy copy, and provider error cards.
 **Owner:** Interface/UX.
-**Last verified:** 2026-10-31.
+**Last verified:** 2026-11-01.
 **Source of truth:** `src/web/styles.css`, `src/web/spirits.ts`, `src/web/components/`, `src/web/content/landing.ts`, `src/web/demo/`.
 
 ## 1. Theme
@@ -188,8 +188,10 @@ Status chips include a dot and text; color is never the only signal. `.status-ch
 ### Errors and warnings
 
 - `.error-panel` for engine unreachable or failed actions; `.warning-panel` for stale or uncertain state.
+- `.provider-error-card` for structured provider failures. It shows an eyebrow category, what happened, saved-work status, recommended repair, a retry/change-model or review-settings action, and a `<details>` technical disclosure.
+- Technical disclosure is limited to provider, status code, provider code, project-owned session reference, diagnostic reference, and a redacted safe detail. Secrets, authorization headers, cookies, and local paths never render.
 - Role `status`, `alert`, or equivalent live semantics depending on urgency.
-- Include the recovery action and state that nothing was overwritten or repeated when true.
+- Include the recovery action and state that nothing was overwritten or repeated when true. Dismissing the card leaves the operation in the Run Inspector.
 
 ### Empty states
 
@@ -208,15 +210,17 @@ Status chips include a dot and text; color is never the only signal. `.status-ch
 - A two-phase wizard: server check, then model/variant selection.
 - Status copy is derived from `ConnectionStatus`, not optimistic labels. Every failure includes a diagnostic and a repair action.
 - The server URL and password fields are clearly separated from provider credentials. The panel never asks for a provider API key.
-- Model options show the provider/model key, free/paid/unknown pricing, limits, modalities, tool support, and only the variants OpenCode reports.
-- The panel never auto-selects a fixed model. If the catalog changes, the run is blocked until a reported model is selected.
+- Model options show the provider/model key, provider, local/remote locality, free/paid/unknown pricing, context/input/output limits, modalities, tool support, a route-specific privacy warning, and only the variants OpenCode reports.
+- Model access is an explicit choice between **All accessible models** (default for new projects) and **Free and local only**. The workspace privacy preference and optional positive USD spending limit sit beside it; unlimited/disabled is explained.
+- A paid or unknown-price remote model requires a checked confirmation before the first request. The confirmation is not inferred from a radio selection.
+- The panel never auto-selects a fixed model. If the catalog changes, the run is blocked until a reported model is selected; the app never substitutes one.
 - In `private-hosted` or `hosted-demo`, configuration is read-only and the panel explains that the deployment manages the connection.
 - Visual treatment: onboarding card on the Ghostlight surface, amber current step, mint completed step, status chips with text.
 
 ### Advanced OpenCode panel
 
 - A native `<details>` control, collapsed by default, so it does not compete with the four-stage workflow.
-- Shows connection state, base URL, version, diagnostics, model selection, role mapping, agents, pending permissions, project-owned sessions, usage, and revert controls.
+- Shows connection state, base URL, version, diagnostics, model access/privacy/spending policy, model selection, role mapping, agents, pending permissions, project-owned sessions, usage, and revert controls.
 - Buttons are explicit (`Allow once`, `Always`, `Reject`, `Interrupt`, `Fork`, `Compact`, `Stage revert`, `Clear`, `Commit`); nothing auto-approves.
 - The panel does not enumerate arbitrary sessions. It only exposes sessions referenced by the project.
 - Empty or unsupported values say “not reported” rather than inventing a number.
@@ -311,15 +315,15 @@ All four characters are hand-authored SVG in this repository. They are not gener
 
 ### Budget
 
-| Metric | Budget | Measured (2026-10-31) | Status |
+| Metric | Budget | Measured (2026-11-01) | Status |
 |---|---|---|---|
-| Initial JS (gzip) | ≤ 220 KiB | 193.8 KiB | PASS |
-| All JS chunks (gzip) | ≤ 280 KiB | 263.6 KiB | PASS |
-| CSS (gzip) | ≤ 15 KiB | 14.2 KiB | PASS |
+| Initial JS (gzip) | ≤ 220 KiB | 194.0 KiB | PASS |
+| All JS chunks (gzip) | ≤ 280 KiB | 266.4 KiB | PASS |
+| CSS (gzip) | ≤ 15 KiB | 14.5 KiB | PASS |
 | All hero variants (total) | ≤ 640 KiB | 570.9 KiB | PASS |
 | Largest single hero file | ≤ 190 KiB | 86.7 KiB | PASS |
 
-The initial route is the landing page. Workshop and demo are lazy-loaded (54.9 KiB and 11.5 KiB gzip). The demo chunk includes the versioned fixture, playback reducer, and guided UI. The workshop chunk includes the connection/discovery wizard and advanced OpenCode panel. The hero transfers **34.7–58.2 KiB** as AVIF on a typical wide viewport and **30.9–49.1 KiB** as AVIF on mobile depending on pixel density; the total covers all breakpoints and formats, not one visit.
+The initial route is the landing page. Workshop and demo are lazy-loaded (57.0 KiB and 11.8 KiB gzip). The demo chunk includes the versioned fixture, playback reducer, and guided UI. The workshop chunk includes the connection/discovery wizard and advanced OpenCode panel. The hero transfers **34.7–58.2 KiB** as AVIF on a typical wide viewport and **30.9–49.1 KiB** as AVIF on mobile depending on pixel density; the total covers all breakpoints and formats, not one visit.
 
 ### Rules
 

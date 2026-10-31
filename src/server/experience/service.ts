@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { OpenCodeDiscovery } from "../../shared/opencode.ts";
+import type { ProviderErrorDetails } from "../../shared/workflow.ts";
 import { LEGACY_FIXED_MODEL_KEY, payloadHash, refreshNextAction, type ModelRef, type Project, type SpiritRole } from "../workflow/model.ts";
 import { AtomicProjectStore, RevisionConflict, StateError } from "../store/atomic-project-store.ts";
 import { loadStagePrompt, type Stage } from "../prompts/loader.ts";
@@ -29,6 +30,7 @@ import {
 } from "./parse.ts";
 import { MakerRunCoordinator } from "./runs.ts";
 import { traceAgentOperation, traceToolOperation } from "./telemetry.ts";
+import { classifyProviderError, isProviderFailureCandidate, ProviderRequestError } from "../opencode/provider-errors.ts";
 
 export class ExperienceFailure extends Error {
   constructor(
@@ -37,6 +39,7 @@ export class ExperienceFailure extends Error {
     readonly status: number,
     readonly retryable: boolean,
     readonly operationId: string | null = null,
+    readonly providerError: ProviderErrorDetails | null = null,
   ) {
     super(message);
     this.name = "ExperienceFailure";
@@ -44,10 +47,10 @@ export class ExperienceFailure extends Error {
 }
 
 export interface EngineSelectionService {
-  discovery(options?: { selected?: ModelRef | null }): Promise<OpenCodeDiscovery>;
-  resolveModel(selection: ModelRef | null, discovery?: OpenCodeDiscovery): Promise<{ model: import("../../shared/opencode.ts").DiscoveredModel; source: "selected" | "legacy" | "auto-discovery" } | null>;
+  discovery(options?: { selected?: ModelRef | null; accessMode?: Project["modelPreferences"]["access"]["mode"] }): Promise<OpenCodeDiscovery>;
+  resolveModel(selection: ModelRef | null, discovery?: OpenCodeDiscovery, accessMode?: Project["modelPreferences"]["access"]["mode"]): Promise<{ model: import("../../shared/opencode.ts").DiscoveredModel; source: "selected" | "legacy" | "auto-discovery" } | null>;
   chooseDefaultModel(legacyModel?: string | null): Promise<{ model: import("../../shared/opencode.ts").DiscoveredModel; source: "selected" | "legacy" | "auto-discovery" } | null>;
-  validateSelection(discovery: OpenCodeDiscovery, model: ModelRef): import("../../shared/opencode.ts").DiscoveredModel;
+  validateSelection(discovery: OpenCodeDiscovery, model: ModelRef, accessMode?: Project["modelPreferences"]["access"]["mode"]): import("../../shared/opencode.ts").DiscoveredModel;
 }
 
 export interface ExperienceOptions {
@@ -78,12 +81,12 @@ const stagePrompt: Record<"oracle" | "architect" | "witness", Stage> = {
   witness: "witness",
 };
 
-const defaultBudgets = {
+const defaultBudgets: GuideBudgets & { nodeCheckTimeoutMs: number } = {
   guideTimeoutMs: 90_000,
   makerTimeoutMs: 180_000,
   nodeCheckTimeoutMs: 30_000,
   maxSessionTokens: 200_000,
-  maxSessionCostUsd: 0,
+  maxSessionCostUsd: null,
 };
 
 const legacyModel: ModelRef = { providerID: "opencode", id: "deepseek-v4.1-flash-free", variant: null };
@@ -177,6 +180,7 @@ export class ExperienceService {
         statusReason: null,
         lastObservedAt: null,
         appliedAt: null,
+        providerError: null,
       });
       rememberTranscript(next, "user", this.redactPrompt(`Queued a Maker run with ${context.model.providerID}/${context.model.id}${context.model.variant ? `#${context.model.variant}` : ""}.`));
       return refreshNextAction(next);
@@ -195,6 +199,7 @@ export class ExperienceService {
         workspace: this.options.demoWorkspace,
         model: context.model,
         agent: context.roleAgents.maker,
+        budget: queued.project.modelPreferences.budget,
       });
     } catch (error) {
       await this.runs.markFailed(operation.id, error, context.model, context.roleAgents.maker);
@@ -332,6 +337,7 @@ export class ExperienceService {
         workspace: this.options.safeDirectory,
         model: context.model,
         agent: context.roleAgents.oracle,
+        budget: project.modelPreferences.budget,
       });
       const reply = oracleReplySchema.parse(extractJsonObject(spoken.text));
       return this.workflow.execute(actionId, payload, expectedRevision, (current) => {
@@ -365,6 +371,7 @@ export class ExperienceService {
         workspace: this.options.safeDirectory,
         model: context.model,
         agent: context.roleAgents.architect,
+        budget: project.modelPreferences.budget,
       });
       let reply;
       try {
@@ -404,6 +411,7 @@ export class ExperienceService {
         workspace: this.options.safeDirectory,
         model: context.model,
         agent: context.roleAgents[role],
+        budget: project.modelPreferences.budget,
       });
       return this.workflow.execute(actionId, payload, expectedRevision, (current) => {
         const next = structuredClone(current);
@@ -429,6 +437,7 @@ export class ExperienceService {
         workspace: this.options.safeDirectory,
         model: context.model,
         agent: context.roleAgents.witness,
+        budget: project.modelPreferences.budget,
       });
       let reply;
       try {
@@ -499,7 +508,10 @@ export class ExperienceService {
     }
     let discovery: OpenCodeDiscovery;
     try {
-      discovery = await this.options.engine.discovery({ selected: project.engine.model });
+      discovery = await this.options.engine.discovery({
+        selected: project.engine.model,
+        accessMode: project.modelPreferences.access.mode,
+      });
     } catch (error) {
       throw new ExperienceFailure(
         `OpenCode discovery is unavailable: ${this.redact(error instanceof Error ? error.message : "unknown error")}`,
@@ -508,8 +520,22 @@ export class ExperienceService {
         true,
       );
     }
+    const reportedSelection = project.engine.model
+      ? discovery.models.find((model) => model.providerID === project.engine.model?.providerID && model.id === project.engine.model?.id)
+      : null;
+    if (reportedSelection
+      && project.modelPreferences.access.mode === "FREE_OR_LOCAL_ONLY"
+      && reportedSelection.pricing !== "free"
+      && reportedSelection.local !== true) {
+      throw new ExperienceFailure(
+        "This project is set to Free and local only. Choose a free/local model or deliberately change the model access preference.",
+        "MODEL_ACCESS_POLICY_BLOCKED",
+        409,
+        false,
+      );
+    }
     let resolution = project.engine.model
-      ? await this.options.engine.resolveModel(project.engine.model, discovery)
+      ? await this.options.engine.resolveModel(project.engine.model, discovery, project.modelPreferences.access.mode)
       : null;
     if (project.engine.model && !resolution) {
       const reported = discovery.models.find((model) =>
@@ -537,7 +563,19 @@ export class ExperienceService {
       }
     }
     if (project.engine.model?.variant) {
-      this.options.engine.validateSelection(discovery, project.engine.model);
+      this.options.engine.validateSelection(discovery, project.engine.model, project.modelPreferences.access.mode);
+    }
+    if (resolution.model.local !== true
+      && resolution.model.pricing !== "free"
+      && !project.modelPreferences.access.paidOrUnknownAcceptedAt) {
+      throw new ExperienceFailure(
+        resolution.model.pricing === "paid"
+          ? "Confirm the paid-model policy in OpenCode settings before the first request. No provider request was made."
+          : "Confirm the unknown-price policy in OpenCode settings before the first request. No provider request was made.",
+        "MODEL_COST_CONFIRMATION_REQUIRED",
+        409,
+        false,
+      );
     }
     const roleAgents = Object.fromEntries(
       discovery.roles.map((role) => [role.role, role.available ? role.agent : null]),
@@ -589,6 +627,7 @@ export class ExperienceService {
         statusReason: "malformed-response",
         lastObservedAt: new Date().toISOString(),
         appliedAt: null,
+        providerError: null,
       });
       rememberTranscript(next, "system", safeMessage);
       return refreshNextAction(next);
@@ -597,11 +636,18 @@ export class ExperienceService {
   }
 
   private async recordUncertain(actionId: string, payload: object, expectedRevision: number, intent: string, error: unknown) {
-    const classification = classifyNativeError(error);
-    const message = this.redact(classification.message);
     const nativeSessionId = typeof (error as { nativeSessionId?: unknown })?.nativeSessionId === "string"
       ? (error as { nativeSessionId: string }).nativeSessionId
       : null;
+    const current = (await this.store.load()).state;
+    const providerFailure = providerErrorFor(
+      error,
+      current.engine.model?.providerID ?? "unknown",
+      nativeSessionId,
+      intent === "maker" && nativeSessionId ? "possibly" : "no",
+    );
+    const classification = classifyNativeError(providerFailure ?? error);
+    const message = this.redact(classification.message);
     const uncertain = classification.unknown || (intent === "maker" && Boolean(nativeSessionId));
     const saved = await this.workflow.execute(actionId, payload, expectedRevision, (project) => {
       const next = structuredClone(project);
@@ -620,6 +666,7 @@ export class ExperienceService {
         statusReason: uncertain ? "native-outcome-unconfirmed" : classification.code.toLowerCase(),
         lastObservedAt: new Date().toISOString(),
         appliedAt: null,
+        providerError: providerFailure?.details ?? null,
       });
       rememberTranscript(next, "system", uncertain ? `${message} The native run was not repeated.` : message);
       return refreshNextAction(next);
@@ -630,6 +677,7 @@ export class ExperienceService {
       uncertain ? 503 : classification.status,
       uncertain ? false : classification.retryable,
       saved.project.operations.at(-1)?.id ?? null,
+      providerFailure?.details ?? null,
     );
   }
 
@@ -652,6 +700,17 @@ function classifyNativeError(error: unknown): {
   const declared = typeof (error as { code?: unknown })?.code === "string" ? (error as { code: string }).code : null;
   if (declared === "ENGINE_AUTH") {
     return { code: "ENGINE_AUTH", status: 503, retryable: false, unknown: false, message: "OpenCode rejected the configured credentials." };
+  }
+  if (error instanceof ProviderRequestError) {
+    return {
+      code: error.details.category,
+      status: error.details.technical.statusCode && error.details.technical.statusCode >= 400
+        ? error.details.technical.statusCode
+        : 502,
+      retryable: error.details.retryable,
+      unknown: false,
+      message: error.details.whatHappened,
+    };
   }
   if (declared === "ENGINE_INCOMPATIBLE" || declared === "MODEL_UNAVAILABLE" || declared === "MODEL_CHANGED") {
     return { code: declared, status: 503, retryable: false, unknown: false, message: error instanceof Error ? error.message : "OpenCode is not ready for this build." };
@@ -690,6 +749,26 @@ function classifyNativeError(error: unknown): {
   return { code: "NATIVE_FAILED", status: 502, retryable: true, unknown: false, message };
 }
 
+function providerErrorFor(
+  error: unknown,
+  provider: string,
+  sessionReference: string | null,
+  savedWorkChanged: "no" | "possibly",
+): ProviderRequestError | null {
+  const code = typeof (error as { code?: unknown })?.code === "string" ? (error as { code: string }).code : "";
+  if ([
+    "ENGINE_AUTH",
+    "ENGINE_INCOMPATIBLE",
+    "ENGINE_UNAVAILABLE",
+    "MODEL_CHANGED",
+    "BUDGET_EXCEEDED",
+    "NATIVE_TIMEOUT",
+    "EMPTY_RESPONSE",
+  ].includes(code) || error instanceof NetworkPolicyError) return null;
+  if (!isProviderFailureCandidate(error)) return null;
+  return classifyProviderError(error, { provider, sessionReference, savedWorkChanged });
+}
+
 function sessionFor(project: Project, role: SpiritRole): string | null {
   return project.nativeSessions.find((item) => item.role === role)?.sessionId ?? null;
 }
@@ -718,5 +797,6 @@ function operation(
     statusReason: null,
     lastObservedAt: now,
     appliedAt: status === "SUCCEEDED" ? now : null,
+    providerError: null,
   };
 }

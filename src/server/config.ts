@@ -36,7 +36,7 @@ export interface LimitsConfig {
   makerTimeoutMs: number;
   nodeCheckTimeoutMs: number;
   maxSessionTokens: number;
-  maxSessionCostUsd: number;
+  maxSessionCostUsd: number | null;
 }
 
 export interface RetentionConfig {
@@ -103,12 +103,13 @@ function integer(env: NodeJS.ProcessEnv, name: string, fallback: number, min: nu
   return value;
 }
 
-function decimal(env: NodeJS.ProcessEnv, name: string, fallback: number, min: number, max: number): number {
-  const raw = env[name]?.trim();
-  if (!raw) return fallback;
+function optionalDecimal(env: NodeJS.ProcessEnv, name: string, max: number): number | null {
+  const raw = env[name]?.trim().toLowerCase();
+  if (!raw || raw === "unlimited" || raw === "disabled") return null;
   const value = Number(raw);
-  if (!Number.isFinite(value) || value < min || value > max) {
-    throw new ConfigError(`${name} must be a number between ${min} and ${max}.`);
+  if (Number.isFinite(value) && value === 0) return null;
+  if (!Number.isFinite(value) || value < 0 || value > max) {
+    throw new ConfigError(`${name} must be a positive number up to ${max}, or unlimited/disabled.`);
   }
   return value;
 }
@@ -270,7 +271,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       makerTimeoutMs: integer(env, "UB_MAKER_TIMEOUT_MS", 180_000, 5_000, 900_000),
       nodeCheckTimeoutMs: integer(env, "UB_NODE_CHECK_TIMEOUT_MS", 30_000, 1_000, 300_000),
       maxSessionTokens: integer(env, "UB_MAX_SESSION_TOKENS", 200_000, 1_000, 10_000_000),
-      maxSessionCostUsd: decimal(env, "UB_MAX_SESSION_COST_USD", 0, 0, 100),
+      maxSessionCostUsd: optionalDecimal(env, "UB_MAX_SESSION_COST_USD", 100),
     },
     retention: {
       actions: integer(env, "UB_RETENTION_ACTIONS", 500, 50, 100_000),
@@ -297,7 +298,7 @@ export function publicRuntimeConfig(config: AppConfig): RuntimeConfig {
     originProtection: true as const,
     opencode: {
       baseUrlKind: (isLoopbackHost(new URL(config.opencode.baseUrl).hostname) ? "loopback" : "remote") as "loopback" | "remote",
-      model: "opencode/deepseek-v4.1-flash-free",
+      model: null,
     },
     budgets: {
       guideTimeoutMs: config.limits.guideTimeoutMs,

@@ -12,6 +12,7 @@ import {
   operationStatusSchema,
   projectSchema,
 } from "../src/server/workflow/model.ts";
+import { providerErrorSchema } from "../src/shared/workflow.ts";
 import { reviseSection } from "../src/server/workflow/transitions.ts";
 
 function populatedProject() {
@@ -55,6 +56,7 @@ function populatedProject() {
     statusReason: null,
     lastObservedAt: "2026-10-31T10:04:00.000Z",
     appliedAt: "2026-10-31T10:04:00.000Z",
+    providerError: null,
   });
   current.evidence.push({
     id: "ev-1",
@@ -129,9 +131,27 @@ function legacyProjectV2() {
   };
 }
 
-test("v1 fixed-model projects migrate to v3 without losing workflow history", () => {
+function legacyProjectV3() {
+  const current = populatedProject();
+  return {
+    ...current,
+    schemaVersion: 3,
+    operations: current.operations.map(({ providerError: _providerError, ...operation }) => operation),
+    modelPreferences: {
+      access: {
+        requireFreeOrLocal: true,
+        allowedProviders: ["opencode"],
+        allowedModels: [{ providerID: "opencode", id: "selected-model", variant: "low" }],
+        dataPolicy: "NO_TRAINING_REQUIRED",
+      },
+      budget: { maxCostUsd: 2.5, maxTotalTokens: 150_000, maxRunDurationMs: 120_000 },
+    },
+  };
+}
+
+test("v1 fixed-model projects migrate to v4 without losing workflow history", () => {
   const migrated = migrateProject(legacyProjectV1()).project;
-  assert.equal(migrated.schemaVersion, 3);
+  assert.equal(migrated.schemaVersion, 4);
   assert.equal(migrated.createdAt, MIGRATION_TIMESTAMP);
   assert.equal(migrated.engine.model, null);
   assert.equal(migrated.engine.source, "migrated-legacy");
@@ -146,12 +166,15 @@ test("v1 fixed-model projects migrate to v3 without losing workflow history", ()
   assert.equal(migrated.evidence[0].checkId, "CK-06");
   assert.equal(migrated.evidence[0].model, null);
   assert.equal(migrated.nativeSessions[0].sessionId, "ses_old");
+  assert.equal(migrated.modelPreferences.access.mode, "FREE_OR_LOCAL_ONLY");
+  assert.equal(migrated.modelPreferences.access.paidOrUnknownAcceptedAt, null);
+  assert.equal(migrated.operations[0].providerError, null);
 });
 
 test("v2 projects preserve proposals, approvals, evidence, operations, and selected model", () => {
   const legacy = legacyProjectV2();
   const migrated = migrateProject(legacy).project;
-  assert.equal(migrated.schemaVersion, 3);
+  assert.equal(migrated.schemaVersion, 4);
   assert.deepEqual(migrated.product, legacy.product);
   assert.deepEqual(migrated.approvals, legacy.approvals);
   assert.equal(migrated.sections[0].content, legacy.sections[0].content);
@@ -172,6 +195,36 @@ test("v2 UNKNOWN operations migrate to ABANDONED without losing native reference
   assert.equal(operation.result, "old result");
 });
 
+test("v3 projects migrate to v4 with their access policy, limits, and selected model preserved", () => {
+  const legacy = legacyProjectV3();
+  legacy.engine = {
+    model: { providerID: "acme", id: "paid-model", variant: "high" },
+    source: "user",
+    updatedAt: "2026-10-31T10:06:00.000Z",
+    legacyModel: null,
+  };
+  legacy.modelPreferences.access.requireFreeOrLocal = false;
+  const migrated = migrateProject(legacy);
+  assert.equal(migrated.fromVersion, 3);
+  assert.equal(migrated.migrated, true);
+  assert.equal(migrated.project.schemaVersion, 4);
+  assert.deepEqual(migrated.project.engine.model, legacy.engine.model);
+  assert.equal(migrated.project.modelPreferences.access.mode, "ALL_ACCESSIBLE");
+  assert.equal(migrated.project.modelPreferences.access.dataPolicy, "NO_TRAINING_REQUIRED");
+  assert.deepEqual(migrated.project.modelPreferences.access.allowedProviders, ["opencode"]);
+  assert.equal(migrated.project.modelPreferences.access.allowedModels[0].id, "selected-model");
+  assert.equal(migrated.project.modelPreferences.access.paidOrUnknownAcceptedAt, null);
+  assert.equal(migrated.project.modelPreferences.budget.maxCostUsd, 2.5);
+  assert.equal(migrated.project.modelPreferences.budget.maxTotalTokens, 150_000);
+  assert.equal(migrated.project.operations[0].providerError, null);
+
+  const freeOnly = legacyProjectV3();
+  freeOnly.modelPreferences.budget.maxCostUsd = 0;
+  const freeMigration = migrateProject(freeOnly).project;
+  assert.equal(freeMigration.modelPreferences.access.mode, "FREE_OR_LOCAL_ONLY");
+  assert.equal(freeMigration.modelPreferences.budget.maxCostUsd, null);
+});
+
 test("migration is deterministic and idempotent", () => {
   const legacy = legacyProjectV2();
   const first = migrateProject(legacy);
@@ -180,26 +233,26 @@ test("migration is deterministic and idempotent", () => {
 
   const repeated = migrateProject(first.project);
   assert.equal(repeated.migrated, false);
-  assert.equal(repeated.fromVersion, 3);
+  assert.equal(repeated.fromVersion, 4);
   assert.deepEqual(repeated.project, first.project);
 });
 
-test("loading and saving a migrated project persists schema v3", async () => {
+test("loading and saving a migrated project persists schema v4", async () => {
   const directory = await mkdtemp(join(tmpdir(), "ub-migration-"));
   const path = join(directory, "project.json");
   await writeFile(path, JSON.stringify(legacyProjectV1()), "utf8");
   const store = new AtomicProjectStore(path);
   const loaded = await store.load();
-  assert.equal(loaded.state.schemaVersion, 3);
+  assert.equal(loaded.state.schemaVersion, 4);
   const revised = reviseSection(loaded.state, "control", "migrated scope");
   await store.save(loaded.state.revision, revised);
   const persisted = JSON.parse(await readFile(path, "utf8"));
-  assert.equal(persisted.schemaVersion, 3);
+  assert.equal(persisted.schemaVersion, 4);
   assert.equal(persisted.engine.legacyModel, LEGACY_FIXED_MODEL_KEY);
-  assert.equal(projectSchema.parse(persisted).schemaVersion, 3);
+  assert.equal(projectSchema.parse(persisted).schemaVersion, 4);
 });
 
-test("new v3 projects serialize all additive foundations", () => {
+test("new v4 projects serialize all additive foundations and default to all accessible models", () => {
   const project = createProject("/workspace", "local", { now: "2026-11-01T00:00:00.000Z" });
   project.source = { kind: "import", label: "Fixture import", externalId: "fixture-1", importedAt: "2026-11-01T00:00:01.000Z" };
   project.oracleIntake = {
@@ -231,13 +284,40 @@ test("new v3 projects serialize all additive foundations", () => {
   const serialized = JSON.stringify(project);
   const roundTripped = projectSchema.parse(JSON.parse(serialized));
   assert.deepEqual(roundTripped, project);
-  assert.equal(roundTripped.schemaVersion, 3);
+  assert.equal(roundTripped.schemaVersion, 4);
   assert.equal(roundTripped.source.kind, "import");
   assert.equal(roundTripped.oracleIntake.status, "COLLECTING");
   assert.equal(roundTripped.memory.facts[0].id, "memory-1");
   assert.equal(roundTripped.sections[0].candidateRevisions[0].id, "candidate-1");
-  assert.equal(roundTripped.modelPreferences.access.requireFreeOrLocal, true);
+  assert.equal(roundTripped.modelPreferences.access.mode, "ALL_ACCESSIBLE");
+  assert.equal(roundTripped.modelPreferences.access.paidOrUnknownAcceptedAt, null);
   assert.equal(roundTripped.modelPreferences.budget.maxCostUsd, 1);
+});
+
+test("provider errors round-trip on v4 operations without losing their safe references", () => {
+  const project = populatedProject();
+  project.operations[0].providerError = providerErrorSchema.parse({
+    category: "PROVIDER_RATE_LIMIT",
+    whatHappened: "The provider is temporarily limiting request volume.",
+    savedWorkChanged: "possibly",
+    savedWorkMessage: "The saved workshop plan was not replaced, but the native session may have changed files.",
+    repair: "Wait for the limit window, then retry once.",
+    action: "retry",
+    retryable: true,
+    technical: {
+      provider: "acme",
+      statusCode: 429,
+      providerCode: "rate_limit",
+      sessionReference: "ses_old",
+      diagnosticReference: "provider-fixture-roundtrip",
+      safeDetail: "No credentials are present in this safe detail.",
+    },
+  });
+  const roundTripped = projectSchema.parse(JSON.parse(JSON.stringify(project)));
+  assert.deepEqual(roundTripped.operations[0].providerError, project.operations[0].providerError);
+  const repeated = migrateProject(roundTripped);
+  assert.equal(repeated.migrated, false);
+  assert.equal(repeated.fromVersion, 4);
 });
 
 test("operation states expose the complete Phase 0 state model", () => {

@@ -24,7 +24,7 @@ const baseLimits: LimitsConfig = {
   makerTimeoutMs: 30_000,
   nodeCheckTimeoutMs: 10_000,
   maxSessionTokens: 200_000,
-  maxSessionCostUsd: 0,
+  maxSessionCostUsd: null,
 };
 
 function security(overrides: Partial<LimitsConfig> = {}): HttpSecurityOptions {

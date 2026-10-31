@@ -1,8 +1,8 @@
 # Architecture — Unfinished Business
 
-**Status:** Upgrade Phase 0 implemented on the verified release-candidate baseline.
+**Status:** Upgrade Phase 1 implemented on top of the verified Phase 0 baseline.
 **Owner:** Engineering.
-**Last verified:** 2026-11-01 against `118` unit/integration tests plus the existing `18` visual/accessibility tests.
+**Last verified:** 2026-11-01 against `139` unit/integration tests plus the existing `18` visual/accessibility tests.
 
 ## 1. System shape
 
@@ -23,7 +23,8 @@ Hono server (src/server/app.ts)
   ├─ /api/engine                 connection/engine summary
   ├─ /api/connection*            check, configure (local only), reset
   ├─ /api/opencode/*             discovery, project-owned sessions, permissions, usage
-  ├─ /api/engine/selection       persist a discovered free/local model
+  ├─ /api/engine/selection       persist a discovered model allowed by project policy
+  ├─ /api/model-preferences      access mode, privacy preference, optional spending limit
   ├─ /api/project, /api/export   snapshot/approved plan; workspace path omitted
   ├─ /api/events                 authenticated bounded SSE snapshots
   ├─ /api/messages, /api/approvals, /api/sections/*
@@ -52,15 +53,15 @@ Unfinished Business never implements a second agent loop, inference client, gene
 
 `src/web/App.tsx` reads `window.location.pathname`, listens for `popstate`, updates `document.title` and `document.documentElement.dataset.route`, and scrolls to the top on route change. Navigations are ordinary anchors, so they work without a client router.
 
-Measured production chunks (2026-10-31):
+Measured production chunks (2026-11-01):
 
-- initial `index-*.js`: 193.8 KiB gzip;
-- `WorkshopPage-*.js`: 54.9 KiB gzip (includes onboarding/discovery UI);
+- initial `index-*.js`: 194.0 KiB gzip;
+- `WorkshopPage-*.js`: 57.0 KiB gzip (includes onboarding/discovery UI);
 - `DemoPage-*.js`: 11.8 KiB gzip;
-- `SpiritStageTabs-*.js`: 3.5 KiB gzip;
-- CSS: 14.2 KiB gzip.
+- `SpiritStageTabs-*.js`: 3.6 KiB gzip;
+- CSS: 14.5 KiB gzip.
 
-The workshop keeps four-stage navigation, plan outline, working document, and activity/evidence rail. The visual layer changed; stage and approval semantics did not.
+The workshop keeps four-stage navigation, plan outline, working document, and activity/evidence rail. Provider failures render as a dedicated card with what happened, saved-work state, repair action, retry/change-model controls, and technical disclosure. The Run Inspector retains a compact provider-error line even after the card is dismissed. The visual layer changes did not alter stage and approval semantics.
 
 ## 3. Static serving and assets
 
@@ -88,11 +89,12 @@ Public hero assets are produced by `scripts/build-hero-assets.py` into `public/a
 | `src/server/security/redaction.ts` | Text/error/unknown/Sentry/log redaction |
 | `src/server/observability/logger.ts` | Structured JSON logs with correlation IDs |
 | `src/server/store/atomic-project-store.ts` | Lock, atomic write, fsync, backups, quarantine, migration |
-| `src/server/workflow/` | Schema v3, explicit v1/v2 migration, transitions, idempotency, retention, restart recovery |
+| `src/server/workflow/` | Schema v4, explicit v1/v2/v3 migration, transitions, idempotency, retention, restart recovery |
 | `src/server/opencode/client.ts` | Safe client, version/auth/model readiness |
-| `src/server/opencode/connection.ts` | Connection settings, discovery, model resolution |
+| `src/server/opencode/connection.ts` | Connection settings, discovery, model access policy and resolution |
+| `src/server/opencode/provider-errors.ts` | Classifies provider failures into safe, actionable categories |
 | `src/server/opencode/sessions.ts` | Project-owned session/permission/usage controls |
-| `src/server/experience/guide.ts` | Four role sessions, timeouts, budgets, interruption |
+| `src/server/experience/guide.ts` | Four role sessions, timeouts, stricter-of-two budgets, interruption |
 | `src/server/experience/service.ts` | Oracle/Architect/Maker/Witness orchestration |
 | `src/server/experience/runs.ts` | In-process Maker run coordinator |
 | `src/server/experience/telemetry.ts` | Metadata-only Sentry spans |
@@ -123,28 +125,32 @@ Local mode refuses a non-loopback bind. Private-hosted requires an explicit publ
 8. Non-blocking mutation concurrency gate; separate bounded SSE gate.
 9. Session-token check for every protected API route in local/private modes. `/api/session` and `/api/mode` are the only unauthenticated API reads besides health.
 10. Route validation, workflow lock, state write.
-11. Error mapping with stable code, retryability, operation ID, request ID, and redacted message.
+11. Error mapping with stable code, retryability, operation ID, request ID, redacted message, and a structured `providerError` when a provider request failed.
 
 The browser session token is issued only over loopback in local mode or after Basic Auth in private mode. It is compared in constant time. It is not persisted in browser storage.
 
 ## 7. State, evidence, and recovery
 
-Schema v3 is the single current shape. It preserves the v2 workflow record and adds:
+Schema v4 is the single current shape. It preserves the v3 workflow record and activates:
 
 - project source metadata (`workspace`, `import`, `template`, or `demo`);
 - structured Oracle intake state, questions, constraints, and success criteria;
 - structured project memory buckets for facts, decisions, constraints, and risks;
 - candidate section revisions that remain separate from the approved/current section;
-- model-access and budget preferences, stored as preferences rather than new enforcement claims;
-- operation observation/application metadata and late-result-safe states.
+- model access mode (`ALL_ACCESSIBLE` or `FREE_OR_LOCAL_ONLY`), privacy preference, first paid/unknown-price acceptance timestamp, and optional budget limits;
+- operation observation/application metadata and late-result-safe states;
+- a nullable structured provider error on operations: category, human explanation, saved-work status, repair action, retryability, and redacted technical references.
+
+New projects default to `ALL_ACCESSIBLE` with no spending limit. A paid or unknown-price remote model additionally requires an explicit confirmation timestamp before it can be selected or used. `FREE_OR_LOCAL_ONLY` blocks paid/unknown remote models and is the migrated default for v1/v2/v3 projects, preserving their previous behavior.
 
 Migration accepts:
 
 - v1 fixed-model snapshots;
 - guided-interface v2 snapshots with engine selection but no mode/timestamps;
-- hardening-line v2 snapshots with mode/timestamps but no engine selection.
+- hardening-line v2 snapshots with mode/timestamps but no engine selection;
+- v3 snapshots with `requireFreeOrLocal`, a nonnegative cost budget, and no provider error.
 
-Migration is deterministic and idempotent. Missing legacy timestamps use the documented epoch sentinel `1970-01-01T00:00:00.000Z`; migration never reads the wall clock or generates IDs. Legacy `UNKNOWN` operations become `ABANDONED` with their result and native references intact. A v3 document round-trips through JSON and schema validation without changing.
+Migration is deterministic and idempotent. Missing legacy timestamps use the documented epoch sentinel `1970-01-01T00:00:00.000Z`; migration never reads the wall clock or generates IDs. Legacy `UNKNOWN` operations become `ABANDONED` with their result and native references intact. A v4 document round-trips through JSON and schema validation without changing.
 
 Operational rules:
 
@@ -197,8 +203,8 @@ Residual risks:
 1. **No shared-host isolation.** This is a trusted single-project tool, not a multi-tenant sandbox. The Node check is not seccomp/container isolation.
 2. **No remote repository connector.** `private-hosted` can point at an allowlisted OpenCode server but does not add multi-tenant isolation or a remote browser-to-local pairing flow.
 3. **Local process trust.** Any process running as the same OS user can read the data directory and local credentials.
-4. **Provider facts are incomplete.** Free-model availability, quota, and billing are controlled by OpenCode/provider. Elapsed-time and session-token limits are enforced where reported; a tool-call budget is not claimed.
-5. **Telemetry is best-effort.** Sentry delivery failure does not block the workshop. Live release/source-map/trace verification needs authorized credentials.
+4. **Provider facts are incomplete.** Model availability, pricing, quota, training terms, and billing are controlled by OpenCode/provider. The optional spending limit is enforced only against cost OpenCode reports after a session; an unknown-price route can bill before that value is visible. A tool-call budget is not claimed.
+5. **Telemetry is best-effort.** Sentry delivery failure does not block the workshop. Provider error cards expose only redacted technical detail and a diagnostic reference; live release/source-map/trace verification needs authorized credentials.
 6. **Dependency audit gap.** Six moderate `glob`/`minimatch` advisories are reachable through the Sentry bundler plugin during developer builds. The production audit at `--audit-level=high` passes; the suggested fix is a breaking Sentry downgrade.
 
 ## 10. Not in this architecture

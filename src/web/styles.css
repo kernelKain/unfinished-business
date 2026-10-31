@@ -2212,6 +2212,110 @@ textarea:focus-visible { border-color: var(--amber); box-shadow: 0 0 0 4px var(-
 .warning-panel svg,
 .warning-panel strong { color: var(--status-warning); }
 
+.provider-error-card {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+  padding: var(--space-4);
+  border: 1px solid rgb(255 180 168 / 38%);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(circle at 0% 0%, rgb(255 180 168 / 10%), transparent 18rem),
+    rgb(255 180 168 / 5%);
+}
+
+.provider-error-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.provider-error-heading svg { flex: none; color: var(--status-danger); margin-top: 0.15rem; }
+.provider-error-heading h2 { color: var(--paper); font-size: 1.15rem; }
+.provider-error-heading .eyebrow { color: var(--status-danger); }
+
+.provider-error-card > dl,
+.provider-error-card .technical-details {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.provider-error-card dl > div {
+  display: grid;
+  gap: 2px;
+}
+
+.provider-error-card dt {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.provider-error-card dd {
+  margin: 0;
+  color: var(--paper-soft);
+  overflow-wrap: anywhere;
+}
+
+.provider-error-card .actions { margin: 0; }
+.provider-error-card details { border-top: 1px solid var(--border); padding-top: var(--space-3); }
+.provider-error-card summary { cursor: pointer; color: var(--text-muted); font-size: 0.82rem; }
+.provider-error-card details[open] summary { margin-bottom: var(--space-2); }
+
+.policy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.policy-grid label { margin-top: 0; }
+.policy-grid .checkbox-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  align-self: end;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid rgb(184 175 202 / 28%);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.policy-grid .checkbox-field input { width: auto; min-height: 0; }
+
+.confirmation-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-amber);
+  border-radius: 12px;
+  background: rgb(243 182 109 / 7%);
+  color: var(--paper-soft);
+  font-size: 0.88rem;
+}
+.confirmation-card input { flex: none; width: auto; min-height: 0; margin-top: 0.2rem; }
+
+.privacy-warning {
+  border-left: 2px solid var(--border-violet);
+  padding-left: var(--space-3);
+}
+
+.run-provider-error {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--status-danger);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+.run-provider-error strong { color: var(--status-danger); }
+
 .reading {
   max-height: 62vh;
   overflow: auto;

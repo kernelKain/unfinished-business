@@ -2,7 +2,7 @@
 
 **Status:** Implemented release candidate.
 **Owner:** Operations/engineering.
-**Last verified:** 2026-11-01; schema v3 migration, recovery, corruption, restart, and hosted-demo isolation covered by tests.
+**Last verified:** 2026-11-01; schema v4 migration, provider-budget enforcement, recovery, corruption, restart, and hosted-demo isolation covered by tests.
 
 The application is a single-process Node service with one writer and one active project. It is not a multi-tenant service.
 
@@ -66,12 +66,13 @@ Recovery rules:
 - Current invalid, previous valid → copy the current bytes to `project.json.corrupt-*`, use the previous snapshot, and log the recovery. The corrupt original remains.
 - Both invalid → refuse to reset. State routes return `STATE_CORRUPT`; health stays minimal.
 - Newer schema version → refuse and preserve. Do not downgrade.
-- Schema v1 or either supported v2 shape → deterministically migrate on read; the next successful write persists canonical schema v3.
+- Schema v1, either supported v2 shape, or schema v3 → deterministically migrate on read; the next successful write persists canonical schema v4.
 
 Migration policy:
 
 - preserve proposals, section content/status/version/hash, approvals, transcripts, operations, evidence, native session references, and selected model data;
 - add source/intake/memory/candidate/model-preference fields with explicit defaults;
+- map v3 `requireFreeOrLocal: true` to `FREE_OR_LOCAL_ONLY` and `false` to `ALL_ACCESSIBLE`; map a zero v3 cost limit to unlimited;
 - map legacy operation `UNKNOWN` to `ABANDONED` without erasing the recorded result or native references;
 - use the fixed epoch sentinel for timestamps absent from old files, never the migration wall clock;
 - make repeated migration idempotent; refuse and preserve future schema versions.
@@ -127,10 +128,13 @@ Startup recovery marks `QUEUED`, `RUNNING`, and `WAITING_PERMISSION` operations 
 |---|---|---|---|
 | OpenCode unavailable | readiness probe fails | no mutation; `ENGINE_UNAVAILABLE`; no retry loop | Start/repair `opencode serve`, verify `/api/engine`, retry manually |
 | Version incompatible | server is not 2.x | mutation refused; `ENGINE_INCOMPATIBLE` | Install the pinned compatible server |
-| Authentication failure | 401/403/auth-looking error | `ENGINE_AUTH`; no model call claimed | Check `OPENCODE_PASSWORD` and server auth mode |
-| Free/local model missing | catalog/selection check | `MODEL_UNAVAILABLE`; no substitute | Restore a free/local model; do not add paid fallback |
-| Paid model selected | pricing policy | selection rejected | Choose a free or local model |
-| Provider rate/quota limit | 429/quota text | `PROVIDER_LIMITED`; no automatic retry | Wait, then start a new request |
+| OpenCode authentication failure | server 401/403/auth-looking error | `ENGINE_AUTH`; no model call claimed | Check `OPENCODE_PASSWORD` and server auth mode |
+| Selected model missing/unavailable | catalog/selection check | `MODEL_UNAVAILABLE`; no substitute | Choose another model reported by OpenCode |
+| Free/local-only policy blocks a model | project access mode + catalog pricing | selection and run rejected; no provider request | Choose a free/local model or deliberately switch to All accessible models |
+| Paid/unknown-price model not yet confirmed | project acceptance timestamp | selection and run rejected; no provider request | Review the pricing/metadata warning and confirm before the first request |
+| Provider privacy/data-policy rejection | provider status/message | `PROVIDER_DATA_POLICY`; no automatic retry | Review the provider's terms, choose a compliant route, or deliberately change the workspace privacy preference |
+| Provider authentication failure | 401/provider auth text | `PROVIDER_AUTH`; no automatic retry | Reconnect the provider inside OpenCode, then retry |
+| Provider rate/quota limit | 429/402/quota text | `PROVIDER_RATE_LIMIT`/`PROVIDER_QUOTA`; no automatic retry | Wait for the limit window or check quota/billing, then start a new request |
 | Native permission pending | permission list/timeout | operation `WAITING_PERMISSION`; app never approves | Resolve in OpenCode, then reconcile |
 | Native timeout/disconnect | timeout/network error | operation `ABANDONED`; never replay | Reconcile; inspect native session first |
 | Late native success/diff | response arrives after timeout | retain as `COMPLETED_UNAPPLIED`; do not claim application | Review and explicitly apply or discard in a later phase |
@@ -150,17 +154,21 @@ Startup recovery marks `QUEUED`, `RUNNING`, and `WAITING_PERMISSION` operations 
 | Rate/concurrency limit | limiter/gate | 429 with retry hint | Wait briefly; do not bypass |
 | Sentry unavailable | transport failure | core workflow continues | No action required; telemetry optional |
 
+Provider failures are also stored on the operation (`providerError`) with a `provider-…` diagnostic reference. The UI card explains what happened, whether saved work changed, and the repair action. Technical details are redacted of authorization headers, API keys, passwords, cookies, and local paths. Dismissing the card does not erase the operation evidence; inspect it in the Run Inspector.
+
 ## Budgets
 
-`GET /api/runtime` exposes effective budgets (authenticated):
+`GET /api/runtime` exposes effective deployment budgets (authenticated):
 
 - guide timeout (`UB_GUIDE_TIMEOUT_MS`, default 90s);
 - Maker timeout (`UB_MAKER_TIMEOUT_MS`, default 180s);
 - Node check timeout (`UB_NODE_CHECK_TIMEOUT_MS`, default 30s);
 - per-session token budget (`UB_MAX_SESSION_TOKENS`, default 200k);
-- per-session cost budget (`UB_MAX_SESSION_COST_USD`, default 0).
+- optional deployment-wide session cost limit (`UB_MAX_SESSION_COST_USD`; `unlimited`, `disabled`, `0`, or unset means no app limit).
 
-The app enforces what OpenCode exposes reliably after a session. It does **not** enforce a per-session tool-call budget because OpenCode's stats API is project/range-oriented. Provider quota is not predicted or guaranteed.
+Per-project cost/token/duration limits are stored in `project.modelPreferences.budget` and can be updated through `POST /api/model-preferences`; the current values appear in `GET /api/project`.
+
+The stricter deployment or project limit wins. The app enforces what OpenCode exposes reliably after a session. It does **not** enforce a per-session tool-call budget because OpenCode's stats API is project/range-oriented. For a model whose price is unknown, OpenCode may report cost only after a request; the limit cannot prevent a charge that occurs before that report. Provider quota is not predicted or guaranteed.
 
 ## Restart procedure
 
