@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.12.3-nightly.202610310614.54b6a5cac",
+  "checkpoint_id": "01M6A4R83GKAE5PBYAJC2WEMR9",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/server/experience/service.ts",
+    "tests/observable-runs.test.ts",
+    "tests/oracle-discovery.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 18933,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 4491776,
+    "output_tokens": 3149,
+    "api_call_count": 17
+  },
+  "redaction": {
+    "replacements": 158,
+    "layers": {
+      "betterleaks": 158,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 4,
+      "credentialed_uri": 4,
+      "entropy": 16,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
