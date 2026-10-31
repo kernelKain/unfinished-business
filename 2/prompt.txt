@@ -1,0 +1,96 @@
+# Phase 4 prompt — Build the hackathon landing page, visual system, motion, and spirit characters
+
+Implement only Phase 4 of the Unfinished Business roadmap. Create a high-quality landing page and cohesive Ghostlight Hacker Workshop interface without changing core workflow authorization or introducing a second coding harness.
+
+## Prerequisite
+
+Verify the four-stage navigation and project information architecture from Phase 3 are stable. Do not redesign around obsolete component or route structures.
+
+## Outcome
+
+The product clearly sells itself as an OpenCode-powered hackathon project builder, explains local and hosted choices honestly, and feels dimensional and alive while remaining fast, accessible, and readable.
+
+## Design direction
+
+Use the **Ghostlight Hacker Workshop** theme:
+
+- deep navy/near-black foundation;
+- ultraviolet and spectral blue glow;
+- restrained amber lantern/workbench light;
+- layered paper, blueprint, glass, and terminal surfaces;
+- subtle depth, parallax, grain, highlights, and shadows;
+- strong typography and information hierarchy;
+- no fake testimonials, usage figures, awards, or unsupported claims.
+
+The four characters must have distinct functions and states:
+
+- Oracle: seer/lantern orb; listening shimmer and clarification state.
+- Architect: spectral blueprint/compass spirit; line-drawing and approval state.
+- Maker: friendly mechanical ghost/tool belt; build, permission, blocked, and success states.
+- Witness: archival moth/eye/camera spirit; scan, evidence, warning, and stamp states.
+
+## Landing page work
+
+Create a responsive landing page with:
+
+1. Hero: “Turn unfinished ideas into hackathon-ready builds.”
+2. Clear value statement and OpenCode-only positioning.
+3. Primary actions for trying the example, connecting OpenCode, and setting up locally.
+4. Honest “two ways to use it” preview: hosted demo/private deployment and full local mode.
+5. Four-spirit workflow explanation.
+6. Deterministic demo teaser without pretending it is live inference.
+7. OpenCode controls/evidence preview.
+8. Idea-to-tool recommendation preview.
+9. Local setup command tabs sourced from tested documentation.
+10. Privacy/security explanation.
+11. FAQ and final CTA.
+
+Use real product states and concise copy. The landing page must not claim remote access to a visitor's local repository.
+
+## Visual assets and animation
+
+- Reuse the existing Motion dependency and CSS where sufficient. Do not add a heavy animation framework without measured need.
+- Create responsive, optimized hero and character assets. If an authorized image-generation tool is available, generate original assets with documented prompts and licenses/provenance; otherwise create a lightweight code/CSS/SVG direction that does not imitate protected characters.
+- Hero image prompt direction: a wide 21:9 cinematic spectral hackathon workshop, unfinished robot, workbench, CRT-style terminal, blueprints, four subtle friendly spirits, deep navy/indigo with amber work light, atmospheric depth, empty readable space for hero copy, no text, no logos, no watermark.
+- Keep source/master assets separate from optimized AVIF/WebP outputs. Add responsive crops and explicit dimensions to prevent layout shift.
+- Use a dark overlay/blur where necessary for text contrast.
+- Add restrained idle, entry, working, blocked, success, and error motion tied to actual state.
+- Implement `prefers-reduced-motion`, nonanimated fallbacks, keyboard/focus visibility, and contrast checks.
+- Avoid continuous high-cost animation, scroll hijacking, essential information in images, or interaction that depends on hover.
+
+## Interface system
+
+- Define typography, color, spacing, radius, elevation, border, focus, motion-duration, and status tokens.
+- Consolidate repeated components and remove obsolete styles only after reference checks.
+- Apply the visual system to landing, workflow header, stage tabs, section cards, Run Inspector, dialogs, errors, empty states, and setup panels.
+- Keep the main product faster and clearer than a visual demo: cap asset size and animation work.
+
+## Verification
+
+- Add component/route tests for main CTAs and truthful mode descriptions.
+- Add or update visual snapshots for landing, each spirit state, Run Inspector, errors, and narrow/wide layouts.
+- Test keyboard navigation, focus order, color contrast, reduced motion, overflow, text zoom, and mobile layouts.
+- Measure production bundle and image sizes; document an explicit performance budget.
+- Verify no generated asset contains text, logos, watermarks, or misleading UI.
+
+## Documentation requirements
+
+Update:
+
+- `docs/UX_AND_VISUAL_SYSTEM.md` with theme, tokens, component rules, character states, asset prompts/provenance, motion, accessibility, and performance budgets;
+- `docs/PRODUCT_BRIEF.md` with positioning and landing claims;
+- `docs/LOCAL_SETUP.md` and `docs/HOSTED_DEPLOYMENT.md` so landing instructions match actual setup;
+- `docs/DEMO_AND_SUBMISSION.md` with approved screenshots/visual capture guidance;
+- `docs/ARCHITECTURE.md` if asset loading/routes change;
+- `docs/DECISIONS.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/CHANGELOG.md`, and `README.md`.
+
+## Acceptance
+
+- A first-time visitor can explain the product, the four roles, OpenCode's role, and the two usage paths.
+- The landing page contains tested local setup guidance.
+- The interface has visible depth and coherent state-driven motion without harming readability.
+- Characters are distinct, original, accessible, and tied to workflow state.
+- Reduced-motion and low-bandwidth fallbacks remain complete.
+- Production assets meet the documented budget; tests and build pass.
+
+Finish with the required phase handoff and stop. Do not start Phase 5.
