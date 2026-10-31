@@ -9,13 +9,26 @@
 // loaders cannot share a shape: OpenCode 1 before v1.3 calls every export as
 // a function (an object export crashes OpenCode), and OpenCode 2 requires the
 // default export to be an {id, setup} object. So the default export is chosen
-// when the module loads: OpenCode 1 sets OPENCODE=1 in its own environment
-// and gets the plugin function; anything else gets {id, server, setup}
-// (OpenCode 1.3+ also accepts that object, through `server`).
+// when the module loads. OpenCode 1 sets OPENCODE=1 and gets the plugin
+// function; OpenCode 2 also sets OPENCODE=1, but additionally sets
+// OPENCODE_CLIENT, and gets {id, server, setup} (OpenCode 1.3+ also accepts
+// that object, through `server`).
 import { spawn, spawnSync } from "node:child_process"
 import { readFileSync } from "node:fs"
+import { homedir } from "node:os"
+import { delimiter, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { Plugin } from "@opencode-ai/plugin"
+
+// OpenCode Desktop can be launched from a GUI session whose PATH lacks the
+// directories the official installers use: Entire installs to ~/.local/bin
+// and OpenCode to ~/.opencode/bin. Entire's hooks shell out to both (`entire`
+// for the hook itself, `opencode export` for the transcript), so add those
+// directories once and every hook spawned from here inherits them.
+for (const dir of [join(homedir(), ".local", "bin"), join(homedir(), ".opencode", "bin")]) {
+  const parts = (process.env.PATH ?? "").split(delimiter)
+  if (!parts.includes(dir)) process.env.PATH = [dir, ...parts].filter(Boolean).join(delimiter)
+}
 
 /**
  * Build the shell command for a hook invocation.
@@ -1147,4 +1160,4 @@ async function entireSetup(ctx: any) {
   }
 }
 
-export default process.env.OPENCODE === "1" ? EntirePlugin : { id: "entire", server: EntirePlugin, setup: entireSetup }
+export default process.env.OPENCODE === "1" && !process.env.OPENCODE_CLIENT ? EntirePlugin : { id: "entire", server: EntirePlugin, setup: entireSetup }
