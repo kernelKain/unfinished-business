@@ -1,0 +1,25 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M68PJEC1W9BV1V0YEFA1HFV2",
+  "session_id": "01a190f4-48c9-74d2-af16-b571d09212d7",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-31T10:02:42.573674258Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".env.example",
+    ".github/workflows/sentry-release.yml",
+    "README.md",
+    "docs/SENTRY_AND_OPENCODE_SETUP.md",
+    "package.json",
+    "src/server/experience/guide.ts",
+    "src/server/experience/service.ts",
+    "src/server/experience/telemetry.ts",
+    "src/server/instrument.ts",
+    "src/web/instrument.ts",
+    "vite.config.ts"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.6-sol",
+  "turn_id": "d8cf3969c0e6"
+}
