@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -52,7 +52,7 @@ test("every fresh project waits for one of the four source paths", async () => {
   await mkdir(join(repository, ".git"), { recursive: true });
   const local = await localFixture.sources.select("source-local", 0, { kind: "LOCAL_REPOSITORY", path: repository });
   assert.equal(local.project.source.kind, "LOCAL_REPOSITORY");
-  assert.equal(local.project.source.workspacePath, repository);
+  assert.equal(local.project.source.workspacePath, await realpath(repository));
   assert.match(local.project.source.repositoryCondition ?? "", /Git metadata is present/);
 
   const remoteFixture = await sourceFixture();
@@ -65,7 +65,7 @@ test("every fresh project waits for one of the four source paths", async () => {
   const confirmed = await remoteFixture.sources.confirmRemote("source-confirm", staged.project.revision);
   assert.equal(confirmed.project.source.status, "CONFIRMED");
   assert.equal(remoteFixture.imported.length, 1);
-  assert.ok(remoteFixture.imported[0].target.startsWith(join(remoteFixture.directory, "managed-imports")));
+  assert.ok(remoteFixture.imported[0].target.startsWith(join(await realpath(remoteFixture.directory), "managed-imports")));
   const duplicateConfirmation = await remoteFixture.sources.confirmRemote("source-confirm", staged.project.revision);
   assert.equal(duplicateConfirmation.duplicate, true);
   assert.equal(remoteFixture.imported.length, 1, "a duplicate confirmation must not clone twice");

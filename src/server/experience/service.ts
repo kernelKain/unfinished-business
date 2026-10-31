@@ -273,9 +273,8 @@ export class ExperienceService {
         operationId,
       );
     }
-    if (this.runs.active(operationId)) {
-      throw new ExperienceFailure("That run is still active. Cancel it instead of retrying.", "RUN_STILL_ACTIVE", 409, false, operationId);
-    }
+    // A persisted FAILED status is a confirmed terminal outcome. The original
+    // runner may still be completing its cleanup; that cannot duplicate work.
     return this.runMaker(actionId, expectedRevision, operationId);
   }
 
@@ -307,19 +306,17 @@ export class ExperienceService {
 
   async cancel(actionId: string, expectedRevision: number, operationId: string) {
     void expectedRevision;
+    const project = (await this.store.load()).state;
+    const operation = project.operations.find((item) => item.id === operationId);
+    if (!operation) throw new WorkflowConflict("That operation is not in this project.");
+    if (["SUCCEEDED", "FAILED", "CANCELLED", "COMPLETED_UNAPPLIED", "ABANDONED"].includes(operation.status)) {
+      throw new WorkflowConflict("A finished or abandoned operation cannot be cancelled. Reconcile an abandoned operation instead.");
+    }
     const active = this.runs.active(operationId) ?? this.guides.active(operationId);
     if (!active) {
-      const project = (await this.store.load()).state;
-      const operation = project.operations.find((item) => item.id === operationId);
-      if (!operation) throw new WorkflowConflict("That operation is not in this project.");
-      if (["SUCCEEDED", "FAILED", "CANCELLED", "COMPLETED_UNAPPLIED", "ABANDONED"].includes(operation.status)) {
-        throw new WorkflowConflict("A finished or abandoned operation cannot be cancelled. Reconcile an abandoned operation instead.");
-      }
       throw new ExperienceFailure("The in-process runner is no longer present. Reconcile the native session before taking another action.", "RUN_NOT_ACTIVE", 409, false, operationId);
     }
     let interrupted = false;
-    const project = (await this.store.load()).state;
-    const operation = project.operations.find((item) => item.id === operationId);
     if (active.sessionId && this.guide.interrupt) {
       try {
         interrupted = await this.guide.interrupt(active.sessionId);

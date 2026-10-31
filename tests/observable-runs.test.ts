@@ -491,7 +491,7 @@ test("cancellation leaves a guide run cancelled even when its late reply arrives
     const running = await waitFor(async () => {
       const state = (await run.store.load()).state;
       const operation = operationOf(state, awaitedOp(sent).operation.id);
-      return operation.status === "RUNNING" ? state : null;
+      return operation.status === "RUNNING" && operation.nativeSessionId === "ses_cancel" ? state : null;
     });
     const cancelled = await run.experience.cancel("cancel-guide", running.revision, awaitedOp(sent).operation.id);
     assert.equal(operationOf(cancelled.project, awaitedOp(sent).operation.id).status, "CANCELLED");
