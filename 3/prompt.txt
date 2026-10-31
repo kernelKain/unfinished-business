@@ -1,0 +1,72 @@
+# Phase 3 prompt — Make the full workflow inspectable and improve information architecture
+
+Implement only Phase 3 of the Unfinished Business roadmap. Make Oracle, Architect, Maker, and Witness pages inspectable at any time while preserving workflow gates for mutations. Replace technical outlines with clear user-facing project sections.
+
+## Prerequisite
+
+Verify Phase 1 provides durable runs and Phase 2 provides a working OpenCode connection state. Do not hide unresolved run or connection failures behind new navigation.
+
+## Outcome
+
+Users can understand the whole journey, inspect completed/current/future stages, return to their active task, and see which project sections are ready, stale, locked, or blocked. Viewing a stage must never be mistaken for approval or authorization to execute it.
+
+## Inspect before editing
+
+- Inspect existing stage state, route handling, workflow guards, approval/version logic, section schema, saved project migration, and responsive UI.
+- Identify every place where the current stage and selected view are conflated.
+- Preserve stable internal IDs and hashes when changing labels.
+- Inspect prompt-loading assumptions so repository implementation prompts never appear as runtime spirit prompts.
+
+## Work to perform
+
+- Separate `active workflow stage` from `selected UI tab`.
+- Make all four spirit tabs selectable:
+  - completed stages show approved artifacts and evidence;
+  - the active stage allows permitted actions;
+  - future stages show purpose, prerequisites, expected output, and preview;
+  - mutations remain server-authorized and disabled until prerequisites pass.
+- Persist the selected tab in a shareable URL or route without changing the active workflow state.
+- Add a visible active-stage badge, progress summary, blockers, and “Return to active task.”
+- Prevent tab changes, refreshes, or direct URLs from granting approvals, execution scope, or permission.
+- Replace current user-facing section names with:
+  1. Vision & Success
+  2. Architecture
+  3. User Experience
+  4. OpenCode Setup
+  5. Tools & Budget
+  6. Validation
+  7. Build Roadmap
+  8. Demo & Launch
+- Retain stable internal identifiers and migrate existing saved records without invalidating valid approvals solely because display labels changed.
+- Give each section a status, concise summary, dependencies, last update, stale reason, evidence/approval link, and clear edit/review action.
+- Add a project overview containing readiness, active blockers, current run, OpenCode state, budget/tool status, demo status, and next action.
+- Improve loading, empty, locked, stale, partial, error, and recovery states.
+- Ensure keyboard, focus, landmarks, narrow layout, overflow, and reduced-motion behavior are usable.
+
+## Tests
+
+Cover selected-tab versus active-stage separation, direct URLs, reload persistence, future-tab read-only behavior, server-side mutation gates, section-label migration, stale dependencies, accessibility navigation, and responsive rendering. Include a regression proving that viewing Maker or Witness cannot activate them.
+
+## Documentation requirements
+
+Update:
+
+- `docs/PRODUCT_BRIEF.md` for the refined user journey and terminology;
+- `docs/ARCHITECTURE.md` for selected-view versus workflow-state ownership;
+- `docs/UX_AND_VISUAL_SYSTEM.md` for navigation, section anatomy, states, responsive behavior, and accessibility;
+- `docs/OPERATIONS_AND_RECOVERY.md` for stale/blocked state recovery;
+- `docs/IMPLEMENTATION_PLAN.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md`, and `README.md`.
+
+Update runtime prompt or schema documentation only where section labels or dependencies actually change. Do not rename the four runtime prompt source files in this phase unless a tested loader migration is included and necessary.
+
+## Acceptance
+
+- All four stages are inspectable before generation finishes.
+- Only the active authorized stage can mutate state.
+- Direct navigation cannot bypass approval gates.
+- Existing approved sections survive display-name migration.
+- Users can identify the current task and next action from every stage.
+- Narrow/wide, keyboard, focus, and reduced-motion checks pass.
+- Tests, typecheck, and build pass; docs use the same terminology as the UI.
+
+Finish with the required phase handoff and stop. Do not start Phase 4.
