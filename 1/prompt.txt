@@ -1,0 +1,77 @@
+# Phase 5 prompt — Implement the idea-aware tool recommendation engine
+
+Implement only Phase 5 of the Unfinished Business roadmap. Add transparent, idea-specific recommendations for open-source, free-tier, and promotional hackathon tools. Do not automatically install tools or turn the product into a sponsor directory.
+
+## Prerequisite
+
+Verify the project section model and Tools & Budget section from Phase 3 are stable. The recommendation UI must use the visual system from Phase 4 and must not bypass Architect approval.
+
+## Outcome
+
+Given an approved idea and constraints, the product recommends a small, ranked set of relevant tools with an honest explanation of fit, license, cost/free limit, integration effort, privacy/lock-in concerns, and challenge relevance. Users can add recommendations to the plan, reject them, or defer them.
+
+## Data and policy work
+
+- Create a versioned tool-catalog schema containing: tool ID/name, categories, capabilities, open-source/open-weight/proprietary status, license, self-host option, free tier or promotional status, material limits, setup mode, likely effort, privacy/lock-in notes, official sources, last verified date, and status such as core/conditional/promo-only/excluded.
+- Seed the catalog with every tool requested by the product owner:
+  - Render, TabPFN, Tinker, Arduino, DigitalOcean, Gemma, Auth0 for AI Agents, Backboard, ElevenLabs, Browserbase/Stagehand, Entire, GitHub Copilot, Mastra, MongoDB Atlas, Ultramarine, Sentry Agent Tracing, SerpApi, `.tech` domain, Temporal, and Tiger Data.
+- Also include OpenCode, Ollama, SQLite, Playwright, axe-core, OpenTelemetry, Mermaid, and GitHub Actions where relevant.
+- Use official current sources for facts that may change. Store a last-verified date and avoid hard-coded claims that cannot be maintained.
+- Distinguish clearly:
+  - open source;
+  - open weight with a separate model license;
+  - self-hosted free software;
+  - proprietary free tier;
+  - trial/promotional credit;
+  - paid-only or hardware-cost-dependent.
+- Never treat trial credit as permanent free usage.
+
+## Recommendation logic
+
+- Extract or accept structured project needs: web, AI inference, fine-tuning, tabular data, hardware, voice, browser automation, authentication, search, durable workflows, time-series/telemetry, remote database, vector search, and public deployment.
+- Implement deterministic rules/scoring first. Model-generated explanations may refine wording but cannot invent cost, license, quota, or compatibility facts.
+- Return a small ranked result with `why`, `why not`, prerequisites, effort, limitations, and a fallback.
+- Respect explicit constraints: no spending, local-only, open-source-only, deadline, privacy, hardware availability, and existing stack.
+- Do not recommend a tool solely because it sponsors a challenge.
+- Keep OpenCode as the only harness. Exclude Copilot as a runtime alternative; keep Mastra/Backboard conditional for applications built by the user, not internal orchestration.
+- Require user approval before adding a recommendation to the project plan. Adding it does not install, create an account, claim a credit, deploy, or authorize spending.
+- Show a stale-data warning when catalog facts exceed the verification policy.
+
+## Initial policy expectations
+
+- Core for this product: OpenCode, Entire, Sentry; Render only under the documented mode/cost constraints.
+- Strong local/open choices when the idea fits: Gemma/Ollama, SQLite, Playwright, axe-core, OpenTelemetry, Mermaid, Temporal self-hosted, and relevant Tiger Data components.
+- Conditional: TabPFN, Arduino, Auth0, ElevenLabs, Stagehand/Browserbase, MongoDB Atlas, SerpApi, Mastra.
+- Promotional rather than default-free: Tinker, DigitalOcean credits, Backboard credits, Ultramarine offers, and `.tech` domain.
+- GitHub Copilot remains excluded from product harness choices.
+
+Verify all classifications during implementation; these expectations are not a substitute for current official evidence.
+
+## Tests
+
+Add table-driven tests for common idea profiles, explicit exclusions, no-budget/local-only constraints, stale catalog data, conflicting tools, unsupported claims, stable ordering, approval/defer/reject flow, and safe serialization. Include a regression that an OpenCode-only project is never advised to switch harnesses.
+
+## Documentation requirements
+
+Update:
+
+- `docs/TOOL_CATALOG.md` with the complete catalog, sources, verification date, classification policy, and maintenance procedure;
+- `docs/PRODUCT_BRIEF.md` for user value and recommendation boundaries;
+- `docs/ARCHITECTURE.md` for catalog/rules/model boundaries;
+- `docs/UX_AND_VISUAL_SYSTEM.md` for recommendation cards, filters, warnings, and approval states;
+- `docs/LOCAL_SETUP.md` for optional local dependencies only when selected;
+- `docs/HOSTED_DEPLOYMENT.md` for hosting implications;
+- `docs/DECISIONS.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/CHANGELOG.md`, and `README.md`.
+
+Do not place volatile prices only in prose; keep a clearly maintained source/date structure. Do not claim a challenge category without meaningful implemented usage and evidence.
+
+## Acceptance
+
+- Every requested tool is classified with source/date and honest free/open/promo status.
+- Recommendations change based on the idea and constraints.
+- Explanations are deterministic enough to test and never invent commercial facts.
+- No recommendation performs an external action.
+- OpenCode remains the only harness.
+- The catalog and UI agree; typecheck, tests, and build pass.
+
+Finish with the required phase handoff and stop. Do not start Phase 6.
