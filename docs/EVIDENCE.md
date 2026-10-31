@@ -1,6 +1,6 @@
 # Evidence index and requirements matrix
 
-**Status:** Platform Phase 7 implemented and Linux-verified; macOS verification is CI-gated.
+**Status:** Platform Phase 7 complete and verified.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 **Baseline revision:** `ddf632a` (`feat(demo): unify the project revival story`). Upgrade Phase 6's 186 tests passed before Platform Phase 7 edits.
@@ -15,7 +15,7 @@ Labels: **VERIFIED** = inspected/tested in this environment; **CI-GATED** = auto
 | Platform | Official cross-platform OpenCode CLI replaces the Linux-only package | VERIFIED | `package.json`, `package-lock.json`, `tests/platform.test.ts` | npm installs multiple Linux x64 variants selected by the official postinstall |
 | Platform | Compatibility prefers a valid global `opencode` then the pinned local binary | VERIFIED | `src/server/opencode/executable.ts`; resolver tests cover global, incompatible-global fallback, local-only, and missing cases | A global binary is accepted when it reports major 2 even if the patch is untested; a warning is shown |
 | Platform | Linux x64 remains operational | VERIFIED | Full local matrix; `npm run diagnose:platform`; `npm run smoke:opencode` | No live model call |
-| Platform | macOS Apple Silicon and macOS Intel resolve and run OpenCode | CI-GATED | `macos-15` and `macos-15-intel` jobs run install, resolution, tests, build, and server smoke | This Linux checkout cannot stand in for macOS evidence; do not claim a green macOS job before it exists |
+| Platform | macOS Apple Silicon and macOS Intel resolve and run OpenCode | VERIFIED | CI run `41252770576`: `macos-15` (`darwin-arm64`) and `macos-15-intel` (`darwin-x64`) both passed install, resolution, typecheck, tests, build, workspace safety, and server smoke | Automated only; no separate manual macOS session is recorded |
 | Platform | Unsupported architectures fail before probing | VERIFIED | `describePlatform` tests for linux-arm64, win32-x64, darwin-ia32, freebsd-x64 | Windows and Linux ARM64 are not claimed |
 | Platform | Missing executable, incompatible version, permission, and server-start failures have distinct diagnostics | VERIFIED | CLI diagnostic cases in `tests/platform.test.ts`; `scripts/opencode-platform-diagnostic.ts`; `scripts/opencode-smoke.ts` | Diagnostics intentionally omit executable paths |
 | Platform | Render-specific behavior is isolated from local development | VERIFIED | `src/server/render-start.ts` uses the shared resolver and environment-derived XDG paths; local start never imports it | Render deployment itself remains a separate authorized action |
@@ -102,6 +102,7 @@ Labels: **VERIFIED** = inspected/tested in this environment; **CI-GATED** = auto
 | `npm run test:platform` | PASS — platform gate, resolver, setup/CI contracts, and Linux workspace/macOS-root safety |
 | `npm run diagnose:platform` | PASS — `linux-x64`, version `2.0.32`, no diagnostics |
 | `npm run smoke:opencode` | PASS — disposable server on loopback; `/api/info` reports `2.0.32`; no prompt/model call |
+| CI matrix (`41252770576`) | PASS — `linux-x64`, `darwin-arm64`, `darwin-x64`; install, CLI resolution, typecheck, tests, build, workspace safety, OpenCode smoke |
 | `npm audit --omit=dev --audit-level=high` | PASS (exit 0); 6 moderate advisories reported |
 | `npm audit` | FAIL (exit 1) — same 6 moderate advisories; no high/critical |
 | `node scripts/preflight.mjs` | PASS for required checks: supported platform, OpenCode CLI `2.0.32`, client metadata, DNS, Git read, loopback, and Node; partner/runtime proofs remain NOT_RUN | No inference or Git writes |
@@ -191,8 +192,8 @@ Labels: **VERIFIED** = inspected/tested in this environment; **CI-GATED** = auto
 | Typecheck | PASS | `npm run typecheck` |
 | Unit/integration tests | PASS — 200 | `npm test` |
 | Production build | PASS | `npm run build` |
-| macOS arm64 execution | CI-GATED | `macos-15` job; not executable on this Linux checkout |
-| macOS x64 execution | CI-GATED | `macos-15-intel` job; not executable on this Linux checkout |
+| macOS arm64 execution | PASS — CI | `macos-15` job in run `41252770576`: install, CLI resolution, typecheck, 200 tests, build, workspace safety, OpenCode smoke |
+| macOS x64 execution | PASS — CI | `macos-15-intel` job in run `41252770576`: same steps |
 | Migration | NOT REQUIRED | Dependency and resolver change; schema v7 and saved projects are unchanged |
 
 ## Release classification
@@ -213,7 +214,7 @@ The product-release criteria pass with the limitations below. Partner-category q
 | Remote browser-to-local pairing | DEFERRED | Out of release scope |
 | Private/authenticated repository connector | DEFERRED | Phase 3 supports only public credential-free HTTPS import; Maker remains demo-workspace bounded |
 | Moderate dependency advisories | KNOWN LIMITATION | Fix requires a breaking Sentry downgrade; production high-severity audit passes |
-| macOS manual session | NOT RUN | macOS execution is covered by CI only; no manual macOS session is recorded in this checkout |
+| macOS manual session | NOT RUN | macOS execution is verified by CI; no separate manual macOS session is recorded |
 
 ## Evidence handling rules
 

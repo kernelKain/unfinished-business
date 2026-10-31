@@ -117,7 +117,7 @@ Current results (2026-11-01, Linux x64, Node 22.22.1, no live provider inference
 - **20 Playwright visual/accessibility tests pass** with committed snapshots, including the rewritten landing wide/narrow captures, the guided sample wide/narrow/presentation captures, the canonical sample-consistency check, and the reorganized Activity & results view.
 - Initial JS is **201.5 KiB gzip**; all JS **280.1 KiB**; CSS **17.0 KiB gzip**; all hero variants **581.2 KiB** total. The all-JS budget remains 290 KiB and CSS remains within its 18 KiB budget.
 - Platform resolution passes on Linux x64; `npm run smoke:opencode` starts a disposable OpenCode 2.0.32 server, reads `/api/info`, and stops it without a prompt or model call.
-- macOS Apple Silicon and macOS Intel run the same install, resolution, typecheck, tests, build, workspace-safety, and smoke steps in the `macos-15` and `macos-15-intel` CI jobs. Do not treat macOS as verified here until those jobs are green.
+- macOS Apple Silicon and macOS Intel run the same install, resolution, typecheck, tests, build, workspace-safety, and smoke steps in the `macos-15` and `macos-15-intel` CI jobs. CI run `41252770576` passed all three matrix jobs.
 - Keyboard focus order, dialog Escape, setup tab arrow keys, drawer operation, 200% text zoom, 390px overflow, reduced motion, and token contrast are checked.
 - Sample playback, reset isolation, fixture/schema drift, 90-second timing, tab inspection, no-network behavior, canonical landing/demo consistency, and hosted-sample mutation rejection are covered.
 - State migration deterministically upgrades schema v1, both supported v2 shapes, schema v3, schema v4, schema v5, and schema v6 to v7 without dropping proposals, approvals, transcripts, operations, evidence, selected model data, provider policy, limits, or candidate history.
@@ -132,7 +132,7 @@ Current results (2026-11-01, Linux x64, Node 22.22.1, no live provider inference
 
 ## Status and limitations
 
-The prior release phases remain integrated. **Platform Phase 7** adds macOS support alongside the existing Linux x64 path: the official cross-platform `@opencode/cli` replaces the Linux-only package, runtime resolution prefers a compatible global `opencode` then the lockfile binary, and CI is configured to verify Linux x64, macOS Apple Silicon, and macOS Intel. Upgrade Phase 6 rewrites the public story around one canonical Driftwatch sample: the landing page now has one primary action, a four-stage workflow, a coherent abandoned-open-source sample, a direct OpenCode explanation, local setup and privacy, and a short FAQ. Upgrade Phase 5 remains the focused workshop: one main task, a collapsible outline, contextual Activity & results, editable Project memory, a compact model/connection header, and lazy Advanced diagnostics. Schema v7 is unchanged.
+The prior release phases remain integrated. **Platform Phase 7** adds macOS support alongside the existing Linux x64 path: the official cross-platform `@opencode/cli` replaces the Linux-only package, runtime resolution prefers a compatible global `opencode` then the lockfile binary, and CI run `41252770576` passed Linux x64, macOS Apple Silicon, and macOS Intel. Upgrade Phase 6 rewrites the public story around one canonical Driftwatch sample: the landing page now has one primary action, a four-stage workflow, a coherent abandoned-open-source sample, a direct OpenCode explanation, local setup and privacy, and a short FAQ. Upgrade Phase 5 remains the focused workshop: one main task, a collapsible outline, contextual Activity & results, editable Project memory, a compact model/connection header, and lazy Advanced diagnostics. Schema v7 is unchanged.
 
 Known limitations:
 
@@ -186,7 +186,7 @@ History and provenance:
 
 ## Delivery
 
-The first release targets a local browser on Linux x64 and macOS (Apple Silicon and Intel), with macOS execution gated by the CI matrix. A real recorded demonstration and a reproducible local-start guide provide judge access; hosted code execution is outside this release. Backboard, Sentry Agent Tracing, and Entire remain selected partner targets, with qualification conditional on meaningful actual use and evidence. Publication, deployment, domain registration, credit claiming, and submission remain pending separate authorization.
+The first release targets a local browser on Linux x64 and macOS (Apple Silicon and Intel). CI run `41252770576` verified all three platforms. A real recorded demonstration and a reproducible local-start guide provide judge access; hosted code execution is outside this release. Backboard, Sentry Agent Tracing, and Entire remain selected partner targets, with qualification conditional on meaningful actual use and evidence. Publication, deployment, domain registration, credit claiming, and submission remain pending separate authorization.
 
 ## License
 

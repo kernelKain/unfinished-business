@@ -1,6 +1,6 @@
 # OpenCode integration contract
 
-**Status:** Implemented and locally verified on Linux x64; macOS Apple Silicon and macOS Intel are covered by the CI matrix.
+**Status:** Implemented and verified on Linux x64 locally and on macOS Apple Silicon and macOS Intel through CI.
 **Owner:** Engineering/integration.
 **Last verified:** 2026-11-01 against Platform Phase 7 and the Phase 5 focused-workshop/OpenCode-controls surface.
 
@@ -15,7 +15,7 @@ This document describes the supported OpenCode surface, not every endpoint OpenC
 | `@opencode/client` | `2.0.32` | Exact lockfile version, matched to the pinned server. |
 | Node.js | `>=22.14` | Application runtime. |
 | Server host | loopback by default | A remote target must use HTTPS, be explicitly allowlisted, and pass DNS/IP policy. |
-| Local host platform | Linux x64, macOS arm64, macOS x64 | Declared supported. Linux is verified in this checkout; macOS is gated by the CI jobs below. Windows, Linux ARM64, and 32-bit hosts are not claimed. |
+| Local host platform | Linux x64, macOS arm64, macOS x64 | Supported and verified by local runs (Linux) and CI run `41252770576` (all three). Windows, Linux ARM64, and 32-bit hosts are not claimed. |
 
 ### CLI resolution and Render isolation
 

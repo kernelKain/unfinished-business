@@ -10,7 +10,7 @@ This catalog distinguishes what the product **uses** and what is only a **docume
 
 | Tool | Role | Status | Evidence/limitation |
 |---|---|---|---|
-| OpenCode 2.0.32 | Agent loop, model access, native tools, permissions, sessions, interruption | **Integrated foundation** | Exact client/server pin through the official cross-platform `@opencode/cli`; production code uses the official client through the safe network layer. Linux x64 locally verified; macOS arm64/x64 CI-gated. Live compatibility probe passed without inference. |
+| OpenCode 2.0.32 | Agent loop, model access, native tools, permissions, sessions, interruption | **Integrated foundation** | Exact client/server pin through the official cross-platform `@opencode/cli`; production code uses the official client through the safe network layer. Linux x64 locally verified; macOS arm64/x64 verified by CI run `41252770576`. Live compatibility probe passed without inference. |
 | OpenCode model catalog | Any model the connected account reports as available | **Integrated; model-dependent** | New projects default to all accessible models. Free/local-only policy and optional spending limits are available. Paid/unknown-price routes require explicit confirmation; no silent substitution. |
 | Node.js 22.14+ | Runtime, build, and bounded Node check | **Required** | Tested on 22.22.1; `engines` minimum 22.14. |
 | React 19 + TypeScript + Vite 8 | Browser interface and build | **Integrated** | Production build and bundle budget pass. |
@@ -30,7 +30,7 @@ This catalog distinguishes what the product **uses** and what is only a **docume
 | `scripts/opencode-smoke.ts` | No-inference server smoke | **Integrated** | Starts the resolved OpenCode server on an ephemeral loopback port, reads `/api/info`, and stops it. |
 | `scripts/opencode-live-diagnostic.ts` | Opt-in compatibility probe | **Integrated; run in Phase 9** | Server 2.0.32, catalog, disposable session create/read/remove. No prompt/model call. |
 | Render | Optional demo or private hosting | **Documented; not deployed** | `render.demo.yaml` and `render.yaml` reviewed statically. No live URL asserted. |
-| GitHub Actions | Linux/macOS install, resolution, test, build, and smoke gate | **Configured** | `.github/workflows/sentry-release.yml` runs `ubuntu-latest`, `macos-15`, and `macos-15-intel`; Render owns production source-map upload. |
+| GitHub Actions | Linux/macOS install, resolution, test, build, and smoke gate | **Configured and green** | CI run `41252770576` passed `ubuntu-latest`, `macos-15`, and `macos-15-intel`; Render owns production source-map upload. |
 
 ## Observability and development evidence
 

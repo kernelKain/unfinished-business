@@ -128,8 +128,8 @@ Local mode refuses a non-loopback bind. Private-hosted requires an explicit publ
 | Platform id | Status | Evidence |
 |---|---|---|
 | `linux-x64` | Supported and locally verified | Full matrix plus `npm run test:platform`, `npm run smoke:opencode`, and the CI `linux-x64` job |
-| `darwin-arm64` | Supported through the CI matrix | `macos-15` job: install, CLI resolution, typecheck, tests, build, workspace safety, OpenCode smoke |
-| `darwin-x64` | Supported through the CI matrix | `macos-15-intel` job with the same steps |
+| `darwin-arm64` | Supported and CI-verified | `macos-15` job in CI run `41252770576`: install, CLI resolution, typecheck, tests, build, workspace safety, OpenCode smoke |
+| `darwin-x64` | Supported and CI-verified | `macos-15-intel` job in CI run `41252770576` with the same steps |
 | `linux-arm64`, `win32-*`, 32-bit | Not supported or claimed | `OPENCODE_PLATFORM_UNSUPPORTED` diagnostic |
 
 `src/server/opencode/executable.ts` owns platform gating, global-versus-local resolution, CLI version checks, and start-failure diagnostics. The Render supervisor shares the resolver; Render-specific paths stay in environment variables. A successful CLI resolution on a supported host materializes `node_modules/@opencode/cli/bin/opencode.exe` through the official package's postinstall.

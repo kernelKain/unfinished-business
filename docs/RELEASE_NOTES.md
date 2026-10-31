@@ -18,9 +18,9 @@
 - Added `npm run diagnose:platform` (resolution only) and `npm run smoke:opencode` (disposable server start and `/api/info` check; no prompt or model call).
 - Added a CI matrix for `ubuntu-latest`, `macos-15`, and `macos-15-intel`, each covering dependency install, CLI resolution, typecheck, tests, build, workspace path safety, and the OpenCode smoke test.
 - No schema change or migration is required; schema v7 and saved projects are unchanged.
-- Verification passes on Linux: typecheck, **200 tests**, production build, platform resolution, and the OpenCode server smoke. macOS execution is CI-gated and is not claimed from this Linux checkout.
+- Verification passes on Linux: typecheck, **200 tests**, production build, platform resolution, and the OpenCode server smoke. CI run `41252770576` passed the same resolution, typecheck, test, build, workspace-safety, and smoke steps on `linux-x64`, `darwin-arm64`, and `darwin-x64`.
 
-Known limits: macOS evidence comes from the CI jobs; no manual macOS session is recorded here. Homebrew installs the current tap version, so use `opencode --version` and the untested-version warning. The official package may install multiple compatible Linux x64 variants selected by its postinstall.
+Known limits: macOS evidence is automated CI evidence; no separate manual macOS session is recorded. Homebrew installs the current tap version, so use `opencode --version` and the untested-version warning. The official package may install multiple compatible Linux x64 variants selected by its postinstall.
 
 ### Upgrade Phase 6 — canonical sample and rewritten landing page
 

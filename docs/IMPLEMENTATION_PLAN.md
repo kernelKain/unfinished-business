@@ -1,6 +1,6 @@
 # Implementation plan and phase record
 
-**Status:** Platform Phase 7 implemented and Linux-verified; macOS verification is CI-gated.
+**Status:** Platform Phase 7 complete and verified.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
@@ -24,7 +24,7 @@
 | Upgrade Phase 4 — Reviewable generated revisions | Section content contracts, candidate revisions, explicit accept/reject, stale approvals, safe Markdown, unified/side-by-side diffs, schema v7 migration | Complete and verified; commit recorded by `git log -1` after phase handoff |
 | Upgrade Phase 5 — Focused workshop and reorganized OpenCode controls | One primary task, collapsible outline, contextual Activity & results, editable Project memory, compact model/connection header, lazy Advanced diagnostics, accessible drawers | Complete and verified; commit recorded by `git log -1` after phase handoff |
 | Upgrade Phase 6 — Canonical sample and rewritten landing page | One Driftwatch fixture, coherent abandoned-open-source story, rewritten landing hierarchy, one primary CTA, direct OpenCode explanation, bespoke hero, fixture-consistency and visual tests | Complete and verified; commit recorded by `git log -1` after phase handoff |
-| Platform Phase 7 — macOS support | Official cross-platform `@opencode/cli`, platform-aware resolver with global-first preference, macOS workspace/temp safety, setup UI and docs, Linux/macOS CI matrix, CLI and server diagnostics | Implemented; Linux verified, macOS CI-gated |
+| Platform Phase 7 — macOS support | Official cross-platform `@opencode/cli`, platform-aware resolver with global-first preference, macOS workspace/temp safety, setup UI and docs, Linux/macOS CI matrix, CLI and server diagnostics | Complete and verified; CI run `41252770576` passed `linux-x64`, `darwin-arm64`, and `darwin-x64` |
 
 The guided-interface line (`origin/main` at `b2d2654`) and the hardening line (`origin/phase-8-hardening` at `8c50439`) both descended from `2205774`. Phase 9 integrates them rather than choosing one and losing the other. The release candidate therefore keeps the landing page, onboarding, deterministic demo, security middleware, state migration, retention, and recovery in one build.
 
@@ -293,11 +293,11 @@ The local workshop now supports Linux x64, macOS Apple Silicon, and macOS Intel.
 - [x] No user-facing setup command contains `cli-linux` or a Linux-only package path.
 - [x] macOS arm64 and x64 resolutions use the same resolver; injected host tests cover both, and the CI jobs exercise the real binaries.
 - [x] Workspace security rejects macOS broad roots and the resolved temporary root.
-- [x] Setup documentation distinguishes locally verified Linux from CI-gated macOS and marks Windows/Linux ARM64 unsupported.
+- [x] Setup documentation distinguishes locally verified Linux from CI-verified macOS and marks Windows/Linux ARM64 unsupported.
 - [x] Typecheck, **200 tests**, build, budget, visual suite, platform diagnostics, and OpenCode smoke pass locally.
 - [x] Diff review found no secrets, debugging output, or unrelated changes.
 
-Platform Phase 7 local acceptance passed on 2026-11-01. macOS execution is delegated to the `macos-15` and `macos-15-intel` CI jobs; local execution on this Linux host cannot stand in for that evidence and is not claimed as manual macOS proof. The phase does not claim a green macOS run until those jobs report it. No live provider inference was used.
+Platform Phase 7 acceptance passed on 2026-11-01. CI run `41252770576` passed the full matrix (`linux-x64`, `darwin-arm64`, and `darwin-x64`), including dependency installation, CLI resolution, typecheck, tests, build, workspace path safety, and the OpenCode server smoke test. No live provider inference was used.
 
 ## Phase 8 hardening units
 

@@ -21,7 +21,7 @@
 - Playwright uses the host temporary directory and standard macOS browser locations.
 - Workspace broad-root checks include macOS system roots and the resolved temporary root.
 - Setup commands use `npx --no-install opencode`, removing the Linux-only package path.
-- CI runs Linux x64, macOS arm64, and macOS x64 with install, CLI resolution, typecheck, tests, build, workspace safety, and an OpenCode smoke test.
+- CI runs Linux x64, macOS arm64, and macOS x64 with install, CLI resolution, typecheck, tests, build, workspace safety, and an OpenCode smoke test. Run `41252770576` passed all three jobs.
 
 ### Removed
 
