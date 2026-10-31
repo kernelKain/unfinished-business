@@ -1,5 +1,6 @@
 import { sentry } from "@sentry/hono/node";
 import { Hono } from "hono";
+import { basicAuth } from "hono/basic-auth";
 import { z } from "zod";
 import { healthSchema, nativeEngineStatusSchema, type NativeEngineStatus } from "../shared/contracts.ts";
 import { ExperienceFailure, ExperienceService } from "./experience/service.ts";
@@ -32,12 +33,28 @@ export interface WorkflowHttpOptions {
   service: WorkflowService;
   sessionToken: string;
   experience?: ExperienceService;
+  access?: {
+    username: string;
+    password: string;
+  };
 }
 
 export function createApp(probe: EngineProbe, workflow?: WorkflowHttpOptions) {
   const app = new Hono();
 
   app.use(sentry(app));
+
+  if (workflow?.access) {
+    const authenticate = basicAuth({
+      username: workflow.access.username,
+      password: workflow.access.password,
+      realm: "Unfinished Business",
+    });
+    app.use("*", async (context, next) => {
+      if (context.req.path === "/api/health") return next();
+      return authenticate(context, next);
+    });
+  }
 
   app.get("/api/health", (context) => context.json(healthSchema.parse({
     status: "ok",
@@ -52,6 +69,7 @@ export function createApp(probe: EngineProbe, workflow?: WorkflowHttpOptions) {
   if (workflow) {
     app.get("/api/project", async (context) => context.json(await workflow.service.get()));
     app.get("/api/session", (context) => {
+      if (workflow.access) return context.json({ token: workflow.sessionToken });
       const host = context.req.header("host") ?? "";
       if (!host.startsWith("127.0.0.1") && !host.startsWith("localhost")) {
         return context.json({ code: "INVALID_ORIGIN", message: "The local session token is only available on loopback.", retryable: false }, 403);

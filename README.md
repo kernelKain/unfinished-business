@@ -26,6 +26,8 @@ In another terminal, `npm run build && npm start` serves the built workshop and 
 
 Environment setup, Sentry release/source-map configuration, and OpenCode password matching are documented in [docs/SENTRY_AND_OPENCODE_SETUP.md](docs/SENTRY_AND_OPENCODE_SETUP.md).
 
+Render deployment and its required secrets are documented in [docs/RENDER_DEPLOYMENT.md](docs/RENDER_DEPLOYMENT.md). The hosted service is password protected and uses a persistent disk; it is not compatible with Render's free plan.
+
 Run the dependency-free diagnostic from the repository:
 
 ```bash

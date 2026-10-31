@@ -77,6 +77,8 @@ SENTRY_PROJECT=unfinished-business-web
 SENTRY_DEPLOY_ENVIRONMENT=production
 ```
 
+On Render, do not set `SENTRY_RELEASE` manually. The production build and server derive the same value from Render's `RENDER_GIT_COMMIT`, and commit association uses `RENDER_GIT_REPO_SLUG` plus that full SHA.
+
 Create an organization auth token in **Sentry organization Settings → Developer Settings → Auth Tokens**. Prefer an organization token for CI with `org:ci` and `org:read`, limited to the required organization/projects. The token is displayed once.
 
 Store it only in the CI/deployment secret store:
@@ -85,20 +87,22 @@ Store it only in the CI/deployment secret store:
 SENTRY_AUTH_TOKEN=<secret-token>
 ```
 
-Never use a `VITE_` prefix for this token; that would expose it to browser code. The Vite build refuses to use an auth token without `SENTRY_RELEASE`, preventing source maps and events from silently using different releases.
+Never use a `VITE_` prefix for this token; that would expose it to browser code. The Vite build refuses to use an auth token without a release identifier and requires the token on Render, preventing a deployment with missing source maps.
 
-The source-map plugin creates/finalizes the release, associates commits, uploads browser source maps, and optionally records a deploy. CI must check out full Git history (`fetch-depth: 0` on GitHub Actions) for automatic commit association.
+The source-map plugin creates/finalizes the release, associates commits, uploads browser source maps, and records the deploy. Render owns that production step so the uploaded maps match the exact bundle it serves. GitHub Actions is the quality gate only.
 
 ## What still requires a real deployment
 
-After selecting a deployment platform:
+For the Render deployment:
 
-1. Add `SENTRY_AUTH_TOKEN` to its secret store.
-2. Generate `SENTRY_RELEASE` from the full commit SHA and provide it to both build and runtime.
-3. Set both environment variables to `production` or `staging` as appropriate.
-4. Set `SENTRY_DEPLOY_ENVIRONMENT` only for builds that represent a deploy.
+1. Add `SENTRY_AUTH_TOKEN`, `SENTRY_DSN`, and `VITE_SENTRY_DSN` when the Blueprint prompts for them.
+2. Let Render provide `RENDER_GIT_COMMIT` to the build and runtime; do not add a separate `SENTRY_RELEASE` value.
+3. Keep the server and browser Sentry environments set to `production`.
+4. Keep `SENTRY_DEPLOY_ENVIRONMENT=production` only on the deployed Render service.
 5. Deploy once and trigger a server and browser event from that exact build.
 6. Confirm the event release exactly matches the Sentry release containing the uploaded source maps, commits, and deploy.
 7. Add an uptime monitor for `/api/health` only after a stable public production URL exists.
+
+See [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) for the complete deployment procedure.
 
 For suspect commits, connect the GitHub repository in **Sentry Settings → Integrations → GitHub**, then verify or add code mappings for the server and web projects. This OAuth step must be completed by a Sentry/GitHub administrator.

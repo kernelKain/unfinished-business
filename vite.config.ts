@@ -5,8 +5,14 @@ import { defineConfig, loadEnv } from "vite";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const authToken = env.SENTRY_AUTH_TOKEN?.trim();
-  const releaseName = env.SENTRY_RELEASE?.trim();
+  const renderCommit = env.RENDER_GIT_COMMIT?.trim();
+  const renderRepository = env.RENDER_GIT_REPO_SLUG?.trim();
+  const releaseName = env.SENTRY_RELEASE?.trim()
+    || (renderCommit ? `unfinished-business@${renderCommit}` : undefined);
   const deployEnvironment = env.SENTRY_DEPLOY_ENVIRONMENT?.trim();
+  if (env.RENDER && !authToken) {
+    throw new Error("SENTRY_AUTH_TOKEN is required for Render builds so deployed source maps are uploaded.");
+  }
   if (authToken && !releaseName) {
     throw new Error("SENTRY_RELEASE is required when SENTRY_AUTH_TOKEN is set so events and source maps use the same release.");
   }
@@ -31,7 +37,11 @@ export default defineConfig(({ mode }) => {
           name: releaseName,
           create: uploadSourceMaps,
           finalize: uploadSourceMaps,
-          setCommits: uploadSourceMaps ? { auto: true, ignoreMissing: true } : false,
+          setCommits: uploadSourceMaps
+            ? (renderCommit && renderRepository
+                ? { repo: renderRepository, commit: renderCommit }
+                : { auto: true, ignoreMissing: true })
+            : false,
           deploy: uploadSourceMaps && deployEnvironment ? { env: deployEnvironment } : false,
         },
       })] : []),

@@ -10,8 +10,9 @@ import { AtomicProjectStore } from "./store/atomic-project-store.ts";
 import { createProject } from "./workflow/model.ts";
 import { WorkflowService } from "./workflow/service.ts";
 
-const port = Number(process.env.UB_PORT ?? 4200);
-const hostname = "127.0.0.1";
+const port = Number(process.env.PORT ?? process.env.UB_PORT ?? 4200);
+const hostname = process.env.UB_HOST
+  ?? (process.env.RENDER || process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
 const baseUrl = process.env.OPENCODE_BASE_URL ?? "http://127.0.0.1:4096";
 const dataDirectory = resolve(process.env.UB_DATA_DIR ?? ".unfinished-business");
 const demoWorkspace = resolve(dataDirectory, "demo-workspace");
@@ -26,6 +27,10 @@ try {
   await store.initialize(createProject(process.cwd()));
 }
 const sessionToken = process.env.UB_SESSION_TOKEN ?? randomBytes(32).toString("base64url");
+const accessPassword = process.env.UB_ACCESS_PASSWORD?.trim();
+if (process.env.NODE_ENV === "production" && !accessPassword) {
+  throw new Error("UB_ACCESS_PASSWORD is required in production.");
+}
 const workflow = new WorkflowService(store);
 const experience = new ExperienceService(workflow, store, new OpenCodeSpiritGuide({
   baseUrl,
@@ -35,7 +40,15 @@ const experience = new ExperienceService(workflow, store, new OpenCodeSpiritGuid
 const app = createApp(() => probeNativeEngine({
   baseUrl,
   password: process.env.OPENCODE_PASSWORD,
-}), { service: workflow, sessionToken, experience });
+}), {
+  service: workflow,
+  sessionToken,
+  experience,
+  access: accessPassword ? {
+    username: process.env.UB_ACCESS_USERNAME?.trim() || "unfinished-business",
+    password: accessPassword,
+  } : undefined,
+});
 
 const webRoot = resolve("dist/web");
 const contentTypes: Record<string, string> = {
@@ -66,12 +79,12 @@ try {
   // API-only until the browser bundle has been built.
 }
 
-const server = serve({ fetch: app.fetch, hostname, port }, ({ address, port: boundPort }) => {
+export const server = serve({ fetch: app.fetch, hostname, port }, ({ address, port: boundPort }) => {
   console.log(`Unfinished Business listening on http://${address}:${boundPort}`);
 });
 server.on("error", (error: NodeJS.ErrnoException) => {
   if (error.code === "EADDRINUSE") {
-    console.error(`Port ${port} is already in use. Set UB_PORT to a free loopback port.`);
+    console.error(`Port ${port} is already in use. Set PORT or UB_PORT to a free port.`);
     process.exitCode = 1;
     return;
   }

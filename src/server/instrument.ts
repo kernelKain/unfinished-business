@@ -2,6 +2,8 @@ import * as Sentry from "@sentry/hono/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
 
 const environment = process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV ?? "development";
+const release = process.env.SENTRY_RELEASE
+  ?? (process.env.RENDER_GIT_COMMIT ? `unfinished-business@${process.env.RENDER_GIT_COMMIT}` : undefined);
 const isProduction = environment === "production";
 const tracesSampleRate = sampleRate(process.env.SENTRY_TRACES_SAMPLE_RATE, isProduction ? 0.1 : 1);
 const agentTracesSampleRate = sampleRate(process.env.SENTRY_AGENT_TRACES_SAMPLE_RATE, 1);
@@ -16,7 +18,7 @@ function sampleRate(value: string | undefined, fallback: number): number {
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
   environment,
-  release: process.env.SENTRY_RELEASE,
+  release,
   integrations: [nodeProfilingIntegration()],
   tracesSampler: ({ name, attributes, normalizedRequest, inheritOrSampleWith }) => {
     const requestUrl = normalizedRequest?.url ?? "";

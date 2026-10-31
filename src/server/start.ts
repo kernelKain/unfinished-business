@@ -1,3 +1,3 @@
 import "./instrument.ts";
 
-await import("./index.ts");
+export const { server } = await import("./index.ts");

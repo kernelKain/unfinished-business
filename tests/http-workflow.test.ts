@@ -31,6 +31,30 @@ test("rejects workflow mutation without the local session token", async () => {
   assert.equal(response.status, 403);
 });
 
+test("protects hosted routes while leaving health checks public", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ub-http-auth-"));
+  const store = new AtomicProjectStore(join(directory, "project.json"));
+  await store.initialize(createProject("/workspace"));
+  const app = createApp(async () => ({
+    available: true,
+    serverVersion: "2.0.32",
+    model: "opencode/deepseek-v4.1-flash-free",
+    modelAvailable: true,
+    limitation: null,
+  }), {
+    service: new WorkflowService(store),
+    sessionToken: "test-token",
+    access: { username: "builder", password: "secret" },
+  });
+
+  assert.equal((await app.request("/api/health")).status, 200);
+  assert.equal((await app.request("/api/project")).status, 401);
+  const authorization = `Basic ${Buffer.from("builder:secret").toString("base64")}`;
+  const session = await app.request("/api/session", { headers: { authorization } });
+  assert.equal(session.status, 200);
+  assert.deepEqual(await session.json(), { token: "test-token" });
+});
+
 test("persists revision and exact approval through validated routes", async () => {
   const app = await fixture();
   const headers = { "content-type": "application/json", "x-ub-session-token": "test-token" };

@@ -1,4 +1,4 @@
-name: Verify and create Sentry release
+name: Verify application
 
 on:
   push:
@@ -11,15 +11,13 @@ permissions:
 
 jobs:
   build:
-    name: Test, build, and upload source maps
+    name: Typecheck, test, and build
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-      - name: Check out full Git history
+      - name: Check out source
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -36,39 +34,7 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Validate Sentry credentials and region
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-        run: |
-          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
-            echo "::error::The SENTRY_AUTH_TOKEN repository secret is missing."
-            exit 1
-          fi
-
-          for sentry_url in https://de.sentry.io https://sentry.io; do
-            status=$(curl --silent --show-error \
-              --output "$RUNNER_TEMP/sentry-auth-check.json" \
-              --write-out "%{http_code}" \
-              --header "Authorization: Bearer $SENTRY_AUTH_TOKEN" \
-              "$sentry_url/api/0/organizations/kernelkain/")
-
-            if [ "$status" = "200" ]; then
-              echo "SENTRY_URL=$sentry_url" >> "$GITHUB_ENV"
-              echo "Authenticated with the Sentry API."
-              exit 0
-            fi
-          done
-
-          echo "::error::Sentry rejected the CI token on both the DE and global API endpoints."
-          exit 1
-
-      - name: Build and create the Sentry release
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: kernelkain
-          SENTRY_PROJECT: unfinished-business-web
-          SENTRY_RELEASE: unfinished-business@${{ github.sha }}
-          VITE_SENTRY_ENVIRONMENT: production
+      - name: Build
         run: npm run build
 
       - name: Preserve the deployable browser artifact

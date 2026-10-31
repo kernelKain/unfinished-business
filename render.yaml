@@ -1,0 +1,65 @@
+services:
+  - type: web
+    name: unfinished-business
+    runtime: node
+    region: singapore
+    plan: 0.5c-512mb
+    autoDeployTrigger: checksPass
+    buildCommand: npm ci && npm run typecheck && npm test && npm run build
+    startCommand: npm run start:render
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.14.0
+      - key: UB_HOST
+        value: 0.0.0.0
+      - key: UB_DATA_DIR
+        value: /var/data/unfinished-business
+      - key: UB_ACCESS_USERNAME
+        value: unfinished-business
+      - key: UB_ACCESS_PASSWORD
+        generateValue: true
+      - key: UB_SESSION_TOKEN
+        generateValue: true
+      - key: OPENCODE_BASE_URL
+        value: http://127.0.0.1:4096
+      - key: OPENCODE_PASSWORD
+        generateValue: true
+      - key: XDG_DATA_HOME
+        value: /var/data/xdg-data
+      - key: XDG_CONFIG_HOME
+        value: /var/data/xdg-config
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_ENVIRONMENT
+        value: production
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        value: "0.1"
+      - key: SENTRY_AGENT_TRACES_SAMPLE_RATE
+        value: "1"
+      - key: SENTRY_PROFILES_SAMPLE_RATE
+        value: "0.1"
+      - key: VITE_SENTRY_DSN
+        sync: false
+      - key: VITE_SENTRY_ENVIRONMENT
+        value: production
+      - key: VITE_SENTRY_TRACES_SAMPLE_RATE
+        value: "0.1"
+      - key: VITE_SENTRY_REPLAYS_SESSION_SAMPLE_RATE
+        value: "0.1"
+      - key: VITE_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE
+        value: "1"
+      - key: SENTRY_AUTH_TOKEN
+        sync: false
+      - key: SENTRY_ORG
+        value: kernelkain
+      - key: SENTRY_PROJECT
+        value: unfinished-business-web
+      - key: SENTRY_URL
+        value: https://de.sentry.io
+      - key: SENTRY_DEPLOY_ENVIRONMENT
+        value: production
+    disk:
+      name: unfinished-business-data
+      mountPath: /var/data
+      sizeGB: 1
