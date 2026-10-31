@@ -1,0 +1,73 @@
+{
+  "cli_version": "0.12.3-nightly.202610310614.54b6a5cac",
+  "checkpoint_id": "01M6A4CFX7JC0ZCXGSE4R43VSN",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".env.example",
+    ".github/workflows/sentry-release.yml",
+    "README.md",
+    "docs/ARCHITECTURE.md",
+    "docs/CHANGELOG.md",
+    "docs/DECISIONS.md",
+    "docs/DEMO_AND_SUBMISSION.md",
+    "docs/EVIDENCE.md",
+    "docs/HOSTED_DEPLOYMENT.md",
+    "docs/IMPLEMENTATION_PLAN.md",
+    "docs/LOCAL_SETUP.md",
+    "docs/OPENCODE_INTEGRATION.md",
+    "docs/OPERATIONS_AND_RECOVERY.md",
+    "docs/PRODUCT_BRIEF.md",
+    "docs/RELEASE_NOTES.md",
+    "docs/TOOL_CATALOG.md",
+    "docs/UX_AND_VISUAL_SYSTEM.md",
+    "package.json",
+    "playwright.config.ts",
+    "render.demo.yaml",
+    "scripts/opencode-platform-diagnostic.ts",
+    "scripts/opencode-smoke.ts",
+    "scripts/preflight.mjs",
+    "src/server/opencode/connection.ts",
+    "src/server/opencode/executable.ts",
+    "src/server/render-start.ts",
+    "src/server/security/workspace.ts",
+    "src/web/landing/LandingPage.tsx",
+    "src/web/setup.ts",
+    "tests/connection.test.ts",
+    "tests/fixtures/fake-opencode-server.mjs",
+    "tests/platform.test.ts",
+    "tests/security.test.ts",
+    "tests/web.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 285609,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 26963968,
+    "output_tokens": 50889,
+    "api_call_count": 162
+  },
+  "redaction": {
+    "replacements": 158,
+    "layers": {
+      "betterleaks": 158,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 4,
+      "credentialed_uri": 4,
+      "entropy": 16,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}

@@ -1,0 +1,99 @@
+Work directly in:
+
+/home/kernel-kain/Documents/Github/unfinished-business
+
+Execution rules:
+
+1. Work only on the main branch.
+2. Begin with:
+   - git status
+   - git switch main
+   - git pull --ff-only origin main
+3. Preserve all unrelated changes, untracked files, and existing stashes. Do not apply, delete, or commit .backboard/, .unfinished-business/, .env files, credentials, or the existing stash unless this phase explicitly requires it.
+4. Read the relevant source, tests, AGENTS.md files, and documentation before editing.
+5. Implement only the phase described below. Do not begin the next phase.
+6. Maintain backward compatibility with existing saved projects through explicit migrations.
+7. Do not expose provider secrets, prompts containing secrets, or private model output in logs, telemetry, screenshots, or error messages.
+8. Add or update tests for every behavior changed.
+9. After implementation, update the relevant project documentation, including:
+   - README.md when user-facing behavior changes
+   - docs/ARCHITECTURE.md
+   - docs/DECISIONS.md
+   - docs/IMPLEMENTATION_PLAN.md
+   - docs/EVIDENCE.md
+   - docs/RELEASE_NOTES.md
+   - any phase-specific setup or integration documentation
+10. Mark the phase complete in the implementation plan only after its acceptance criteria pass.
+11. Run all relevant verification. At minimum:
+   - npm run typecheck
+   - npm test
+   - npm run build
+   Run visual, security, budget, contract, migration, or integration tests when affected.
+12. Review the final git diff for accidental files, secrets, debugging output, and unrelated changes.
+13. Commit with the commit message specified by this phase.
+14. Push the commit to origin/main. Never force-push.
+15. If the push is rejected because origin/main advanced, fetch and rebase safely, resolve only scoped conflicts, rerun verification, and push normally.
+16. Finish with:
+   - implementation summary
+   - changed files
+   - documentation updated
+   - tests and results
+   - known limitations
+   - commit hash
+   - push result
+
+Do not stop for ordinary implementation decisions. Stop only if there is a destructive conflict, missing required credential, irreconcilable remote conflict, or a decision that would materially change the product’s intended behavior.; I will send the phase prompt just after this so do not look for it
+
+---
+
+Implement Phase 7: support macOS alongside Linux.
+
+Objectives:
+
+- Remove Linux-only OpenCode assumptions.
+- Support Apple Silicon and Intel macOS.
+- Keep Linux deployment working.
+
+Implementation requirements:
+
+1. Inspect current OpenCode CLI/client compatibility before changing package versions.
+2. Replace the Linux-only runtime dependency with either:
+   - the official cross-platform OpenCode CLI package; or
+   - a well-tested platform-aware resolver.
+3. Prefer a valid globally installed opencode executable when available.
+4. Keep CLI and client versions compatible and pinned through the lockfile.
+5. Isolate any Render-specific Linux binary behavior from local development.
+6. Replace hardcoded Linux executable paths.
+7. Replace hardcoded /tmp and browser paths with platform-aware resolution.
+8. Support:
+   - linux x64;
+   - macOS Apple Silicon;
+   - macOS Intel.
+9. Update setup UI and docs with npm and Homebrew installation paths.
+10. Add clear diagnostics for:
+    - executable missing;
+    - unsupported architecture;
+    - incompatible CLI version;
+    - permission problem;
+    - server failed to start.
+11. Add CI jobs for Linux and macOS covering:
+    - dependency installation;
+    - CLI resolution;
+    - typecheck;
+    - tests;
+    - build;
+    - workspace path safety;
+    - OpenCode smoke test where practical.
+12. Do not claim a platform is supported unless automated or recorded manual evidence exists.
+
+Acceptance criteria:
+
+- Linux behavior remains operational.
+- No user-facing setup command contains a Linux-only package path.
+- macOS resolves an appropriate OpenCode executable.
+- Workspace security handles /Users, /Volumes, and resolved temporary paths safely.
+- Setup documentation clearly distinguishes tested and untested configurations.
+
+Commit message:
+
+feat(platform): add macOS OpenCode support
