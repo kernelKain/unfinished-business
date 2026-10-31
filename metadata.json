@@ -3,10 +3,25 @@
   "checkpoint_id": "01M69RNTHMT8FT2456Q5Q7KK90",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 2,
+  "checkpoints_count": 3,
   "files_touched": [
     "README.md",
-    "docs/prompts/README.md"
+    "docs/ARCHITECTURE.md",
+    "docs/CHANGELOG.md",
+    "docs/DECISIONS.md",
+    "docs/IMPLEMENTATION_PLAN.md",
+    "docs/LOCAL_SETUP.md",
+    "docs/OPENCODE_INTEGRATION.md",
+    "docs/OPERATIONS_AND_RECOVERY.md",
+    "docs/prompts/README.md",
+    "src/server/app.ts",
+    "src/server/experience/guide.ts",
+    "src/server/experience/service.ts",
+    "src/server/workflow/model.ts",
+    "src/web/api.ts",
+    "src/web/styles.css",
+    "tests/experience.test.ts",
+    "tests/migration.test.ts"
   ],
   "sessions": [
     {
@@ -15,23 +30,30 @@
       "compact_transcript": "/0/transcript.jsonl",
       "content_hash": "/0/content_hash.txt",
       "prompt": "/0/prompt.txt"
+    },
+    {
+      "metadata": "/1/metadata.json",
+      "transcript": "/1/full.jsonl",
+      "compact_transcript": "/1/transcript.jsonl",
+      "content_hash": "/1/content_hash.txt",
+      "prompt": "/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 257870,
+    "input_tokens": 510441,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 6274944,
-    "output_tokens": 35575,
-    "api_call_count": 55,
+    "cache_read_tokens": 18381824,
+    "output_tokens": 137097,
+    "api_call_count": 165,
     "subagent_tokens_complete": true
   },
   "redaction": {
-    "replacements": 191,
+    "replacements": 380,
     "layers": {
-      "betterleaks": 82,
+      "betterleaks": 252,
       "connection_string": 0,
       "credential_key": 0,
-      "credential_value": 23,
+      "credential_value": 42,
       "credentialed_uri": 0,
       "entropy": 122,
       "key_context": 0,
