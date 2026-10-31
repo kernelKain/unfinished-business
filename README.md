@@ -15,7 +15,14 @@ OpenCode provides the agent loop, model access, tools, permissions, and native s
 
 ## Status
 
-Prompt 2 is active. Foundation is committed at `14fc6a6`, with readable Entire checkpoint `01M683PGNKWVGNV1SEFKS51S73`. The native OpenCode 2.0.32/free-DeepSeek route and permission enforcement passed at zero reported model cost. Workflow state, exact approvals, selective invalidation, idempotent actions, atomic recovery, local mutation protection, and native-operation reconciliation are implemented and verified; the single Workflow phase commit is the current gate. Backboard and Sentry access remain blocked because their credentials are absent, so no partner request or paid fallback has run.
+Prompt 2 is active. Foundation is `14fc6a6`. Workflow is `abf87f7`. The Experience workshop is implemented and verified, and its phase commit is the current gate. Oracle, Architect, Maker, and Witness run through OpenCode's free DeepSeek route. Maker edits only an isolated demo workspace, then the app runs `node --test` there. A live umbrella-relay attempt wrote a ledger whose Node check failed on a duplicate `snapshot` declaration; Witness recorded that failure. Backboard and Sentry remain blocked because `BACKBOARD_API_KEY` and `SENTRY_DSN` are absent.
+
+```bash
+npm ci
+npm run dev
+```
+
+In another terminal, `npm run build && npm start` serves the built workshop and API on `127.0.0.1`. Set `UB_PORT` if `4200` is taken. `OPENCODE_BASE_URL` defaults to `http://127.0.0.1:4096`. See `.env.example` for names only. Start `opencode serve` yourself; this app does not print or store its password. Project data stays in `UB_DATA_DIR` (default `.unfinished-business/`), which is gitignored.
 
 Run the dependency-free diagnostic from the repository:
 
@@ -38,7 +45,7 @@ It checks the toolchain, read-only Git state, DNS, localhost socket access and E
 - Steps are work/checklist units, not individual commits. Commit subjects describe the change without phase or step numbering.
 - Preserve unrelated changes. A blocked commit blocks entry to the next implementation phase; do not bypass access restrictions.
 
-The active unit is the Workflow phase gate. No Experience-phase work starts until the verified Workflow commit is complete and inspected. Publication and submission belong to Prompt 3.
+The active unit is the Experience phase gate. Verification does not start until that commit is complete and inspected. Publication and submission belong to Prompt 3.
 
 ## Delivery
 

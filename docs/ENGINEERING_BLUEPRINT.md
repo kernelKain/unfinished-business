@@ -1,10 +1,10 @@
 # Unfinished Business — Engineering Blueprint
 
-Version: 0.2.6  
+Version: 0.2.7  
 Updated: 31 October 2026, IST  
-Status: WORKFLOW_VERIFIED_UNCOMMITTED; partner access remains blocked  
+Status: EXPERIENCE_VERIFIED_UNCOMMITTED; partner access remains blocked  
 Canonical path: `docs/ENGINEERING_BLUEPRINT.md`  
-Stage: Prompt 2 — Workflow phase gate; Experience has not started
+Stage: Prompt 2 — Experience phase gate; Verification has not started
 
 ## 1. Control, scope, and acceptance
 
@@ -483,4 +483,20 @@ Foundation committed cleanly on `main` as `14fc6a6` (`chore: establish the OpenC
 | CK-02/03/04/05 | PASS for implemented scope. `npm run typecheck`, `npm run build`, `npm test`, `npm run test:workflow`, `npm run test:recovery`, contract and permission tests pass. Full suite: 15 tests, zero failures |
 | Scope/cost | No Experience UI work, deployment, publication, account changes, partner calls, extra model operations or spending occurred. EP-04/05 remain blocked as recorded above |
 
-Workflow is VERIFIED_UNCOMMITTED. The next permitted action is the single phase commit `feat: add durable staged planning and native execution`, followed by commit/Entire inspection. Experience remains gated until that succeeds.
+Workflow is committed on `main` as `abf87f7` (`feat: add durable staged planning and native execution`). Entire has a logs-only checkpoint for that commit. Experience was the next phase.
+
+### Experience continuation — 31 October 2026, IST
+
+The user authorized the phase commit and continuation, then completion of the Experience phase, with local permissions for that phase and no new spending. Verification, deployment, publication, and Prompt 3 stayed out of scope.
+
+| Area | Actual evidence and result |
+|---|---|
+| Journey | Oracle proposal, exact section approval, Maker scope, native edit, and a fresh Witness review are wired through validated routes. A model reply cannot approve a product or section. Short malformed replies leave the section unchanged. Longer prose is stored as an unapproved draft. |
+| Live path | Disposable workshop at a temporary data directory. Free DeepSeek produced an umbrella-relay proposal and the first Architect section. Sections 2–8 were explicit user-text approvals, including one long section. Maker wrote `ledger.mjs` and `ledger.test.mjs` in the isolated demo workspace. `node --test` failed: `snapshot` is declared twice in `ledger.mjs`. Witness, in a separate session, reported that failure and said not to claim the ledger works. |
+| CK-06 | FAIL for the demo ledger behavior. PASS for the control path: real native output, a real check, an exact compiled plan, and drafts that match the failure. Session id for the timed-out Maker wait was not captured. |
+| CK-07 | Browser at 1280px and 390px. Oracle headline, stacked narrow layout, wrapped spirit strip, long proposal scroll, Witness findings, and an unreachable-engine recovery message were observed. Reduced motion removes the lantern flicker. Headless Chrome reported the focus outline width without a solid outline style, so the committed style also draws a focus ring with `box-shadow`. |
+| Checks | `npm run typecheck`, `npm run build`, `npm test` (21 tests), and production `npm audit --omit=dev --audit-level=high` pass. |
+| Partners | EP-04/05 remain blocked. `BACKBOARD_API_KEY` and `SENTRY_DSN` were not present. No charged call. |
+| Cost | Free-model route only. The client rejects a non-zero reported session cost or a substituted model. No new cash spending. |
+
+Experience is VERIFIED_UNCOMMITTED. The next permitted action is the single phase commit `feat: deliver the guided haunted workshop journey`, then commit and Entire inspection. Verification stays gated until that succeeds. The ledger syntax error is a demo-workspace defect, not a reason to claim the check passed.

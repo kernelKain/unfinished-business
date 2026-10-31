@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { contentHash, projectSchema, refreshNextAction, type Project } from "./model.ts";
+import {
+  contentHash,
+  projectSchema,
+  refreshNextAction,
+  type Project,
+  type SpiritRole,
+} from "./model.ts";
 
 export class WorkflowConflict extends Error {}
 
@@ -68,6 +74,83 @@ export function approveSection(project: Project, sectionId: string, version: num
     approvedAt: new Date().toISOString(),
     staleReason: null,
   });
+  return projectSchema.parse(refreshNextAction(next));
+}
+
+export function rememberSession(project: Project, role: SpiritRole, sessionId: string): void {
+  const existing = project.nativeSessions.find((item) => item.role === role);
+  if (existing) existing.sessionId = sessionId;
+  else project.nativeSessions.push({ role, sessionId });
+}
+
+export function rememberTranscript(project: Project, spirit: Project["transcript"][number]["spirit"], text: string): void {
+  project.transcript.push({
+    id: randomUUID(),
+    spirit,
+    text,
+    createdAt: new Date().toISOString(),
+  });
+  if (project.transcript.length > 40) project.transcript.splice(0, project.transcript.length - 40);
+}
+
+export function recordOracleProposal(
+  project: Project,
+  input: { proposal: string; openQuestions: string[]; clarification: string; sessionId: string },
+): Project {
+  const next = clone(project);
+  next.product = {
+    status: "PROPOSED",
+    proposal: input.proposal,
+    openQuestions: input.openQuestions,
+  };
+  rememberSession(next, "oracle", input.sessionId);
+  rememberTranscript(next, "oracle", `${input.clarification}\n\n${input.proposal}`);
+  return projectSchema.parse(refreshNextAction(next));
+}
+
+export function approveProduct(project: Project): Project {
+  const next = clone(project);
+  if (next.product.status !== "PROPOSED" || !next.product.proposal) {
+    throw new WorkflowConflict("Approve the current Oracle proposal before planning begins.");
+  }
+  next.product.status = "APPROVED";
+  rememberTranscript(next, "user", "Approved the Oracle proposal.");
+  return projectSchema.parse(refreshNextAction(next));
+}
+
+export function grantMakerScope(project: Project, statement: string): Project {
+  const next = clone(project);
+  const unresolved = next.sections.filter((section) => section.status !== "APPROVED");
+  if (unresolved.length) throw new WorkflowConflict("Maker scope waits until every current section is approved.");
+  if (next.product.status !== "APPROVED") throw new WorkflowConflict("Maker scope waits for an approved product.");
+  next.makerScope = { status: "GRANTED", statement };
+  rememberTranscript(next, "user", `Granted Maker scope: ${statement}`);
+  return projectSchema.parse(refreshNextAction(next));
+}
+
+export function recordWitnessDrafts(
+  project: Project,
+  drafts: Array<{ title: string; content: string }>,
+  sessionId: string,
+): Project {
+  const next = clone(project);
+  next.witnessDrafts = drafts.map((draft) => ({
+    id: randomUUID(),
+    title: draft.title,
+    content: draft.content,
+    nativeSessionId: sessionId,
+  }));
+  rememberSession(next, "witness", sessionId);
+  rememberTranscript(next, "witness", drafts.map((draft) => draft.title).join(", "));
+  return projectSchema.parse(refreshNextAction(next));
+}
+
+export function noteCapability(project: Project, id: string, outcome: string, availability: Project["capabilities"][number]["availability"]): Project {
+  const next = clone(project);
+  const capability = next.capabilities.find((item) => item.id === id);
+  if (!capability) throw new WorkflowConflict(`Unknown capability: ${id}`);
+  capability.observedOutcome = outcome;
+  capability.availability = availability;
   return projectSchema.parse(refreshNextAction(next));
 }
 
