@@ -14,6 +14,7 @@ import {
 } from "../src/server/workflow/model.ts";
 import { WorkflowService } from "../src/server/workflow/service.ts";
 import { approveProduct, approveSection, grantMakerScope, reviseSection } from "../src/server/workflow/transitions.ts";
+import { confirmNewProjectSource } from "./fixtures/oracle-replies.ts";
 
 const model: DiscoveredModel = {
   key: "opencode/flint-40b-free",
@@ -60,6 +61,7 @@ const engine = {
 
 function approvedProject(): Project {
   let project = createProject("/workspace");
+  confirmNewProjectSource(project);
   project.engine = {
     model: { providerID: "opencode", id: "flint-40b-free", variant: null },
     source: "user",

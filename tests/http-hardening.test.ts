@@ -11,6 +11,7 @@ import { AtomicProjectStore } from "../src/server/store/atomic-project-store.ts"
 import type { LimitsConfig } from "../src/server/config.ts";
 import { createProject } from "../src/server/workflow/model.ts";
 import { WorkflowService } from "../src/server/workflow/service.ts";
+import { confirmNewProjectSource, oracleProposalReply } from "./fixtures/oracle-replies.ts";
 
 const token = "test-session-token";
 const jsonHeaders = { "content-type": "application/json", "x-ub-session-token": token };
@@ -43,7 +44,7 @@ function guide(overrides: Partial<SpiritGuide> = {}): SpiritGuide {
       return {
         sessionId: "ses_guide",
         messageId: null,
-        text: JSON.stringify({ clarification: "Clear.", proposal: "Track found items.", openQuestions: [] }),
+        text: JSON.stringify(oracleProposalReply()),
         cost: 0,
       };
     },
@@ -65,7 +66,9 @@ async function fixture(options: {
 } = {}) {
   const directory = await mkdtemp(join(tmpdir(), "ub-http-hardening-"));
   const store = new AtomicProjectStore(join(directory, "project.json"));
-  await store.initialize(createProject(directory));
+  const initial = createProject(directory);
+  confirmNewProjectSource(initial);
+  await store.initialize(initial);
   const service = new WorkflowService(store);
   const experience = new ExperienceService(service, store, options.guide ?? guide(), {
     safeDirectory: directory,
@@ -187,7 +190,7 @@ test("returns understandable rate, concurrency, and duplicate responses", async 
       return {
         sessionId: "ses_slow",
         messageId: null,
-        text: JSON.stringify({ clarification: "Clear.", proposal: "A board.", openQuestions: [] }),
+        text: JSON.stringify(oracleProposalReply({ summary: "A board." })),
         cost: 0,
       };
     },
@@ -266,11 +269,11 @@ test("redacts secrets from errors, persisted project state, and exports", async 
       return {
         sessionId: "ses_secret",
         messageId: null,
-        text: JSON.stringify({
-          clarification: `A ${secret}`,
-          proposal: `A board for person@example.com with ${secret}`,
-          openQuestions: [`Should we keep ${secret}?`],
-        }),
+        text: JSON.stringify(oracleProposalReply({
+          summary: `A board for person@example.com with ${secret}`,
+          problem: `A ${secret}`,
+          questions: [{ id: "secret", field: "unresolvedQuestions", prompt: `Should we keep ${secret}?`, whyItMatters: "Trust matters.", suggestedChoices: [] }],
+        })),
         cost: 0,
       };
     },

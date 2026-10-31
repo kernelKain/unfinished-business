@@ -7,10 +7,9 @@ import { z } from "zod";
  * demo fixture. Hashing, persistence, and project creation stay in
  * `src/server/workflow/model.ts` because they use Node's crypto module.
  *
- * Schema v5 keeps every v4 workflow record and activates run observability
- * and recovery metadata: intended action, target section, starting revision,
- * idempotency key, expected output type, retry lineage, and live progress
- * phases for persisted asynchronous operations.
+ * Schema v6 keeps every v5 workflow record and activates guided Oracle
+ * discovery: explicit project-source onboarding, field-level intake answers,
+ * structured proposals, assumptions, and durable decision memory.
  */
 
 export const LEGACY_FIXED_MODEL_KEY = "opencode/deepseek-v4.1-flash-free";
@@ -210,6 +209,26 @@ export const operationSchema = operationCoreSchema.extend({
   expectedOutput: expectedOutputSchema.nullable().default(null),
   retryOf: z.string().nullable().default(null),
   progress: operationProgressSchema.nullable().default(null),
+  oracleProceedWithAssumptions: z.boolean().optional(),
+});
+
+/** Schema v5 operation rows predate the Oracle assumptions flag. */
+export const operationV5Schema = operationCoreSchema.extend({
+  model: modelRefSchema.nullable().default(null),
+  agent: z.string().nullable().default(null),
+  startedAt: z.string().nullable().default(null),
+  finishedAt: z.string().nullable().default(null),
+  statusReason: z.string().nullable().default(null),
+  lastObservedAt: z.string().nullable().default(null),
+  appliedAt: z.string().nullable().default(null),
+  providerError: providerErrorSchema.nullable().default(null),
+  intent: operationIntentSchema.nullable().default(null),
+  sectionId: z.string().nullable().default(null),
+  startingRevision: z.number().int().nonnegative().nullable().default(null),
+  idempotencyKey: z.string().max(128).nullable().default(null),
+  expectedOutput: expectedOutputSchema.nullable().default(null),
+  retryOf: z.string().nullable().default(null),
+  progress: operationProgressSchema.nullable().default(null),
 });
 
 /**
@@ -248,10 +267,29 @@ export const evidenceSchema = evidenceCoreSchema.extend({
   model: modelRefSchema.nullable().default(null),
 });
 
-export const productSchema = z.object({
+export const oracleProposalSchema = z.object({
+  title: z.string().min(1).max(200),
+  summary: z.string().min(1).max(4_000),
+  intendedUser: z.string().min(1).max(2_000),
+  problem: z.string().min(1).max(4_000),
+  desiredOutcome: z.string().min(1).max(4_000),
+  mustHaveFeatures: z.array(z.string().min(1).max(500)).max(20),
+  optionalFeatures: z.array(z.string().min(1).max(500)).max(20),
+  nonGoals: z.array(z.string().min(1).max(500)).max(20),
+  successCriteria: z.array(z.string().min(1).max(500)).max(20),
+  facts: z.array(z.string().min(1).max(1_000)).max(30),
+  userDecisions: z.array(z.string().min(1).max(1_000)).max(30),
+  assumptions: z.array(z.string().min(1).max(1_000)).max(30),
+});
+
+const productV5Schema = z.object({
   status: z.enum(["NONE", "PROPOSED", "APPROVED"]).default("NONE"),
   proposal: z.string().nullable().default(null),
   openQuestions: z.array(z.string()).default([]),
+});
+
+export const productSchema = productV5Schema.extend({
+  structuredProposal: oracleProposalSchema.nullable().optional(),
 });
 
 export const makerScopeSchema = z.object({
@@ -292,14 +330,50 @@ export const nativeSessionRefSchema = z.object({
   sessionId: z.string(),
 });
 
-export const projectSourceSchema = z.object({
+export const projectSourceV5Schema = z.object({
   kind: z.enum(["workspace", "import", "template", "demo"]).default("workspace"),
   label: z.string().nullable().default(null),
   externalId: z.string().nullable().default(null),
   importedAt: z.string().nullable().default(null),
 });
 
-export const oracleIntakeSchema = z.object({
+export const projectSourceSchema = z.object({
+  kind: z.enum(["UNSELECTED", "NEW_PROJECT", "LOCAL_REPOSITORY", "REMOTE_REPOSITORY", "SAVED_PROJECT", "DEMO"]),
+  status: z.enum(["UNSELECTED", "PENDING_CONFIRMATION", "CONFIRMED"]),
+  label: z.string().max(500).nullable(),
+  repositoryUrl: z.string().max(2_048).nullable(),
+  workspacePath: z.string().max(4_096).nullable(),
+  managedWorkspace: z.boolean(),
+  importedAt: z.string().nullable(),
+  confirmedAt: z.string().nullable(),
+  repositoryCondition: z.string().max(2_000).nullable(),
+});
+
+export const oracleQuestionSchema = z.object({
+  id: z.string().min(1).max(128),
+  field: z.enum([
+    "intendedUser", "problem", "desiredOutcome", "deadlineEvent", "mustHaveFeatures",
+    "optionalFeatures", "budget", "privacyRequirements", "platforms",
+    "repositoryCondition", "nonGoals", "unresolvedQuestions",
+  ]),
+  prompt: z.string().min(1).max(1_000),
+  whyItMatters: z.string().min(1).max(1_000),
+  suggestedChoices: z.array(z.string().min(1).max(300)).max(6),
+});
+
+export const intakeAnswerSourceSchema = z.enum(["USER", "ASSUMPTION", "SYSTEM"]);
+const scalarIntakeAnswerSchema = z.object({
+  value: z.string().min(1).max(4_000),
+  source: intakeAnswerSourceSchema,
+  updatedAt: z.string(),
+});
+const listIntakeAnswerSchema = z.object({
+  value: z.array(z.string().min(1).max(1_000)).max(30),
+  source: intakeAnswerSourceSchema,
+  updatedAt: z.string(),
+});
+
+export const oracleIntakeV5Schema = z.object({
   status: z.enum(["NOT_STARTED", "COLLECTING", "READY", "APPROVED"]).default("NOT_STARTED"),
   summary: z.string().nullable().default(null),
   questions: z.array(z.object({
@@ -311,12 +385,48 @@ export const oracleIntakeSchema = z.object({
   updatedAt: z.string().nullable().default(null),
 });
 
+export const oracleIntakeSchema = z.object({
+  status: z.enum(["NOT_STARTED", "COLLECTING", "READY", "APPROVED"]).default("NOT_STARTED"),
+  intendedUser: scalarIntakeAnswerSchema.nullable().default(null),
+  problem: scalarIntakeAnswerSchema.nullable().default(null),
+  desiredOutcome: scalarIntakeAnswerSchema.nullable().default(null),
+  deadlineEvent: scalarIntakeAnswerSchema.nullable().default(null),
+  mustHaveFeatures: listIntakeAnswerSchema.nullable().default(null),
+  optionalFeatures: listIntakeAnswerSchema.nullable().default(null),
+  budget: scalarIntakeAnswerSchema.nullable().default(null),
+  privacyRequirements: listIntakeAnswerSchema.nullable().default(null),
+  platforms: listIntakeAnswerSchema.nullable().default(null),
+  repositoryCondition: scalarIntakeAnswerSchema.nullable().default(null),
+  nonGoals: listIntakeAnswerSchema.nullable().default(null),
+  unresolvedQuestions: z.array(oracleQuestionSchema).max(3).default([]),
+  assumptions: z.array(z.object({
+    id: z.string().min(1).max(128),
+    field: oracleQuestionSchema.shape.field,
+    statement: z.string().min(1).max(1_000),
+    reason: z.string().min(1).max(1_000),
+  })).max(30).default([]),
+  knownConstraints: z.array(z.string().min(1).max(1_000)).max(30).default([]),
+  unresolvedRisks: z.array(z.string().min(1).max(1_000)).max(30).default([]),
+  recommendedNextAction: z.string().max(2_000).nullable().default(null),
+  updatedAt: z.string().nullable().default(null),
+});
+
 export const memoryEntrySchema = z.object({
   id: z.string(),
   text: z.string(),
   source: z.enum(["user", "oracle", "architect", "maker", "witness", "system"]),
   sourceId: z.string().nullable(),
   createdAt: z.string().nullable(),
+  field: oracleQuestionSchema.shape.field.nullable().optional(),
+  status: z.enum(["ACTIVE", "SUPERSEDED"]).optional(),
+  supersedesId: z.string().nullable().optional(),
+});
+
+export const projectMemoryV5Schema = z.object({
+  facts: z.array(memoryEntrySchema.omit({ field: true, status: true, supersedesId: true })).default([]),
+  decisions: z.array(memoryEntrySchema.omit({ field: true, status: true, supersedesId: true })).default([]),
+  constraints: z.array(memoryEntrySchema.omit({ field: true, status: true, supersedesId: true })).default([]),
+  risks: z.array(memoryEntrySchema.omit({ field: true, status: true, supersedesId: true })).default([]),
 });
 
 export const projectMemorySchema = z.object({
@@ -324,6 +434,8 @@ export const projectMemorySchema = z.object({
   decisions: z.array(memoryEntrySchema).default([]),
   constraints: z.array(memoryEntrySchema).default([]),
   risks: z.array(memoryEntrySchema).default([]),
+  answers: z.array(memoryEntrySchema).optional(),
+  assumptions: z.array(memoryEntrySchema).optional(),
 });
 
 export const modelPreferencesV3Schema = z.object({
@@ -381,7 +493,7 @@ const legacyProjectCoreSchema = z.object({
   operations: z.array(legacyOperationSchema),
   evidence: z.array(evidenceSchema),
   nextAction: z.string(),
-  product: productSchema.default({ status: "NONE", proposal: null, openQuestions: [] }),
+  product: productV5Schema.default({ status: "NONE", proposal: null, openQuestions: [] }),
   makerScope: makerScopeSchema.default({ status: "NONE", statement: null }),
   transcript: z.array(transcriptEntrySchema).default([]),
   capabilities: z.array(capabilitySchema).default([]),
@@ -389,7 +501,7 @@ const legacyProjectCoreSchema = z.object({
   nativeSessions: z.array(nativeSessionRefSchema).default([]),
 });
 
-const projectCoreSchema = z.object({
+const projectCoreV5Schema = z.object({
   id: z.string(),
   revision: z.number().int().nonnegative(),
   workspace: z.string(),
@@ -398,15 +510,20 @@ const projectCoreSchema = z.object({
   sections: z.array(sectionSchema),
   approvals: z.array(approvalSchema),
   actions: z.array(actionSchema),
-  operations: z.array(operationSchema),
+  operations: z.array(operationV5Schema),
   evidence: z.array(evidenceSchema),
   nextAction: z.string(),
-  product: productSchema.default({ status: "NONE", proposal: null, openQuestions: [] }),
+  product: productV5Schema.default({ status: "NONE", proposal: null, openQuestions: [] }),
   makerScope: makerScopeSchema.default({ status: "NONE", statement: null }),
   transcript: z.array(transcriptEntrySchema).default([]),
   capabilities: z.array(capabilitySchema).default([]),
   witnessDrafts: z.array(witnessDraftSchema).default([]),
   nativeSessions: z.array(nativeSessionRefSchema).default([]),
+});
+
+const projectCoreSchema = projectCoreV5Schema.extend({
+  operations: z.array(operationSchema),
+  product: productSchema.default({ status: "NONE", proposal: null, openQuestions: [], structuredProposal: null }),
 });
 
 /** Legacy v1 rows have no engine selection, timestamps, or mode metadata. */
@@ -426,15 +543,15 @@ export const projectV2Schema = legacyProjectCoreSchema.extend({
   engine: engineSelectionSchema.optional(),
 });
 
-export const projectV3Schema = projectCoreSchema.extend({
+export const projectV3Schema = projectCoreV5Schema.extend({
   schemaVersion: z.literal(3),
   mode: projectModeSchema,
   demoWorkspace: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
   engine: engineSelectionSchema,
-  source: projectSourceSchema.default({ kind: "workspace", label: null, externalId: null, importedAt: null }),
-  oracleIntake: oracleIntakeSchema.default({
+  source: projectSourceV5Schema.default({ kind: "workspace", label: null, externalId: null, importedAt: null }),
+  oracleIntake: oracleIntakeV5Schema.default({
     status: "NOT_STARTED",
     summary: null,
     questions: [],
@@ -442,23 +559,23 @@ export const projectV3Schema = projectCoreSchema.extend({
     successCriteria: [],
     updatedAt: null,
   }),
-  memory: projectMemorySchema.default({ facts: [], decisions: [], constraints: [], risks: [] }),
+  memory: projectMemoryV5Schema.default({ facts: [], decisions: [], constraints: [], risks: [] }),
   modelPreferences: modelPreferencesV3Schema.default({
     access: { requireFreeOrLocal: true, allowedProviders: [], allowedModels: [], dataPolicy: "PROVIDER_DEFAULT" },
     budget: { maxCostUsd: null, maxTotalTokens: null, maxRunDurationMs: null },
   }),
 });
 
-/** The v4 project record. v4 rows are migrated explicitly to v5 on read. */
-export const projectV4Schema = projectCoreSchema.extend({
+/** The v4 project record. v4 rows are migrated explicitly on read. */
+export const projectV4Schema = projectCoreV5Schema.extend({
   schemaVersion: z.literal(4),
   mode: projectModeSchema,
   demoWorkspace: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
   engine: engineSelectionSchema,
-  source: projectSourceSchema.default({ kind: "workspace", label: null, externalId: null, importedAt: null }),
-  oracleIntake: oracleIntakeSchema.default({
+  source: projectSourceV5Schema.default({ kind: "workspace", label: null, externalId: null, importedAt: null }),
+  oracleIntake: oracleIntakeV5Schema.default({
     status: "NOT_STARTED",
     summary: null,
     questions: [],
@@ -466,7 +583,7 @@ export const projectV4Schema = projectCoreSchema.extend({
     successCriteria: [],
     updatedAt: null,
   }),
-  memory: projectMemorySchema.default({ facts: [], decisions: [], constraints: [], risks: [] }),
+  memory: projectMemoryV5Schema.default({ facts: [], decisions: [], constraints: [], risks: [] }),
   modelPreferences: modelPreferencesSchema.default({
     access: {
       mode: "ALL_ACCESSIBLE",
@@ -480,8 +597,8 @@ export const projectV4Schema = projectCoreSchema.extend({
 });
 
 const v5CommonDefaults = {
-  source: projectSourceSchema.default({ kind: "workspace", label: null, externalId: null, importedAt: null }),
-  oracleIntake: oracleIntakeSchema.default({
+  source: projectSourceV5Schema.default({ kind: "workspace", label: null, externalId: null, importedAt: null }),
+  oracleIntake: oracleIntakeV5Schema.default({
     status: "NOT_STARTED",
     summary: null,
     questions: [],
@@ -489,7 +606,7 @@ const v5CommonDefaults = {
     successCriteria: [],
     updatedAt: null,
   }),
-  memory: projectMemorySchema.default({ facts: [], decisions: [], constraints: [], risks: [] }),
+  memory: projectMemoryV5Schema.default({ facts: [], decisions: [], constraints: [], risks: [] }),
   modelPreferences: modelPreferencesSchema.default({
     access: {
       mode: "ALL_ACCESSIBLE",
@@ -502,7 +619,7 @@ const v5CommonDefaults = {
   }),
 };
 
-export const projectSchema = projectCoreSchema.extend({
+export const projectV5Schema = projectCoreV5Schema.extend({
   schemaVersion: z.literal(5),
   mode: projectModeSchema,
   demoWorkspace: z.boolean(),
@@ -510,6 +627,49 @@ export const projectSchema = projectCoreSchema.extend({
   updatedAt: z.string(),
   engine: engineSelectionSchema,
   ...v5CommonDefaults,
+});
+
+const emptyOracleIntake = {
+  status: "NOT_STARTED" as const,
+  intendedUser: null,
+  problem: null,
+  desiredOutcome: null,
+  deadlineEvent: null,
+  mustHaveFeatures: null,
+  optionalFeatures: null,
+  budget: null,
+  privacyRequirements: null,
+  platforms: null,
+  repositoryCondition: null,
+  nonGoals: null,
+  unresolvedQuestions: [],
+  assumptions: [],
+  knownConstraints: [],
+  unresolvedRisks: [],
+  recommendedNextAction: null,
+  updatedAt: null,
+};
+
+export const projectSchema = projectCoreSchema.extend({
+  schemaVersion: z.literal(6),
+  mode: projectModeSchema,
+  demoWorkspace: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  engine: engineSelectionSchema,
+  source: projectSourceSchema,
+  oracleIntake: oracleIntakeSchema.default(emptyOracleIntake),
+  memory: projectMemorySchema.default({ facts: [], decisions: [], constraints: [], risks: [], answers: [], assumptions: [] }),
+  modelPreferences: modelPreferencesSchema.default({
+    access: {
+      mode: "ALL_ACCESSIBLE",
+      allowedProviders: [],
+      allowedModels: [],
+      dataPolicy: "PROVIDER_DEFAULT",
+      paidOrUnknownAcceptedAt: null,
+    },
+    budget: { maxCostUsd: null, maxTotalTokens: null, maxRunDurationMs: null },
+  }),
 });
 
 export type Project = z.infer<typeof projectSchema>;

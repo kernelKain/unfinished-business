@@ -10,6 +10,7 @@ import { AtomicProjectStore } from "../src/server/store/atomic-project-store.ts"
 import { createProject, refreshNextAction, type Project } from "../src/server/workflow/model.ts";
 import { approveSection, grantMakerScope, reviseSection } from "../src/server/workflow/transitions.ts";
 import { WorkflowService } from "../src/server/workflow/service.ts";
+import { confirmNewProjectSource } from "./fixtures/oracle-replies.ts";
 
 const headers = { "content-type": "application/json", "x-ub-session-token": "token" };
 const engine = async () => ({
@@ -28,6 +29,7 @@ async function makerReady(guide: SpiritGuide, options: { testBody?: string } = {
   if (options.testBody) await writeFile(join(directory, "project.test.mjs"), options.testBody);
   const store = new AtomicProjectStore(join(directory, "project.json"));
   let project = createProject(directory);
+  confirmNewProjectSource(project);
   project.product = { status: "APPROVED", proposal: "Track found items.", openQuestions: [] };
   for (const section of project.sections) {
     project = reviseSection(project, section.id, `${section.id} approved`);

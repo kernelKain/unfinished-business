@@ -10,6 +10,7 @@ import { ExperienceService } from "../src/server/experience/service.ts";
 import { AtomicProjectStore } from "../src/server/store/atomic-project-store.ts";
 import { createProject, refreshNextAction } from "../src/server/workflow/model.ts";
 import { WorkflowService } from "../src/server/workflow/service.ts";
+import { confirmNewProjectSource, oracleProposalReply } from "./fixtures/oracle-replies.ts";
 
 const model: DiscoveredModel = {
   key: "opencode/flint-40b-free",
@@ -113,6 +114,7 @@ async function workshop(spirit: SpiritGuide, selected: DiscoveredModel = model) 
   const directory = await mkdtemp(join(tmpdir(), "ub-experience-"));
   const store = new AtomicProjectStore(join(directory, "project.json"));
   const initial = createProject(directory);
+  confirmNewProjectSource(initial);
   initial.engine = {
     model: { providerID: selected.providerID, id: selected.id, variant: null },
     source: "user",
@@ -200,7 +202,13 @@ test("a provider privacy rejection returns a structured, redacted repair path", 
 
 test("oracle proposal cannot approve the product by itself", async () => {
   const { app, store } = await workshop(guide([
-    JSON.stringify({ clarification: "A campus lost-and-found.", proposal: "Track found items.", openQuestions: ["Who may claim an item?"] }),
+    JSON.stringify(oracleProposalReply({ questions: [{
+      id: "claimant",
+      field: "unresolvedQuestions",
+      prompt: "Who may claim an item?",
+      whyItMatters: "The answer defines the trust boundary.",
+      suggestedChoices: ["Students", "Staff"],
+    }] })),
   ]));
   const response = await app.request("/api/messages", {
     method: "POST",
@@ -217,8 +225,8 @@ test("oracle proposal cannot approve the product by itself", async () => {
   const body = { project };
   assert.equal(body.project.product.status, "PROPOSED");
   assert.equal(body.project.oracleIntake.status, "READY");
-  assert.equal(body.project.oracleIntake.summary, "Track found items.");
-  assert.deepEqual(body.project.oracleIntake.questions, [{ prompt: "Who may claim an item?", answer: null }]);
+  assert.equal(body.project.oracleIntake.desiredOutcome?.value, "A trustworthy claim and return flow.");
+  assert.equal(body.project.oracleIntake.unresolvedQuestions[0]?.prompt, "Who may claim an item?");
   assert.equal(body.project.stage, "ORACLE");
   assert.equal(body.project.sections[0].status, "NOT_STARTED");
   assert.equal(body.project.engine.model?.id, "flint-40b-free");
@@ -273,7 +281,7 @@ test("a prose architect reply is stored as an unapproved draft", async () => {
 test("the same action does not call the spirit twice", async () => {
   const calls = { speak: 0 };
   const { app } = await workshop(guide([
-    JSON.stringify({ clarification: "Clear.", proposal: "A useful board.", openQuestions: [] }),
+    JSON.stringify(oracleProposalReply({ summary: "A useful board." })),
   ], { calls }));
   const body = { actionId: "once", expectedRevision: 0, intent: "clarify", text: "A short idea." };
   assert.equal((await app.request("/api/messages", { method: "POST", headers, body: JSON.stringify(body) })).status, 202);

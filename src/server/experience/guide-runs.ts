@@ -331,13 +331,56 @@ export function applyValidatedReply(
   let resultText = "Validated reply applied.";
   let next: Project;
   if (reply.intent === "clarify") {
+    assertOracleReplyReady(project, operation, reply.reply);
     next = recordOracleProposal(structuredClone(project), {
-      clarification: context.redact(reply.reply.clarification),
-      proposal: context.redact(reply.reply.proposal),
-      openQuestions: reply.reply.openQuestions.map((question) => context.redact(question)),
+      mode: reply.reply.mode,
+      questions: reply.reply.questions.map((question) => ({
+        ...question,
+        prompt: context.redact(question.prompt),
+        whyItMatters: context.redact(question.whyItMatters),
+        suggestedChoices: question.suggestedChoices.map(context.redact),
+      })),
+      assumptions: reply.reply.assumptions.map((assumption) => ({
+        ...assumption,
+        statement: context.redact(assumption.statement),
+        reason: context.redact(assumption.reason),
+      })),
+      knownConstraints: reply.reply.knownConstraints.map(context.redact),
+      intake: Object.fromEntries(Object.entries(reply.reply.intake).map(([field, answer]) => [
+        field,
+        answer
+          ? {
+              ...answer,
+              value: Array.isArray(answer.value)
+                ? answer.value.map(context.redact)
+                : context.redact(answer.value),
+            }
+          : null,
+      ])) as typeof reply.reply.intake,
+      proposal: reply.reply.proposal
+        ? {
+            ...reply.reply.proposal,
+            title: context.redact(reply.reply.proposal.title),
+            summary: context.redact(reply.reply.proposal.summary),
+            intendedUser: context.redact(reply.reply.proposal.intendedUser),
+            problem: context.redact(reply.reply.proposal.problem),
+            desiredOutcome: context.redact(reply.reply.proposal.desiredOutcome),
+            mustHaveFeatures: reply.reply.proposal.mustHaveFeatures.map(context.redact),
+            optionalFeatures: reply.reply.proposal.optionalFeatures.map(context.redact),
+            nonGoals: reply.reply.proposal.nonGoals.map(context.redact),
+            successCriteria: reply.reply.proposal.successCriteria.map(context.redact),
+            facts: reply.reply.proposal.facts.map(context.redact),
+            userDecisions: reply.reply.proposal.userDecisions.map(context.redact),
+            assumptions: reply.reply.proposal.assumptions.map(context.redact),
+          }
+        : null,
+      unresolvedRisks: reply.reply.unresolvedRisks.map(context.redact),
+      recommendedNextAction: context.redact(reply.reply.recommendedNextAction),
       sessionId: context.sessionId,
     });
-    resultText = "Oracle proposal stored. It is not approved.";
+    resultText = reply.reply.mode === "proposal"
+      ? "Oracle proposal stored. It is not approved."
+      : `Oracle saved the intake and asked ${reply.reply.questions.length} focused question(s).`;
   } else if (reply.intent === "draft") {
     if (!operation.sectionId) throw new Error("A recovered draft names its target section.");
     const content = context.redact(formatSectionDraft(reply.reply));
@@ -367,6 +410,37 @@ export function applyValidatedReply(
     finalOperation.result = resultText;
   }
   return refreshNextAction(next);
+}
+
+function assertOracleReplyReady(
+  project: Project,
+  operation: Operation,
+  reply: z.infer<typeof oracleReplySchema>,
+): void {
+  if (reply.mode !== "proposal") return;
+  const essential = [
+    ["intendedUser", reply.intake.intendedUser],
+    ["problem", reply.intake.problem],
+    ["desiredOutcome", reply.intake.desiredOutcome],
+    ["mustHaveFeatures", reply.intake.mustHaveFeatures?.value.length ? reply.intake.mustHaveFeatures : null],
+  ] as const;
+  const missing: string[] = essential.filter(([, answer]) => !answer).map(([field]) => field);
+  if (project.source.status !== "CONFIRMED") missing.unshift("projectSource");
+  if (missing.length) {
+    throw new Error(`The Oracle proposed before required intake was consolidated: ${missing.join(", ")}.`);
+  }
+  const assumedEssential = essential
+    .filter(([, answer]) => answer?.source === "ASSUMPTION")
+    .map(([field]) => field);
+  if (!assumedEssential.length) return;
+  if (!operation.oracleProceedWithAssumptions) {
+    throw new Error(`The Oracle proposed too early; explicit assumption permission is required for: ${assumedEssential.join(", ")}.`);
+  }
+  const assumed = new Set(reply.assumptions.map((assumption) => assumption.field));
+  const uncovered = assumedEssential.filter((field) => !assumed.has(field));
+  if (uncovered.length) {
+    throw new Error(`The Oracle did not state assumptions for missing intake fields: ${uncovered.join(", ")}.`);
+  }
 }
 
 /**

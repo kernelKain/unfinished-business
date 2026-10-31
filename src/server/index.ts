@@ -8,6 +8,7 @@ import { ExperienceService } from "./experience/service.ts";
 import { createLogger } from "./observability/logger.ts";
 import { ConnectionService } from "./opencode/connection.ts";
 import { SessionActionsService } from "./opencode/sessions.ts";
+import { ProjectSourceService } from "./project-sources.ts";
 import { AtomicProjectStore, StateError } from "./store/atomic-project-store.ts";
 import { WorkspacePolicyError, assertWorkspaceContains, canonicalizeDirectoryRoot, resolveStaticFile } from "./security/workspace.ts";
 import { createProject } from "./workflow/model.ts";
@@ -21,8 +22,10 @@ const log = createLogger({
 const dataRoot = await canonicalizeDirectoryRoot(config.dataDirectory);
 const demoWorkspace = await canonicalizeDirectoryRoot(config.demoWorkspace, { allowedParent: dataRoot.real });
 const spiritWorkspace = await canonicalizeDirectoryRoot(config.spiritWorkspace, { allowedParent: dataRoot.real });
+const managedImportRoot = await canonicalizeDirectoryRoot(join(dataRoot.real, "managed-imports"), { allowedParent: dataRoot.real });
 await assertWorkspaceContains(dataRoot.real, demoWorkspace.real);
 await assertWorkspaceContains(dataRoot.real, spiritWorkspace.real);
+await assertWorkspaceContains(dataRoot.real, managedImportRoot.real);
 
 const store = new AtomicProjectStore(config.statePath, {
   backups: config.retention.backups,
@@ -117,11 +120,13 @@ const experience = connection
 const sessions = connection
   ? new SessionActionsService(connection, () => workflow.get())
   : undefined;
+const sources = new ProjectSourceService(workflow, { managedImportRoot: managedImportRoot.real });
 
 const app = createApp({
   service: workflow,
   sessionToken: config.sessionToken,
   experience,
+  sources,
   connection: connection ?? undefined,
   sessions,
   access: config.access ?? undefined,

@@ -18,7 +18,57 @@ export interface WorkshopProject {
   stage: "ORACLE" | "ARCHITECT" | "MAKER" | "WITNESS";
   currentSectionId: string | null;
   nextAction: string;
-  product: { status: "NONE" | "PROPOSED" | "APPROVED"; proposal: string | null; openQuestions: string[] };
+  product: {
+    status: "NONE" | "PROPOSED" | "APPROVED";
+    proposal: string | null;
+    openQuestions: string[];
+    structuredProposal?: {
+      title: string;
+      summary: string;
+      intendedUser: string;
+      problem: string;
+      desiredOutcome: string;
+      mustHaveFeatures: string[];
+      optionalFeatures: string[];
+      nonGoals: string[];
+      successCriteria: string[];
+      facts: string[];
+      userDecisions: string[];
+      assumptions: string[];
+    } | null;
+  };
+  source: {
+    kind: "UNSELECTED" | "NEW_PROJECT" | "LOCAL_REPOSITORY" | "REMOTE_REPOSITORY" | "SAVED_PROJECT" | "DEMO";
+    status: "UNSELECTED" | "PENDING_CONFIRMATION" | "CONFIRMED";
+    label: string | null;
+    repositoryUrl: string | null;
+    managedWorkspace: boolean;
+    importedAt: string | null;
+    confirmedAt: string | null;
+    repositoryCondition: string | null;
+  };
+  oracleIntake: {
+    status: "NOT_STARTED" | "COLLECTING" | "READY" | "APPROVED";
+    unresolvedQuestions: Array<{
+      id: string;
+      field: string;
+      prompt: string;
+      whyItMatters: string;
+      suggestedChoices: string[];
+    }>;
+    assumptions: Array<{ id: string; field: string; statement: string; reason: string }>;
+    knownConstraints: string[];
+    unresolvedRisks: string[];
+    recommendedNextAction: string | null;
+  };
+  memory: {
+    facts: MemoryEntry[];
+    decisions: MemoryEntry[];
+    constraints: MemoryEntry[];
+    risks: MemoryEntry[];
+    answers?: MemoryEntry[];
+    assumptions?: MemoryEntry[];
+  };
   makerScope: { status: "NONE" | "GRANTED"; statement: string | null };
   engine: {
     model: EngineModel | null;
@@ -82,6 +132,14 @@ export interface WorkshopProject {
   witnessDrafts: Array<{ id: string; title: string; content: string }>;
   evidence: Array<{ id: string; checkId: string; result: string; limitation: string | null; model: EngineModel | null }>;
   nativeSessions: Array<{ role: string; sessionId: string }>;
+}
+
+interface MemoryEntry {
+  id: string;
+  text: string;
+  field?: string | null;
+  source: string;
+  status?: "ACTIVE" | "SUPERSEDED";
 }
 
 export interface ActionResult {
@@ -229,10 +287,35 @@ export function findSelectedModel(discovery: OpenCodeDiscovery | null, model: En
   return discovery.models.find((candidate) => candidate.providerID === model.providerID && candidate.id === model.id) ?? null;
 }
 
-export function sendMessage(project: WorkshopProject, intent: "clarify" | "draft" | "question" | "witness", text: string) {
+export function sendMessage(
+  project: WorkshopProject,
+  intent: "clarify" | "draft" | "question" | "witness",
+  text: string,
+  proceedWithAssumptions = false,
+) {
   return request<ActionResult>("/api/messages", {
     method: "POST",
-    body: { actionId: crypto.randomUUID(), expectedRevision: project.revision, intent, text },
+    body: { actionId: crypto.randomUUID(), expectedRevision: project.revision, intent, text, proceedWithAssumptions },
+  });
+}
+
+export type ProjectSourceSelection =
+  | { kind: "NEW_PROJECT"; label?: string | null }
+  | { kind: "LOCAL_REPOSITORY"; path: string }
+  | { kind: "REMOTE_REPOSITORY"; url: string }
+  | { kind: "SAVED_PROJECT" };
+
+export function selectProjectSource(project: WorkshopProject, selection: ProjectSourceSelection) {
+  return request<ActionResult>("/api/project/source", {
+    method: "POST",
+    body: { actionId: crypto.randomUUID(), expectedRevision: project.revision, ...selection },
+  });
+}
+
+export function confirmRemoteSource(project: WorkshopProject) {
+  return request<ActionResult>("/api/project/source/confirm", {
+    method: "POST",
+    body: { actionId: crypto.randomUUID(), expectedRevision: project.revision },
   });
 }
 

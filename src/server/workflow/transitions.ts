@@ -95,24 +95,171 @@ export function rememberTranscript(project: Project, spirit: Project["transcript
 
 export function recordOracleProposal(
   project: Project,
-  input: { proposal: string; openQuestions: string[]; clarification: string; sessionId: string },
+  input: {
+    mode: "questions" | "proposal";
+    questions: Project["oracleIntake"]["unresolvedQuestions"];
+    assumptions: Project["oracleIntake"]["assumptions"];
+    knownConstraints: string[];
+    intake: {
+      intendedUser: { value: string; source: "USER" | "ASSUMPTION" | "SYSTEM" } | null;
+      problem: { value: string; source: "USER" | "ASSUMPTION" | "SYSTEM" } | null;
+      desiredOutcome: { value: string; source: "USER" | "ASSUMPTION" | "SYSTEM" } | null;
+      deadlineEvent: { value: string; source: "USER" | "ASSUMPTION" | "SYSTEM" } | null;
+      mustHaveFeatures: { value: string[]; source: "USER" | "ASSUMPTION" | "SYSTEM" } | null;
+      optionalFeatures: { value: string[]; source: "USER" | "ASSUMPTION" | "SYSTEM" } | null;
+      budget: { value: string; source: "USER" | "ASSUMPTION" | "SYSTEM" } | null;
+      privacyRequirements: { value: string[]; source: "USER" | "ASSUMPTION" | "SYSTEM" } | null;
+      platforms: { value: string[]; source: "USER" | "ASSUMPTION" | "SYSTEM" } | null;
+      repositoryCondition: { value: string; source: "USER" | "ASSUMPTION" | "SYSTEM" } | null;
+      nonGoals: { value: string[]; source: "USER" | "ASSUMPTION" | "SYSTEM" } | null;
+    };
+    proposal: NonNullable<Project["product"]["structuredProposal"]> | null;
+    unresolvedRisks: string[];
+    recommendedNextAction: string;
+    sessionId: string;
+  },
 ): Project {
   const next = clone(project);
-  next.product = {
-    status: "PROPOSED",
-    proposal: input.proposal,
-    openQuestions: input.openQuestions,
-  };
-  next.oracleIntake = {
-    ...next.oracleIntake,
-    status: "READY",
-    summary: input.proposal,
-    questions: input.openQuestions.map((prompt) => ({ prompt, answer: null })),
-    updatedAt: new Date().toISOString(),
-  };
+  const now = new Date().toISOString();
+  const scalarFields = ["intendedUser", "problem", "desiredOutcome", "deadlineEvent", "budget", "repositoryCondition"] as const;
+  const listFields = ["mustHaveFeatures", "optionalFeatures", "privacyRequirements", "platforms", "nonGoals"] as const;
+  for (const field of scalarFields) {
+    const answer = input.intake[field];
+    if (!answer) continue;
+    next.oracleIntake[field] = { ...answer, updatedAt: now };
+    if (answer.source !== "ASSUMPTION") rememberAnswer(next, field, answer.value, answer.source, input.sessionId, now);
+  }
+  for (const field of listFields) {
+    const answer = input.intake[field];
+    if (!answer) continue;
+    next.oracleIntake[field] = { ...answer, updatedAt: now };
+    if (answer.source !== "ASSUMPTION") rememberAnswer(next, field, answer.value.join("; "), answer.source, input.sessionId, now);
+  }
+  next.oracleIntake.status = input.mode === "proposal" ? "READY" : "COLLECTING";
+  next.oracleIntake.unresolvedQuestions = input.questions;
+  next.oracleIntake.assumptions = input.assumptions;
+  next.oracleIntake.knownConstraints = input.knownConstraints;
+  next.oracleIntake.unresolvedRisks = input.unresolvedRisks;
+  next.oracleIntake.recommendedNextAction = input.recommendedNextAction;
+  next.oracleIntake.updatedAt = now;
+
+  syncAssumptionMemory(next, input.assumptions, input.sessionId, now);
+  syncTextMemory(next, "constraints", input.knownConstraints, "oracle", input.sessionId, now);
+  syncTextMemory(next, "risks", input.unresolvedRisks, "oracle", input.sessionId, now);
+
+  if (input.mode === "proposal" && input.proposal) {
+    next.product = {
+      status: "PROPOSED",
+      proposal: formatOracleProposal(input.proposal),
+      structuredProposal: input.proposal,
+      openQuestions: input.questions.map((question) => question.prompt),
+    };
+    syncTextMemory(next, "facts", input.proposal.facts, "oracle", input.sessionId, now);
+    syncTextMemory(next, "decisions", input.proposal.userDecisions, "user", input.sessionId, now);
+  } else {
+    next.product = { status: "NONE", proposal: null, structuredProposal: null, openQuestions: input.questions.map((question) => question.prompt) };
+  }
   rememberSession(next, "oracle", input.sessionId);
-  rememberTranscript(next, "oracle", `${input.clarification}\n\n${input.proposal}`);
+  rememberTranscript(next, "oracle", input.mode === "proposal"
+    ? `Prepared a structured proposal: ${input.proposal?.title ?? "Untitled proposal"}. ${input.recommendedNextAction}`
+    : `Asked ${input.questions.length} focused discovery question(s). ${input.recommendedNextAction}`);
   return projectSchema.parse(refreshNextAction(next));
+}
+
+function rememberAnswer(
+  project: Project,
+  field: NonNullable<Project["memory"]["answers"]>[number]["field"],
+  text: string,
+  answerSource: "USER" | "ASSUMPTION" | "SYSTEM",
+  sourceId: string,
+  createdAt: string,
+): void {
+  const bucket = answerSource === "ASSUMPTION" ? (project.memory.assumptions ??= []) : (project.memory.answers ??= []);
+  const other = answerSource === "ASSUMPTION" ? (project.memory.answers ??= []) : (project.memory.assumptions ??= []);
+  const entries = [...bucket, ...other];
+  const source = answerSource === "USER" ? "user" : answerSource === "SYSTEM" ? "system" : "oracle";
+  const active = entries.findLast((entry) => entry.field === field && entry.status !== "SUPERSEDED") ?? null;
+  if (active?.text === text && active.source === source) return;
+  for (const entry of entries) {
+    if (entry.field === field && entry.status !== "SUPERSEDED") entry.status = "SUPERSEDED";
+  }
+  const prior = active ?? entries.findLast((entry) => entry.field === field) ?? null;
+  bucket.push({
+    id: randomUUID(),
+    text,
+    source,
+    sourceId,
+    createdAt,
+    field,
+    status: "ACTIVE",
+    supersedesId: prior?.id ?? null,
+  });
+}
+
+function syncAssumptionMemory(
+  project: Project,
+  assumptions: Project["oracleIntake"]["assumptions"],
+  sourceId: string,
+  createdAt: string,
+): void {
+  const activeIds = new Set(assumptions.map((assumption) => assumption.id));
+  const bucket = project.memory.assumptions ??= [];
+  for (const entry of bucket) {
+    if (entry.sourceId?.startsWith("assumption:") && !activeIds.has(entry.sourceId.slice("assumption:".length))) {
+      entry.status = "SUPERSEDED";
+    }
+  }
+  for (const assumption of assumptions) {
+    const existing = bucket.find((entry) => entry.sourceId === `assumption:${assumption.id}` && entry.status !== "SUPERSEDED");
+    if (existing?.text === assumption.statement) continue;
+    if (existing) existing.status = "SUPERSEDED";
+    bucket.push({
+      id: randomUUID(),
+      text: assumption.statement,
+      source: "oracle",
+      sourceId: `assumption:${assumption.id}`,
+      createdAt,
+      field: assumption.field,
+      status: "ACTIVE",
+      supersedesId: existing?.id ?? null,
+    });
+  }
+  void sourceId;
+}
+
+function syncTextMemory(
+  project: Project,
+  bucketName: "facts" | "decisions" | "constraints" | "risks",
+  texts: string[],
+  source: "user" | "oracle",
+  sourceId: string,
+  createdAt: string,
+): void {
+  const bucket = project.memory[bucketName];
+  const managedSourceId = `oracle:${sourceId}`;
+  const current = new Set(texts);
+  for (const entry of bucket) {
+    if (entry.sourceId?.startsWith("oracle:") && entry.status !== "SUPERSEDED" && !current.has(entry.text)) {
+      entry.status = "SUPERSEDED";
+    }
+  }
+  for (const text of texts) {
+    if (bucket.some((entry) => entry.text === text && entry.status !== "SUPERSEDED")) continue;
+    const prior = bucket.findLast((entry) => entry.text === text) ?? null;
+    bucket.push({ id: randomUUID(), text, source, sourceId: managedSourceId, createdAt, field: null, status: "ACTIVE", supersedesId: prior?.id ?? null });
+  }
+}
+
+function formatOracleProposal(proposal: NonNullable<Project["product"]["structuredProposal"]>): string {
+  return [
+    proposal.summary,
+    `Intended user: ${proposal.intendedUser}`,
+    `Problem: ${proposal.problem}`,
+    `Desired outcome: ${proposal.desiredOutcome}`,
+    `Must have: ${proposal.mustHaveFeatures.join("; ")}`,
+    proposal.optionalFeatures.length ? `Optional: ${proposal.optionalFeatures.join("; ")}` : null,
+    proposal.nonGoals.length ? `Non-goals: ${proposal.nonGoals.join("; ")}` : null,
+  ].filter(Boolean).join("\n\n");
 }
 
 export function approveProduct(project: Project): Project {

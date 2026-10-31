@@ -10,6 +10,7 @@ import {
   approveProduct,
   approveSection,
   cancelRun,
+  confirmRemoteSource,
   findSelectedModel,
   grantScope,
   loadConnection,
@@ -19,6 +20,7 @@ import {
   reviseSection,
   retryRun,
   runMaker,
+  selectProjectSource,
   sendMessage,
   type WorkshopProject,
 } from "../api.ts";
@@ -143,6 +145,18 @@ export function WorkshopPage() {
     setProviderError(null);
     if (latestProviderOperation) setDismissedProviderOperationId(latestProviderOperation.id);
   };
+
+  if (!hostedDemo && project.source.status !== "CONFIRMED") {
+    return (
+      <div className="workshop-shell">
+        <WorkshopHeader connection={connection} onSetup={() => setSetupOpen(true)} />
+        <main className="workshop workshop-onboarding">
+          <ProjectSourceOnboarding project={project} busy={busy} act={act} />
+          {error ? <p className="banner bad" role="alert">{error}</p> : null}
+        </main>
+      </div>
+    );
+  }
 
   if (showOnboarding) {
     return (
@@ -386,6 +400,92 @@ export function WorkshopPage() {
   );
 }
 
+function ProjectSourceOnboarding(props: {
+  project: WorkshopProject;
+  busy: boolean;
+  act: (work: () => Promise<{ project: WorkshopProject }>) => Promise<void>;
+}) {
+  const [kind, setKind] = useState<"NEW_PROJECT" | "LOCAL_REPOSITORY" | "REMOTE_REPOSITORY" | "SAVED_PROJECT">("NEW_PROJECT");
+  const [value, setValue] = useState("");
+  const [replacePending, setReplacePending] = useState(false);
+
+  if (props.project.source.status === "PENDING_CONFIRMATION" && !replacePending) {
+    return (
+      <section className="stage-panel source-onboarding" aria-labelledby="source-confirm-title">
+        <div className="panel-intro">
+          <span className="panel-icon"><ScrollText size={18} aria-hidden="true" /></span>
+          <div>
+            <p className="eyebrow">Project source · confirmation</p>
+            <h1 id="source-confirm-title">Confirm the managed import workspace</h1>
+            <p>The URL passed validation and contains no embedded credentials. The repository has not been imported and no agent has write access yet.</p>
+          </div>
+        </div>
+        <div className="reading prose proposal-card">
+          <h2>{props.project.source.label ?? "Remote repository"}</h2>
+          <p>{props.project.source.repositoryUrl}</p>
+          <p className="meta">The import stays inside the app-managed data directory. Confirmation permits the import; it does not approve a product, grant Maker write access, or start a run.</p>
+        </div>
+        <div className="actions">
+          <button className="action" type="button" disabled={props.busy} onClick={() => void props.act(() => confirmRemoteSource(props.project))}>
+            Confirm and import
+          </button>
+          <button className="action secondary" type="button" disabled={props.busy} onClick={() => setReplacePending(true)}>
+            Choose a different source
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  const choices = [
+    ["NEW_PROJECT", "New project", "Start discovery without an existing repository."],
+    ["LOCAL_REPOSITORY", "Existing local repository", "Validate an existing directory with the workspace security policy."],
+    ["REMOTE_REPOSITORY", "Remote repository URL", "Validate a credential-free HTTPS URL, then import only after confirmation."],
+    ["SAVED_PROJECT", "Continue saved project", "Resume the project state already stored by this installation."],
+  ] as const;
+  const needsValue = kind === "LOCAL_REPOSITORY" || kind === "REMOTE_REPOSITORY";
+  const submit = () => {
+    if (kind === "LOCAL_REPOSITORY") return props.act(() => selectProjectSource(props.project, { kind, path: value.trim() }));
+    if (kind === "REMOTE_REPOSITORY") return props.act(() => selectProjectSource(props.project, { kind, url: value.trim() }));
+    if (kind === "SAVED_PROJECT") return props.act(() => selectProjectSource(props.project, { kind }));
+    return props.act(() => selectProjectSource(props.project, { kind, label: value.trim() || null }));
+  };
+
+  return (
+    <section className="stage-panel source-onboarding" aria-labelledby="source-title">
+      <div className="panel-intro">
+        <span className="panel-icon"><Sparkles size={18} aria-hidden="true" /></span>
+        <div>
+          <p className="eyebrow">Project source · step 1</p>
+          <h1 id="source-title">Where is this project starting?</h1>
+          <p>The Oracle uses this choice to ask relevant discovery questions. Choosing a source never approves a product or starts implementation.</p>
+        </div>
+      </div>
+      <fieldset className="source-choice-grid">
+        <legend className="sr-only">Choose a project source</legend>
+        {choices.map(([id, label, description]) => (
+          <label className={`source-choice ${kind === id ? "selected" : ""}`} key={id}>
+            <input type="radio" name="project-source" value={id} checked={kind === id} onChange={() => { setKind(id); setValue(""); }} />
+            <span><strong>{label}</strong><small>{description}</small></span>
+          </label>
+        ))}
+      </fieldset>
+      {kind === "LOCAL_REPOSITORY" ? (
+        <label>Local repository path<input value={value} onChange={(event) => setValue(event.target.value)} placeholder="/path/to/repository" /></label>
+      ) : kind === "REMOTE_REPOSITORY" ? (
+        <label>Remote repository URL<input value={value} onChange={(event) => setValue(event.target.value)} placeholder="https://github.com/owner/repository.git" /></label>
+      ) : kind === "NEW_PROJECT" ? (
+        <label>Working name <span className="meta">optional</span><input value={value} onChange={(event) => setValue(event.target.value)} placeholder="Untitled project" /></label>
+      ) : null}
+      <div className="actions">
+        <button className="action" type="button" disabled={props.busy || (needsValue && !value.trim())} onClick={() => void submit()}>
+          Continue to discovery
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function HostedDemoPanel() {
   const demo = modeDescriptor("demo");
   return (
@@ -459,30 +559,53 @@ function OraclePanel(props: {
   act: (work: () => Promise<{ project: WorkshopProject }>) => Promise<void>;
 }) {
   const proposal = props.project.product.proposal;
+  const structured = props.project.product.structuredProposal;
+  const questions = props.project.oracleIntake.unresolvedQuestions;
+  const activeAnswers = (props.project.memory.answers ?? []).filter((entry) => entry.status !== "SUPERSEDED");
+  const activeAssumptions = (props.project.memory.assumptions ?? []).filter((entry) => entry.status !== "SUPERSEDED");
   return (
     <section className="stage-panel" aria-labelledby="oracle-panel-title">
       <div className="panel-intro">
         <span className="panel-icon"><Sparkles size={18} aria-hidden="true" /></span>
         <div>
-          <h2 id="oracle-panel-title">Oracle: clarify the idea</h2>
-          <p>Describe an idea you want to bring to life. The Oracle proposes a product scope; you approve it.</p>
+          <h2 id="oracle-panel-title">Oracle: guided project discovery</h2>
+          <p>Answer a few focused questions at a time. The Oracle saves facts, decisions, and assumptions separately before proposing a product.</p>
         </div>
       </div>
       {proposal ? (
         <div className="reading prose proposal-card">
-          <div className="proposal-head"><h3>Oracle proposal</h3><StatusChip status={props.project.product.status} /></div>
-          <p>{proposal}</p>
-          {props.project.product.openQuestions.length ? (
-            <div className="open-questions">
-              <h4>Open questions</h4>
-              <ul>{props.project.product.openQuestions.map((question) => <li key={question}>{question}</li>)}</ul>
+          <div className="proposal-head"><h3>{structured?.title ?? "Oracle proposal"}</h3><StatusChip status={props.project.product.status} /></div>
+          <p>{structured?.summary ?? proposal}</p>
+          {structured ? (
+            <div className="proposal-evidence-grid">
+              <div><h4>Facts</h4>{structured.facts.length ? <ul>{structured.facts.map((item) => <li key={item}>{item}</li>)}</ul> : <p className="meta">None recorded.</p>}</div>
+              <div><h4>User decisions</h4>{structured.userDecisions.length ? <ul>{structured.userDecisions.map((item) => <li key={item}>{item}</li>)}</ul> : <p className="meta">None recorded.</p>}</div>
+              <div><h4>Assumptions</h4>{structured.assumptions.length ? <ul>{structured.assumptions.map((item) => <li key={item}>{item}</li>)}</ul> : <p className="meta">None.</p>}</div>
             </div>
           ) : null}
         </div>
+      ) : questions.length ? (
+        <div className="oracle-questions" aria-label="Oracle questions">
+          {questions.map((question, index) => (
+            <article className="reading proposal-card" key={question.id}>
+              <p className="eyebrow">Question {index + 1} · {question.field}</p>
+              <h3>{question.prompt}</h3>
+              <p>{question.whyItMatters}</p>
+              {question.suggestedChoices.length ? <p className="meta">Suggested choices: {question.suggestedChoices.join(" · ")}</p> : null}
+            </article>
+          ))}
+        </div>
       ) : (
-        <EmptyState title="The bench is quiet">No proposal exists yet. Wake the Oracle with an idea or question.</EmptyState>
+        <EmptyState title="Discovery is ready">Tell the Oracle what you want to build. It will ask only the highest-value follow-ups before proposing scope.</EmptyState>
       )}
-      <label htmlFor="oracle-text">Idea or question</label>
+      {(activeAnswers.length || activeAssumptions.length) ? (
+        <details className="memory-card">
+          <summary>Project memory · {activeAnswers.length} answers · {activeAssumptions.length} assumptions</summary>
+          {activeAnswers.length ? <div><h4>Recorded answers</h4><ul>{activeAnswers.map((entry) => <li key={entry.id}><strong>{entry.field ?? "answer"}:</strong> {entry.text}</li>)}</ul></div> : null}
+          {activeAssumptions.length ? <div><h4>Stated assumptions</h4><ul>{activeAssumptions.map((entry) => <li key={entry.id}><strong>{entry.field ?? "assumption"}:</strong> {entry.text}</li>)}</ul></div> : null}
+        </details>
+      ) : null}
+      <label htmlFor="oracle-text">{proposal ? "Correction or follow-up" : questions.length ? "Your answers or corrections" : "Project goal"}</label>
       <textarea id="oracle-text" value={props.text} onChange={(event) => props.setText(event.target.value)} maxLength={8000} />
       <div className="actions">
         {proposal ? (
@@ -491,12 +614,22 @@ function OraclePanel(props: {
           </button>
         ) : (
           <button className="action" type="button" disabled={props.busy || props.text.trim().length < 1} onClick={() => void props.act(() => sendMessage(props.project, "clarify", props.text))}>
-            Wake the Oracle
+            {questions.length ? "Save answers" : "Begin discovery"}
           </button>
         )}
         {proposal ? (
           <button className="action secondary" type="button" disabled={props.busy || props.text.trim().length < 1} onClick={() => void props.act(() => sendMessage(props.project, "question", props.text))}>
             Ask a question
+          </button>
+        ) : null}
+        {!proposal && props.text.trim().length > 0 ? (
+          <button className="action secondary" type="button" disabled={props.busy} onClick={() => void props.act(() => sendMessage(props.project, "clarify", props.text, true))}>
+            Proceed with stated assumptions
+          </button>
+        ) : null}
+        {proposal && props.text.trim().length > 0 ? (
+          <button className="action secondary" type="button" disabled={props.busy} onClick={() => void props.act(() => sendMessage(props.project, "clarify", props.text))}>
+            Correct an answer
           </button>
         ) : null}
       </div>

@@ -2,7 +2,7 @@
 
 **Status:** Implemented and locally verified.
 **Owner:** Engineering/integration.
-**Last verified:** 2026-11-01 against the Phase 2 observability/recovery surface.
+**Last verified:** 2026-11-01 against the Phase 3 source-onboarding and Oracle-discovery surface.
 
 This document describes the supported OpenCode surface, not every endpoint OpenCode exposes. OpenCode remains the owner of inference, the agent loop, tools, permissions, and native sessions.
 
@@ -71,6 +71,14 @@ Live run progress and late-result recovery use the same bounded transport:
 
 Progress content is limited to fixed safe phase summaries; prompts, model output, and raw JSON are never recorded as progress or displayed as partial output.
 
+### Oracle discovery contract (Upgrade Phase 3)
+
+Oracle receives the complete `docs/prompts/00_product_discovery.md` procedure followed by a persistence adapter. The adapter supplies only product-safe source context, active structured memory, the latest redacted user message, and the schema required to save the result. Canonical local paths, provider credentials, raw prior output, and superseded private details are not sent.
+
+The expected reply has `questions` or `proposal` mode, no more than three questions with `whyItMatters` and optional choices, a complete consolidated intake snapshot, assumptions, known constraints, unresolved risks, and a recommended next action. The application validates this shape before persistence. It additionally rejects proposal mode until the source is confirmed and intended user, problem, desired outcome, and must-have features are either user-known or explicitly accepted as stated assumptions.
+
+Project-source import itself does not use OpenCode. A public HTTPS repository is cloned by the application into its private managed root only after explicit confirmation. Selecting or importing that source does not expand Maker permissions: this phase retains Maker's existing isolated workspace boundary.
+
 Session actions are restricted to native sessions referenced by the active project (`project.nativeSessions` and operation records). The API does not enumerate or control arbitrary OpenCode sessions.
 
 ## Connection states
@@ -123,7 +131,7 @@ The model comes from OpenCode's discovered catalog. There is no fixed model and 
 
 | Application role | Preferred custom agent | Tested fallback | Purpose |
 |---|---|---|---|
-| Oracle | `oracle` / `ub-oracle` | `plan` | Clarify and propose a product scope without editing. |
+| Oracle | `oracle` / `ub-oracle` | `plan` | Run focused multi-turn discovery, preserve structured answers, and propose only when intake is sufficient. |
 | Architect | `architect` / `ub-architect` | `plan` | Draft one section at a time with read-only tools. |
 | Maker | `maker` / `ub-maker` | `build` | Perform the approved, bounded edit in the isolated demo workspace. |
 | Witness | `witness` / `ub-witness` | `plan` | Review evidence from a fresh session. |

@@ -2,7 +2,7 @@
 
 **Status:** Verified local path.
 **Owner:** Engineering.
-**Last verified:** 2026-10-31 on Linux with Node 22.22.1, npm 9.2.0, and the pinned OpenCode 2.0.32 binary. This guide is the source for the landing page's setup tabs.
+**Last verified:** 2026-11-01 on Linux with Node 22.22.1, npm 9.2.0, Git, and the pinned OpenCode 2.0.32 binary. This guide is the source for the landing page's setup tabs.
 
 ## What you get
 
@@ -16,7 +16,7 @@ The browser app does not receive provider credentials or the OpenCode password. 
 
 ## Prerequisites
 
-- Linux (first release target), Node **22.14+**, npm.
+- Linux (first release target), Node **22.14+**, npm, and Git (required only for confirmed remote repository imports).
 - A supported OpenCode 2.x server. The repository pins `@opencode/cli-linux-x64-baseline@2.0.32`.
 - At least one model route that answers on your OpenCode account, or a local model. The free `opencode/deepseek-v4.1-flash-free` route is still available when the provider reports it, but availability is time-limited and not guaranteed.
 - A writable `UB_DATA_DIR` whose demo/spirit child directories stay inside that root. Do not point it at `/`, your home, the repository root, or a broad system directory.
@@ -52,7 +52,7 @@ UB_DATA_DIR=.unfinished-business
 
 - `OPENCODE_PASSWORD` must match the password printed by `opencode serve`, or the fixed `OPENCODE_SERVER_PASSWORD` you chose. Leave it blank only if your local server has no password.
 - `UB_SESSION_TOKEN` may be blank; the server generates one for the local browser session.
-- `UB_DATA_DIR` stores project metadata plus the isolated demo and spirit workspaces. It is gitignored.
+- `UB_DATA_DIR` stores project metadata, confirmed managed repository imports, and the isolated demo and spirit workspaces. It is gitignored.
 - Do not put provider API keys in `.env`. Provider accounts belong inside OpenCode.
 
 The security and budget variables in `.env.example` have safe defaults. `UB_MAX_SESSION_COST_USD` defaults to `unlimited`; set a positive USD value to enforce a deployment-wide limit, or use `0`/`disabled` to disable it. A per-project limit can be stricter. Review timeouts, request limits, retention, and redaction before changing them.
@@ -126,6 +126,17 @@ The engine pill reflects `/api/connection`; it shows **OpenCode connected** only
 
 If OpenCode is reachable but no model is selected, `/workshop` opens the first-run connection/model panel. If OpenCode is unavailable, the workshop stays visible with the error and an **Open setup** action; it never invents a connection or model.
 
+### First-run project source
+
+Before Oracle or model onboarding, choose one source:
+
+1. **New project** records that no repository exists yet.
+2. **Existing local repository** validates an existing directory with the canonical workspace-security policy. Selection does not edit it, and its absolute path is never returned to the browser or sent to Oracle.
+3. **Remote repository URL** accepts a public HTTPS owner/repository URL without embedded credentials, query parameters, fragments, private DNS, or a nonstandard port. The first action validates and stages it only. Review the managed-workspace notice, then explicitly confirm to clone it below `UB_DATA_DIR/managed-imports/`.
+4. **Continue saved project** treats the existing durable project state as the discovery source.
+
+Remote imports are unauthenticated and noninteractive. Private repositories, SSH URLs, credentialed URLs, and submodule credentials are not supported. A selected or imported repository is discovery context only in Phase 3; Maker continues to edit `UB_DATA_DIR/demo-workspace/`.
+
 ### First-run model selection
 
 1. Start OpenCode and note the server password.
@@ -149,12 +160,13 @@ Then open `http://127.0.0.1:4200/`. The built app and API share the same server.
 ## What local mode does and does not touch
 
 - Maker's bounded edit targets `UB_DATA_DIR/demo-workspace`, not your repository checkout.
+- A confirmed public remote import lives under `UB_DATA_DIR/managed-imports/`; it is not a Maker target in Phase 3.
 - Project metadata, backups, and evidence references live under `UB_DATA_DIR`.
 - Native transcripts and sessions stay in OpenCode.
 - The browser has no filesystem or shell endpoint.
 - App approvals constrain the workflow; they cannot override an OpenCode tool denial.
 - The Node check is a bounded child process, not an OS sandbox.
-- Arbitrary repository mounting, multi-user isolation, and remote browser-to-local pairing are not implemented.
+- Private/authenticated repository import, arbitrary repository execution, multi-user isolation, and remote browser-to-local pairing are not implemented.
 
 ## Troubleshooting
 

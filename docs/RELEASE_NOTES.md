@@ -1,9 +1,23 @@
 # Release notes — Unfinished Business release candidate
 
 **Date:** 2026-11-01
-**Status:** Upgrade Phase 2 implemented; deployment, publication, and submission remain outside this phase.
+**Status:** Upgrade Phase 3 implemented; deployment, publication, and submission remain outside this phase.
 
 ## What changed
+
+### Upgrade Phase 3 — project intake and guided discovery
+
+- Every fresh workshop now starts with an explicit source choice: **new project**, **existing local repository**, **remote repository URL**, or **continue saved project**. Oracle cannot run until the source is confirmed.
+- Local repository paths pass the existing canonical workspace-security rules. Their absolute paths remain private server state and are omitted from public project responses and Oracle prompts.
+- Remote repositories are limited to credential-free public HTTPS URLs. Selection does not clone or grant write access; an explicit second confirmation imports into an app-managed workspace with Git prompts, credential helpers, redirects, and command output disabled.
+- Oracle is now a focused multi-turn interview. A turn contains at most three questions, each with a short reason and optional choices. The full Product Discovery procedure remains active instead of being replaced by a tiny one-shot JSON instruction.
+- Schema v6 records the complete intake with per-answer provenance, known constraints, risks, facts, user decisions, assumptions, and recommended action. Corrections supersede older memory entries without erasing history.
+- Proposals use a structured facts/decisions/assumptions shape. The server rejects premature proposals unless source and essential intake are present; assumed essential answers require the user to explicitly proceed with the stated assumptions.
+- Explicit v1–v5 migrations preserve older projects, operations, approvals, transcripts, and recovery metadata while treating legacy projects as confirmed saved work.
+- Phase 3 tests cover all four source paths, URL/path safety, pending remote confirmation, private-path omission, incomplete intake, question limits, prompt retention, reload persistence, proposal provenance, explicit assumptions, and corrections.
+- Verification passes: typecheck, 161 unit/integration tests, production build, all five bundle/asset budgets, 18 visual/accessibility tests, and the production high-severity dependency audit.
+
+Known limits: remote import supports public unauthenticated HTTPS repositories only; it does not support SSH, private repositories, credentialed URLs, submodule credentials, arbitrary redirects, or remote browser-to-local pairing. Selecting a repository does not grant Maker access to it; Maker remains bounded to its existing isolated workflow until a later phase deliberately changes that authority.
 
 ### Upgrade Phase 2 — observable, cancellable, recoverable runs
 

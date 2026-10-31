@@ -131,7 +131,7 @@ function selectModel(
 test("new projects default to all accessible models with no spending limit", async () => {
   const { app } = await fixture();
   const current = await project(app);
-  assert.equal(current.schemaVersion, 5);
+  assert.equal(current.schemaVersion, 6);
   assert.equal(current.modelPreferences.access.mode, "ALL_ACCESSIBLE");
   assert.equal(current.modelPreferences.access.paidOrUnknownAcceptedAt, null);
   assert.equal(current.modelPreferences.budget.maxCostUsd, null);

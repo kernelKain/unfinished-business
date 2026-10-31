@@ -24,6 +24,7 @@ import { SessionActionError, type SessionActionsService } from "./opencode/sessi
 import { RevisionConflict, StateError } from "./store/atomic-project-store.ts";
 import { clientKey, ConcurrencyGate, RateLimiter, timingSafeEqual } from "./security/limits.ts";
 import { NetworkPolicyError } from "./security/network.ts";
+import { ProjectSourceError, ProjectSourceService } from "./project-sources.ts";
 import { safePublicError } from "./security/redaction.ts";
 import { WorkspacePolicyError } from "./security/workspace.ts";
 import { createLogger, requestId, type Logger } from "./observability/logger.ts";
@@ -49,6 +50,7 @@ const approvalRequestSchema = actionSchema.extend({
 const messageSchema = actionSchema.extend({
   intent: z.enum(["clarify", "draft", "question", "witness"]),
   text: z.string().min(1).max(8_000),
+  proceedWithAssumptions: z.boolean().optional().default(false),
 });
 const approvalKindSchema = z.discriminatedUnion("kind", [
   actionSchema.extend({ kind: z.literal("product") }),
@@ -70,6 +72,12 @@ const modelPreferencesRequestSchema = actionSchema.extend({
   dataPolicy: z.enum(["PROVIDER_DEFAULT", "NO_TRAINING_REQUIRED"]),
   maxCostUsd: z.number().positive().max(10_000).nullable(),
 });
+const projectSourceRequestSchema = z.discriminatedUnion("kind", [
+  actionSchema.extend({ kind: z.literal("NEW_PROJECT"), label: z.string().max(500).nullable().optional() }),
+  actionSchema.extend({ kind: z.literal("LOCAL_REPOSITORY"), path: z.string().min(1).max(4_096) }),
+  actionSchema.extend({ kind: z.literal("REMOTE_REPOSITORY"), url: z.string().min(1).max(2_048) }),
+  actionSchema.extend({ kind: z.literal("SAVED_PROJECT") }),
+]);
 const revertStageSchema = z.object({
   messageID: z.string().min(1).max(256),
   files: z.boolean().optional(),
@@ -92,6 +100,7 @@ export interface WorkflowHttpOptions {
   service: WorkflowService;
   sessionToken: string;
   experience?: ExperienceService;
+  sources?: ProjectSourceService;
   connection?: ConnectionService;
   sessions?: SessionActionsService;
   access?: {
@@ -516,7 +525,7 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
           }
           return next;
         });
-        return context.json(result);
+        return context.json(publicProjectResult(result));
       } catch (error) {
         if (error instanceof z.ZodError) return invalidRequest(context, "Invalid model selection.");
         return modelSelectionError(context, error);
@@ -537,7 +546,7 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
           next.modelPreferences.budget.maxCostUsd = input.maxCostUsd;
           return next;
         });
-        return context.json(result);
+        return context.json(publicProjectResult(result));
       } catch (error) {
         if (error instanceof z.ZodError) return invalidRequest(context, "Invalid model access or spending preference.");
         return workflowError(context, error, "Invalid model preference update.", log);
@@ -644,8 +653,28 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
 
   app.get("/api/project", async (context) => {
     const project = isDemo ? demoFixture.project : await workflow.service.get();
-    const { workspace: _workspace, ...publicProject } = project;
-    return context.json(publicProject);
+    return context.json(publicProjectSnapshot(project));
+  });
+
+  app.post("/api/project/source", async (context) => {
+    if (!workflow.sources) return unavailable(context);
+    try {
+      const input = projectSourceRequestSchema.parse(await context.req.json());
+      const { actionId, expectedRevision, ...selection } = input;
+      return context.json(publicProjectResult(await workflow.sources.select(actionId, expectedRevision, selection)));
+    } catch (error) {
+      return workflowError(context, error, "Invalid project source.", log);
+    }
+  });
+
+  app.post("/api/project/source/confirm", async (context) => {
+    if (!workflow.sources) return unavailable(context);
+    try {
+      const input = actionSchema.parse(await context.req.json());
+      return context.json(publicProjectResult(await workflow.sources.confirmRemote(input.actionId, input.expectedRevision)));
+    } catch (error) {
+      return workflowError(context, error, "The managed remote workspace could not be confirmed.", log);
+    }
   });
 
   app.get("/api/events", async (context) => {
@@ -711,7 +740,7 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
         input.expectedRevision,
         (project) => reviseSection(project, id.data, input.content),
       );
-      return context.json(result);
+      return context.json(publicProjectResult(result));
     } catch (error) {
       return workflowError(context, error, "Invalid revision request.", log);
     }
@@ -728,7 +757,7 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
         input.expectedRevision,
         (project) => approveSection(project, id.data, input.version, input.hash),
       );
-      return context.json(result);
+      return context.json(publicProjectResult(result));
     } catch (error) {
       return workflowError(context, error, "Invalid approval request.", log);
     }
@@ -738,9 +767,15 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
     if (!workflow.experience) return unavailable(context);
     try {
       const input = messageSchema.parse(await context.req.json());
-      const result = await workflow.experience.sendMessage(input.actionId, input.expectedRevision, input.intent, input.text);
+      const result = await workflow.experience.sendMessage(
+        input.actionId,
+        input.expectedRevision,
+        input.intent,
+        input.text,
+        input.proceedWithAssumptions,
+      );
       const queued = "accepted" in result ? Boolean(result.accepted) : false;
-      return context.json(result, queued ? 202 : 200);
+      return context.json(publicProjectResult(result), queued ? 202 : 200);
     } catch (error) {
       return workflowError(context, error, "Invalid message.", log);
     }
@@ -752,7 +787,7 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
       const input = approvalKindSchema.parse(await context.req.json());
       const statement = input.kind === "maker-scope" ? input.statement : undefined;
       const result = await workflow.experience.approve(input.actionId, input.expectedRevision, input.kind, statement);
-      return context.json(result);
+      return context.json(publicProjectResult(result));
     } catch (error) {
       return workflowError(context, error, "Invalid approval.", log);
     }
@@ -764,7 +799,7 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
       const input = actionSchema.parse(await context.req.json());
       const result = await workflow.experience.runMaker(input.actionId, input.expectedRevision);
       const accepted = "accepted" in result ? Boolean(result.accepted) : false;
-      return context.json(result, accepted ? 202 : 200);
+      return context.json(publicProjectResult(result), accepted ? 202 : 200);
     } catch (error) {
       return workflowError(context, error, "Invalid Maker run.", log);
     }
@@ -788,7 +823,7 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
     try {
       const input = actionSchema.parse(await context.req.json());
       const result = await workflow.experience.cancel(input.actionId, input.expectedRevision, id.data);
-      return context.json(result);
+      return context.json(publicProjectResult(result));
     } catch (error) {
       return workflowError(context, error, "Invalid cancellation.", log);
     }
@@ -801,7 +836,7 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
     try {
       const input = actionSchema.parse(await context.req.json());
       const result = await workflow.experience.reconcile(input.actionId, input.expectedRevision, id.data);
-      return context.json(result);
+      return context.json(publicProjectResult(result));
     } catch (error) {
       return workflowError(context, error, "Invalid reconciliation.", log);
     }
@@ -815,7 +850,7 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
       const input = actionSchema.parse(await context.req.json());
       const result = await workflow.experience.retryRun(input.actionId, input.expectedRevision, id.data);
       const accepted = "accepted" in result ? Boolean(result.accepted) : false;
-      return context.json(result, accepted ? 202 : 200);
+      return context.json(publicProjectResult(result), accepted ? 202 : 200);
     } catch (error) {
       return workflowError(context, error, "Invalid retry.", log);
     }
@@ -828,7 +863,7 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
     try {
       const input = actionSchema.parse(await context.req.json());
       const result = await workflow.experience.abandonRun(input.actionId, input.expectedRevision, id.data);
-      return context.json(result);
+      return context.json(publicProjectResult(result));
     } catch (error) {
       return workflowError(context, error, "Invalid abandon request.", log);
     }
@@ -1044,6 +1079,18 @@ function errorCode(error: unknown): string {
   return "INTERNAL_ERROR";
 }
 
+function publicProjectSnapshot(project: Project) {
+  const { workspace: _workspace, ...publicProject } = project;
+  const { workspacePath: _workspacePath, ...publicSource } = project.source;
+  return { ...publicProject, source: publicSource };
+}
+
+function publicProjectResult<T>(result: T): T | (Omit<T & { project: Project }, "project"> & { project: ReturnType<typeof publicProjectSnapshot> }) {
+  if (!result || typeof result !== "object" || !("project" in result)) return result;
+  const value = result as T & { project: Project };
+  return { ...value, project: publicProjectSnapshot(value.project) };
+}
+
 function workflowError(context: Context, error: unknown, validationMessage: string, logger: Logger) {
   if (error instanceof ExperienceFailure) {
     return context.json({
@@ -1071,6 +1118,13 @@ function workflowError(context: Context, error: unknown, validationMessage: stri
   }
   if (error instanceof NetworkPolicyError) {
     return context.json({ code: error.code, message: safePublicError(error, error.message, { hideLocalPaths: true }), retryable: true }, 503);
+  }
+  if (error instanceof ProjectSourceError) {
+    return context.json({
+      code: error.code,
+      message: safePublicError(error, validationMessage, { hideLocalPaths: true }),
+      retryable: error.status >= 500,
+    }, error.status as 400);
   }
   throw error;
 }

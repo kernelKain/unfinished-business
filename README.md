@@ -13,14 +13,15 @@ Unfinished Business is an OpenCode-powered hackathon project builder. Four frien
 - The **real workshop** at `/workshop`, which connects to a local OpenCode server and records what actually happened.
 - A **first-run connection and discovery flow** that checks a supported OpenCode server, lists the models/providers/agents it actually reports, and lets the builder choose a model and reported reasoning variant. Provider API keys stay inside OpenCode.
 - A **read-only hosted demo** and a **private hosted** mode. Neither reaches into a visitor's local repository.
-- A versioned **schema v5** contract for source metadata, Oracle intake, structured memory, candidate section revisions, model access/privacy/spending preferences, structured provider errors, late-result-safe operation states, and run-recovery metadata. Explicit migrations keep older projects usable.
+- A versioned **schema v6** contract for explicit project sources, field-level Oracle intake answers, structured facts/decisions/assumptions, structured proposals, candidate section revisions, model preferences, provider errors, and recoverable operations. Explicit v1–v5 migrations keep older projects usable.
+- **Focused, multi-turn Oracle discovery**: every fresh project chooses new work, a validated local repository, a credential-free remote repository import, or saved work before discovery. Oracle asks at most three explained questions per turn and proposes only after essential intake is known or the user explicitly accepts stated assumptions.
 - **Observable, cancellable, recoverable runs**: every Oracle, Architect, Maker, and Witness run is a persisted asynchronous operation with live progress phases, elapsed time, and Continue waiting / Reconcile / Open in OpenCode / Cancel / Retry / Mark abandoned controls. A timed-out or restarted run never permanently blocks the project; reconciliation retrieves and validates the actual late response or diff and applies it exactly once.
 
 OpenCode supplies the agent loop, model access, native tools, permissions, execution, interruption, and native sessions. Unfinished Business adds the four-stage workshop, exact-version approvals, dependency invalidation, evidence views, the onboarding/discovery flow, and the Ghostlight interface. It does **not** ship a second coding harness or a general command executor.
 
 | Spirit | Role |
 |---|---|
-| Oracle | Clarify an idea into a product proposal and open questions |
+| Oracle | Choose the project source, collect structured answers over focused turns, and prepare a fact/decision/assumption-aware proposal |
 | Architect | Draft one planning section and wait for approval of that exact version |
 | Maker | Perform an approved, bounded native edit through OpenCode |
 | Witness | Inspect evidence in a fresh session and prepare honest review drafts |
@@ -31,7 +32,7 @@ OpenCode supplies the agent loop, model access, native tools, permissions, execu
 
 **Private hosted** — `UB_DEPLOYMENT_MODE=private-hosted`. A password-protected Render or self-hosted instance with a private disk and a loopback OpenCode child. Maker edits the server's isolated demo workspace. A hosted browser cannot edit a visitor's machine.
 
-**Full local mode** — `UB_DEPLOYMENT_MODE=local` (default). The browser app, local API, and pinned OpenCode server run on the builder's machine over loopback. Maker's edit in this release is bounded to an isolated demo workspace; arbitrary repository mounts are not implemented.
+**Full local mode** — `UB_DEPLOYMENT_MODE=local` (default). The browser app, local API, and pinned OpenCode server run on the builder's machine over loopback. Oracle source onboarding validates local directories and can import a public HTTPS repository into an app-managed workspace after explicit confirmation. Maker's edit remains bounded to the isolated demo workspace; selecting a source does not authorize implementation in that repository.
 
 The landing page exposes three distinct actions: **Try the example** (`/demo`), **Watch the guided workflow** (`/demo?presentation=1`), and **Run live with OpenCode** (`/workshop`). The example is always labeled as a prerecorded fixture; the live native session remains `NOT_RUN`.
 
@@ -89,12 +90,13 @@ npm run test:visual
 
 Current results (2026-11-01, Node 22.22.1, no live provider inference):
 
-- **150 unit/integration/component tests pass**.
+- **161 unit/integration/component tests pass**.
 - **18 Playwright visual/accessibility tests pass** with committed snapshots, including guided demo wide/narrow/presentation captures.
-- Initial JS is **194.0 KiB gzip**; all JS **266.4 KiB**; CSS **14.5 KiB gzip**; all hero variants **570.9 KiB** total.
+- Initial JS is **194.9 KiB gzip**; all JS **269.7 KiB**; CSS **14.8 KiB gzip**; all hero variants **570.9 KiB** total.
 - Keyboard focus order, dialog Escape, setup tab arrow keys, 200% text zoom, 390px overflow, reduced motion, and token contrast are checked.
 - Demo playback, reset isolation, fixture/schema drift, 90-second timing, tab inspection, no-network behavior, and hosted-demo mutation rejection are covered.
-- State migration deterministically upgrades schema v1, both supported v2 shapes, and schema v3 to v4 without dropping proposals, approvals, transcripts, operations, evidence, selected model data, provider policy, or limits.
+- State migration deterministically upgrades schema v1, both supported v2 shapes, schema v3, schema v4, and schema v5 to v6 without dropping proposals, approvals, transcripts, operations, evidence, selected model data, provider policy, or limits.
+- Project-source paths, incomplete intake, explained question limits, explicit assumptions, proposal provenance, reload persistence, and correction history are covered.
 - Model access policy, paid/unknown-price confirmation, optional spending limits, provider failure classification/redaction, and runtime confirmation gates are covered.
 - Local and hosted-demo smoke journeys pass; the hosted demo makes no inference call and rejects mutation.
 - OpenCode 2.0.32 live compatibility probe passed (version, catalog, and disposable session create/read/remove; no prompt or model call).
@@ -104,11 +106,11 @@ Current results (2026-11-01, Node 22.22.1, no live provider inference):
 
 ## Status and limitations
 
-The prior release phases remain integrated. Upgrade Phase 1 adds model access policy, optional spending limits, informed paid/unknown-price confirmation, schema v4, and structured provider failure recovery while preserving the four-stage workflow and its approval gates. Upgrade Phase 2 makes OpenCode runs observable, cancellable, and recoverable: runs queue as persisted async operations with live progress, timed-out sessions reconcile their real late results exactly once, and retries cannot duplicate native work.
+The prior release phases remain integrated. Upgrade Phase 3 adds project-source onboarding and rebuilds Oracle as durable multi-turn discovery. Schema v6 records each intake field with provenance, keeps corrected answers as superseded history, separates facts, user decisions, and assumptions, and prevents premature proposals unless the user explicitly proceeds with stated assumptions. Phase 2 run recovery remains unchanged.
 
 Known limitations:
 
-- The application is a trusted single-project tool, not a multi-tenant sandbox. Shared-host isolation, remote repository connectors, and a remote browser-to-local pairing flow are deferred.
+- The application is a trusted single-project tool, not a multi-tenant sandbox. Remote imports are public HTTPS clones into a managed local directory; private/authenticated repositories, shared-host isolation, arbitrary Maker access to selected repositories, and remote browser-to-local pairing remain deferred.
 - Maker edits only `UB_DATA_DIR/demo-workspace`; the Node check is not an OS sandbox.
 - Model availability, pricing, quota, training terms, and billing are controlled by OpenCode/provider. The spending limit only checks cost OpenCode reports after a session; unknown-price providers may bill before that value is visible.
 - The workspace privacy preference records intent; the app cannot attest every provider's training/retention contract. Provider rejections that mention training/data policy are explained as `PROVIDER_DATA_POLICY`.
@@ -151,7 +153,7 @@ History and provenance:
 - Steps are work/checklist units, not individual commits. Commit subjects describe the change without phase or step numbering.
 - Preserve unrelated changes. A blocked commit blocks entry to the next implementation phase; do not bypass access restrictions.
 - No fabricated testimonials, usage figures, awards, or live-run claims.
-- No second coding harness, remote repository mount, or public arbitrary-execution sandbox.
+- No second coding harness, authenticated repository connector, arbitrary Maker repository mount, or public arbitrary-execution sandbox.
 
 ## Delivery
 

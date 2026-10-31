@@ -317,9 +317,9 @@ All four characters are hand-authored SVG in this repository. They are not gener
 
 | Metric | Budget | Measured (2026-11-01) | Status |
 |---|---|---|---|
-| Initial JS (gzip) | ≤ 220 KiB | 194.0 KiB | PASS |
-| All JS chunks (gzip) | ≤ 280 KiB | 266.4 KiB | PASS |
-| CSS (gzip) | ≤ 15 KiB | 14.5 KiB | PASS |
+| Initial JS (gzip) | ≤ 220 KiB | 194.9 KiB | PASS |
+| All JS chunks (gzip) | ≤ 280 KiB | 269.7 KiB | PASS |
+| CSS (gzip) | ≤ 15 KiB | 14.8 KiB | PASS |
 | All hero variants (total) | ≤ 640 KiB | 570.9 KiB | PASS |
 | Largest single hero file | ≤ 190 KiB | 86.7 KiB | PASS |
 

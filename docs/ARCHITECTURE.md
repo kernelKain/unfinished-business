@@ -1,8 +1,8 @@
 # Architecture — Unfinished Business
 
-**Status:** Phase 2 (run observability and recovery) implemented on top of the verified Phase 1 baseline.
+**Status:** Upgrade Phase 3 (project-source onboarding and guided Oracle discovery) implemented on the verified Phase 2 baseline.
 **Owner:** Engineering.
-**Last verified:** 2026-11-01 against `150` unit/integration tests plus the existing `18` visual/accessibility tests.
+**Last verified:** 2026-11-01 against the Phase 3 verification matrix recorded in `docs/EVIDENCE.md`.
 
 ## 1. System shape
 
@@ -25,7 +25,8 @@ Hono server (src/server/app.ts)
   ├─ /api/opencode/*             discovery, project-owned sessions, permissions, usage
   ├─ /api/engine/selection       persist a discovered model allowed by project policy
   ├─ /api/model-preferences      access mode, privacy preference, optional spending limit
-  ├─ /api/project, /api/export   snapshot/approved plan; workspace path omitted
+  ├─ /api/project, /api/export   snapshot/approved plan; workspace paths omitted
+  ├─ /api/project/source*        select source; explicitly confirm managed remote import
   ├─ /api/events                 authenticated bounded SSE snapshots
   ├─ /api/messages, /api/approvals, /api/sections/*
   ├─ /api/runs*                  queue, inspect, cancel, reconcile
@@ -53,13 +54,13 @@ Unfinished Business never implements a second agent loop, inference client, gene
 
 `src/web/App.tsx` reads `window.location.pathname`, listens for `popstate`, updates `document.title` and `document.documentElement.dataset.route`, and scrolls to the top on route change. Navigations are ordinary anchors, so they work without a client router.
 
-Measured production chunks (2026-11-01):
+Measured production chunks after Phase 3 (2026-11-01):
 
-- initial `index-*.js`: 194.0 KiB gzip;
-- `WorkshopPage-*.js`: 57.0 KiB gzip (includes onboarding/discovery UI);
-- `DemoPage-*.js`: 11.8 KiB gzip;
+- initial `index-*.js`: 194.9 KiB gzip;
+- `WorkshopPage-*.js`: 58.7 KiB gzip (includes source onboarding/discovery UI);
+- `DemoPage-*.js`: 12.5 KiB gzip;
 - `SpiritStageTabs-*.js`: 3.6 KiB gzip;
-- CSS: 14.5 KiB gzip.
+- CSS: 14.8 KiB gzip.
 
 The workshop keeps four-stage navigation, plan outline, working document, and activity/evidence rail. Provider failures render as a dedicated card with what happened, saved-work state, repair action, retry/change-model controls, and technical disclosure. The Run Inspector retains a compact provider-error line even after the card is dismissed. The visual layer changes did not alter stage and approval semantics.
 
@@ -87,15 +88,16 @@ Public hero assets are produced by `scripts/build-hero-assets.py` into `public/a
 | `src/server/security/workspace.ts` | Broad-root rejection, realpath containment, private file modes, static containment |
 | `src/server/security/limits.ts` | Rate limiter, concurrency gates, async lock, constant-time token compare |
 | `src/server/security/redaction.ts` | Text/error/unknown/Sentry/log redaction |
+| `src/server/project-sources.ts` | Source selection, local-path validation, remote URL policy, confirmation-gated managed import |
 | `src/server/observability/logger.ts` | Structured JSON logs with correlation IDs |
 | `src/server/store/atomic-project-store.ts` | Lock, atomic write, fsync, backups, quarantine, migration |
-| `src/server/workflow/` | Schema v4, explicit v1/v2/v3 migration, transitions, idempotency, retention, restart recovery |
+| `src/server/workflow/` | Schema v6, explicit v1–v5 migration, transitions, idempotency, retention, restart recovery |
 | `src/server/opencode/client.ts` | Safe client, version/auth/model readiness |
 | `src/server/opencode/connection.ts` | Connection settings, discovery, model access policy and resolution |
 | `src/server/opencode/provider-errors.ts` | Classifies provider failures into safe, actionable categories |
 | `src/server/opencode/sessions.ts` | Project-owned session/permission/usage controls |
 | `src/server/experience/guide.ts` | Four role sessions, timeouts, stricter-of-two budgets, interruption |
-| `src/server/experience/service.ts` | Oracle/Architect/Maker/Witness orchestration |
+| `src/server/experience/service.ts` | Oracle/Architect/Maker/Witness orchestration, full discovery prompt assembly, proposal sufficiency gate |
 | `src/server/experience/runs.ts` | In-process Maker run coordinator |
 | `src/server/experience/telemetry.ts` | Metadata-only Sentry spans |
 | `src/server/prompts/loader.ts` | Loads complete runtime procedures from `docs/prompts/` |
@@ -131,11 +133,12 @@ The browser session token is issued only over loopback in local mode or after Ba
 
 ## 7. State, evidence, and recovery
 
-Schema v5 is the single current shape. It preserves the v4 workflow record and adds run-observability metadata to every operation:
+Schema v6 is the single current shape. It preserves the v5 run-recovery record and adds explicit project-source and Oracle discovery state:
 
-- project source metadata (`workspace`, `import`, `template`, or `demo`);
-- structured Oracle intake state, questions, constraints, and success criteria;
-- structured project memory buckets for facts, decisions, constraints, and risks;
+- project source metadata for new work, validated local repositories, confirmation-gated managed remote imports, saved work, and the deterministic demo;
+- field-level Oracle intake for intended user, problem, desired outcome, deadline/event, must-have and optional features, budget, privacy, platforms, repository condition, non-goals, and unresolved questions, with answer provenance and update timestamps;
+- structured project memory buckets for answers, facts, user decisions, assumptions, constraints, and risks; corrections supersede prior entries instead of erasing history;
+- Oracle replies with `questions` or `proposal` mode, no more than three explained questions, known constraints, structured proposals, unresolved risks, and a recommended next action;
 - candidate section revisions that remain separate from the approved/current section;
 - model access mode (`ALL_ACCESSIBLE` or `FREE_OR_LOCAL_ONLY`), privacy preference, first paid/unknown-price acceptance timestamp, and optional budget limits;
 - operation observation/application metadata and late-result-safe states;
@@ -151,12 +154,17 @@ Migration accepts:
 - guided-interface v2 snapshots with engine selection but no mode/timestamps;
 - hardening-line v2 snapshots with mode/timestamps but no engine selection;
 - v3 snapshots with `requireFreeOrLocal`, a nonnegative cost budget, and no provider error;
-- v4 snapshots without the new operation metadata.
+- v4 snapshots without the new operation metadata;
+- v5 snapshots without the Phase 3 source/intake/memory shape.
 
-Migration is deterministic and idempotent. Missing legacy timestamps use the documented epoch sentinel `1970-01-01T00:00:00.000Z`; migration never reads the wall clock or generates IDs. Legacy `UNKNOWN` operations become `ABANDONED` with their result and native references intact, and every migrated non-terminal operation receives a deterministic `AWAITING_RECONCILIATION` progress marker with the sentinel timestamp so old unknown runs remain reconcilable. A v5 document round-trips through JSON and schema validation without changing.
+Migration is deterministic and idempotent. Missing legacy timestamps use the documented epoch sentinel `1970-01-01T00:00:00.000Z`; migration never reads the wall clock or generates IDs. Legacy saved projects become confirmed saved-work sources, legacy Oracle summary/questions become structured intake, and old memory entries remain intact. Legacy `UNKNOWN` operations become `ABANDONED` with their result and native references intact, and every migrated non-terminal operation receives a deterministic `AWAITING_RECONCILIATION` progress marker with the sentinel timestamp so old unknown runs remain reconcilable. A v6 document round-trips through JSON and schema validation without changing.
 
 Operational rules:
 
+- a new project cannot call Oracle until one of the four source paths is selected; a remote source remains unusable until its managed workspace is explicitly confirmed and imported;
+- local repository paths pass the existing canonical workspace checks; canonical paths are private state and are omitted from public project responses and model prompts;
+- remote repository URLs must be public HTTPS URLs without userinfo, query strings, fragments, or nonstandard ports; import uses a credential-disabled, noninteractive Git process in an app-managed directory and does not expose clone output;
+- Oracle keeps the full discovery procedure active, asks at most three high-value explained questions per turn, and the server refuses a proposal until essential facts exist or every essential assumption has explicit user authorization;
 - every mutation sends `actionId` and `expectedRevision`;
 - duplicate action IDs return the existing result; a different payload is a conflict;
 - approvals target an exact section version and hash;
@@ -203,6 +211,7 @@ In `hosted-demo` mode the server independently returns the fixture from `/api/pr
 | Browser → app | Host/Origin/CSRF policy, Basic Auth in hosted modes, constant-time session token, JSON content type, request-size cap, rate/concurrency limits |
 | App → disk | Canonical roots, traversal/symlink rejection, regular-file checks, `0700` directories, `0600` files, lock, fsync, previous snapshot, backups, quarantine |
 | App → OpenCode | URL syntax, loopback default, HTTPS and explicit host allowlist for remote, optional port allowlist, DNS/IP classification, redirect refusal, timeout, response cap, version/auth/model readiness |
+| App → repository source | Canonical local-directory policy; public HTTPS-only remote URL; embedded-credential rejection; managed workspace; explicit confirmation before import; no Maker write authority in Phase 3; paths omitted from browser/model |
 | OpenCode → provider | Native credentials, permissions, sessions; the app never reads provider keys |
 | App → Sentry | Collection disabled, event/breadcrumb scrubbing, metadata-only spans, no prompts/tool args/results/local paths |
 | App → export | Approved-only plan, redacted drafts, limitation metadata, no workspace path |
@@ -210,7 +219,7 @@ In `hosted-demo` mode the server independently returns the fixture from `/api/pr
 Residual risks:
 
 1. **No shared-host isolation.** This is a trusted single-project tool, not a multi-tenant sandbox. The Node check is not seccomp/container isolation.
-2. **No remote repository connector.** `private-hosted` can point at an allowlisted OpenCode server but does not add multi-tenant isolation or a remote browser-to-local pairing flow.
+2. **Remote import is intentionally narrow.** Only public, credential-free HTTPS repositories are imported into a managed local workspace. Private repositories, authenticated Git, arbitrary redirects, submodule credentials, and remote browser-to-local pairing are not supported. DNS is checked before clone but this is not a network sandbox.
 3. **Local process trust.** Any process running as the same OS user can read the data directory and local credentials.
 4. **Provider facts are incomplete.** Model availability, pricing, quota, training terms, and billing are controlled by OpenCode/provider. The optional spending limit is enforced only against cost OpenCode reports after a session; an unknown-price route can bill before that value is visible. A tool-call budget is not claimed.
 5. **Telemetry is best-effort.** Sentry delivery failure does not block the workshop. Provider error cards expose only redacted technical detail and a diagnostic reference; live release/source-map/trace verification needs authorized credentials.

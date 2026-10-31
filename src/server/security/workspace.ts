@@ -85,10 +85,10 @@ export interface CanonicalRoot {
   inode: number;
 }
 
-export async function canonicalizeDirectoryRoot(path: string, options?: { allowedParent?: string }): Promise<CanonicalRoot> {
+export async function canonicalizeDirectoryRoot(path: string, options?: { allowedParent?: string; create?: boolean }): Promise<CanonicalRoot> {
   const requested = resolve(path);
   assertNotBroadRoot(requested);
-  await mkdir(requested, { recursive: true, mode: 0o700 });
+  if (options?.create !== false) await mkdir(requested, { recursive: true, mode: 0o700 });
   await assertNotSymlinkEscape(requested, options?.allowedParent);
   const real = await realpath(requested);
   assertNotBroadRoot(real);

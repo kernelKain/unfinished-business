@@ -1,9 +1,9 @@
 # Evidence index and requirements matrix
 
-**Status:** Upgrade Phase 2 complete and verified.
+**Status:** Upgrade Phase 3 complete and verified.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
-**Baseline revision:** `d14b7bc` (`feat(models): support all accessible OpenCode models`). Phase 1's 139 tests and build passed before Phase 2 edits; Phase 2 ends at 150 tests.
+**Baseline revision:** `53fa12c` (`fix(runtime): make OpenCode runs observable and recoverable`). Phase 2's 150 tests passed before Phase 3 edits.
 **Environment:** Linux, Node `22.22.1`, npm `9.2.0`, pinned OpenCode `2.0.32`, system Chromium. No provider credentials were used for inference in any phase.
 
 Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observed failure; **UNAVAILABLE** = prerequisite absent; **DEFERRED** = explicitly out of this release; **BLOCKED** = required prerequisite missing.
@@ -12,6 +12,12 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 
 | Area | Requirement | Status | Evidence | Limitation |
 |---|---|---|---|---|
+| Project source | Every fresh project chooses new, local, remote, or saved work before Oracle | VERIFIED | `tests/oracle-discovery.test.ts`; source-first workshop rendering; `PROJECT_SOURCE_REQUIRED` server gate | Demo fixture carries an explicit `DEMO` source |
+| Project source | Local repositories pass existing workspace-security rules and private paths stay server-only | VERIFIED | `tests/oracle-discovery.test.ts`, `tests/security.test.ts`; public project serialization assertion | Selection validates but does not assess repository contents |
+| Project source | Remote URL is credential-free/public HTTPS, staged without import, then imported into a managed workspace only after confirmation | VERIFIED | `tests/oracle-discovery.test.ts`; injected importer asserts no call before confirm and managed target after confirm | Public unauthenticated Git only; no SSH/private/submodule credentials |
+| Oracle discovery | Incomplete intake produces at most three high-value questions with rationale and optional choices | VERIFIED | `tests/oracle-discovery.test.ts`; `oracleReplySchema` max-three assertion | Relevance of live model wording remains provider-dependent |
+| Oracle discovery | Full discovery instructions remain active and proposal mode is server-gated on sufficient information or explicit assumptions | VERIFIED | prompt-capture and assumption-gate cases in `tests/oracle-discovery.test.ts` | No live provider inference in this phase |
+| Oracle memory | Answers survive reload, corrections supersede history, and proposals distinguish facts, user decisions, and assumptions | VERIFIED | persistence/correction/proposal cases in `tests/oracle-discovery.test.ts`; schema v6 round-trip/migration tests | Transcript retention remains bounded separately |
 | Maker reliability | Queue a bounded Maker run and return without holding the request | VERIFIED | `tests/runs.test.ts`, `tests/experience-hardening.test.ts`; `POST /api/runs` returns `202` | Deterministic guides; no live model call in this phase |
 | Maker reliability | Inspect active run, cancel, and prevent duplicate native work | VERIFIED | `tests/runs.test.ts`, `tests/experience-hardening.test.ts` | In-process runner is single-process |
 | Maker reliability | Timeout/disconnect/pending permission become `ABANDONED`/`WAITING_PERMISSION`; never auto-retry | VERIFIED | `tests/experience-hardening.test.ts` | Provider behavior beyond the deadline is unknown by definition |
@@ -25,7 +31,7 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 | Run recovery | Confirm-failure retry creates a lineage-tracked operation and cannot duplicate the native run | VERIFIED | `tests/observable-runs.test.ts` retry test (`retryOf`, unresolved/active/final-state gates) | Manual resume of a lost native session is limited to reconciliation |
 | Run recovery | Mark abandoned is operator-only and refuses already-finished or active runs | VERIFIED | `tests/observable-runs.test.ts` mark-abandoned tests; `POST /api/runs/:id/abandon` | ABANDONED rows can still be reconciled later when they carry a session |
 | Run controls | Elapsed time and Continue waiting / Reconcile now / Open in OpenCode / Cancel / Retry / Mark abandoned controls visible in the Run Inspector | VERIFIED | `src/web/components/RunInspector.tsx` recovery panel; `tests/web.test.ts` renders; demo rendering kept snapshot-identical | Visual suite passes unchanged (18 tests) |
-| Migration | v1, both supported v2 shapes, v3, and v4 migrate deterministically and idempotently to v5 without losing workflow records, selected model, provider errors, or recovery markers | VERIFIED | `tests/migration.test.ts`, `tests/store-hardening.test.ts` | Future schema versions are refused/preserved |
+| Migration | v1, both supported v2 shapes, v3, v4, and v5 migrate deterministically and idempotently to v6 without losing workflow records, selected model, provider errors, recovery markers, or legacy Oracle state | VERIFIED | `tests/migration.test.ts`, `tests/store-hardening.test.ts` | Future schema versions are refused/preserved |
 | Upgrade fixtures | Privacy/training-policy rejection, authentication, rate limit, generic failure, slow response, late success, late Maker diff, pending permission, and reconciliation are reusable | VERIFIED | `tests/fixtures/provider-scenarios.ts`, `tests/phase-zero-fixtures.test.ts` | Synthetic fixtures; no live provider output |
 | Maker reliability | Reconcile native state without a second run | VERIFIED | `tests/experience-hardening.test.ts` | Reconciliation reads native state; it cannot reconstruct unrecorded effects |
 | OpenCode onboarding | Authenticate to OpenCode or fail with a precise repair | VERIFIED | `tests/connection.test.ts`, `tests/onboarding.test.ts`; live probe with ephemeral password; local app connection check reached `connected` | No provider account in the live probe |
@@ -48,13 +54,13 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 | Demo | No network/inference/repository mutation from `/demo` | VERIFIED | Playwright request capture; source scan test; hosted-demo smoke | — |
 | Security | Host/Origin/CSRF/content-type/size/rate/concurrency policy | VERIFIED | `tests/http-hardening.test.ts`, `tests/security.test.ts` | Rate limiter is in-process |
 | Security | Workspace traversal/symlink/broad-root and static containment | VERIFIED | `tests/security.test.ts` | No OS sandbox |
-| Security | SSRF/DNS/redirect/timeout/response-size policy | VERIFIED | `tests/security.test.ts` | Remote connector remains deferred |
+| Security | SSRF/DNS/redirect/timeout/response-size policy | VERIFIED | `tests/security.test.ts`, `tests/oracle-discovery.test.ts` | Remote Git clone is intentionally narrow and is not an OS/network sandbox |
 | Security | Redaction in state/exports/errors/logs/Sentry hooks | VERIFIED | `tests/http-hardening.test.ts`, `tests/security.test.ts` | Sentry live delivery not verified |
 | Security | Atomic state, lock, backups, quarantine, disk failure | VERIFIED | `tests/store-hardening.test.ts`, `tests/recovery.test.ts` | Single-writer, single-project |
 | Recovery | Previous snapshot offered; corrupt bytes preserved; no silent reset | VERIFIED | `tests/recovery.test.ts`, `tests/store-hardening.test.ts` | Both-corrupt state requires operator restore |
-| Serialization | Schema v5 JSON round-trip preserves source, intake, memory, candidates, access/budget policy, provider errors, operations, approvals, evidence, and recovery metadata | VERIFIED | `tests/migration.test.ts`, `tests/provider-errors.test.ts`, `tests/demo.test.ts` (projectSchema round-trip of the updated fixture) | Model cost/privacy facts remain provider-owned |
+| Serialization | Schema v6 JSON round-trip preserves source, field-level intake, answer/assumption provenance, structured proposal, candidates, access/budget policy, provider errors, operations, approvals, evidence, and recovery metadata | VERIFIED | `tests/migration.test.ts`, `tests/provider-errors.test.ts`, `tests/demo.test.ts` (projectSchema round-trip of the updated fixture) | Model cost/privacy facts remain provider-owned |
 | Accessibility | Keyboard/focus/dialog/tabs/zoom/overflow/reduced motion/contrast | VERIFIED | `tests/visual/landing.spec.ts`, `tests/visual/demo.spec.ts` (18 tests) | Automated checks do not replace a screen-reader audit |
-| Performance | Bundle/asset budgets | VERIFIED | `npm run budget`: initial JS 194.0 KiB gzip, all JS 266.4 KiB, CSS 14.5 KiB, hero 570.9 KiB, largest 86.7 KiB | Vite reports a >500 KiB minified initial chunk warning; gzip budget passes |
+| Performance | Bundle/asset budgets | VERIFIED | `npm run budget`: initial JS 194.9 KiB gzip, all JS 269.7 KiB, CSS 14.8 KiB, hero 570.9 KiB, largest 86.7 KiB | Vite reports a >500 KiB minified initial chunk warning; gzip budget passes |
 | Documentation | Canonical routes/schema/env/modes/UI terms and history pointers | VERIFIED | This documentation set; link scan | Ongoing maintenance |
 | Documentation | Runtime prompts separated from implementation prompts | VERIFIED | `src/server/prompts/loader.ts`, `tests/prompts.test.ts`, `docs/prompts/README.md` | Loader reads a fixed map |
 | Dependency audit | No high/critical production advisory | VERIFIED at high threshold | `npm audit --omit=dev --audit-level=high` exit 0 | 6 moderate `glob`/`minimatch` advisories remain in the Sentry bundler path; `npm audit` exits 1 |
@@ -70,14 +76,14 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 |---|---|
 | `npm ci` | PASS — exact lockfile install |
 | `npm run typecheck` | PASS |
-| `npm test` | PASS — 150 tests, 0 failures |
+| `npm test` | PASS — 161 tests, 0 failures |
 | `npm run build` | PASS — `dist/web` produced; one large-chunk warning |
-| `npm run budget` | PASS — all five budgets; all JS 267.8 KiB gzip |
-| `npm run test:visual` | PASS — 18 tests (Run Inspector additions render demo snapshots byte-identically) |
+| `npm run budget` | PASS — all five budgets; all JS 269.7 KiB gzip |
+| `npm run test:visual` | PASS — 18 tests; intentional narrow Oracle discovery baseline updated; no horizontal overflow |
 | `npm audit --omit=dev --audit-level=high` | PASS (exit 0); 6 moderate advisories reported |
 | `npm audit` | FAIL (exit 1) — same 6 moderate advisories; no high/critical |
-| `node scripts/preflight.mjs` | PASS as `PREFLIGHT_ONLY`; not an integration proof |
-| Local smoke | PASS — health, mode descriptor, token issue, project read with schema v5/`ALL_ACCESSIBLE`/unlimited, `/api/runtime` unlimited, `/workshop` and `/demo` HTML |
+| `node scripts/preflight.mjs` | BLOCKED for optional partner/runtime proof: Entire and global OpenCode CLI absent; DNS, Git read, loopback, and Node checks pass; no Phase 3 verification depends on it |
+| Local smoke | Prior Phase 2 PASS — health, mode descriptor, token issue, project read, `/api/runtime`, `/workshop` and `/demo` HTML | Phase 3 behavior is covered by HTTP integration tests; no separate live smoke was required |
 | Hosted-demo smoke | PASS — fixture project, `/api/session` 403, mutation `DEMO_READ_ONLY`, `/api/engine` 503/no engine, `/demo` HTML |
 | OpenCode compatibility probe | PASS — server 2.0.32, compatible major, 9 models, disposable session create/read/remove; no prompt/model call |
 | Local app + live OpenCode | PASS — `/api/connection` `connected`, 9 models; `/api/engine` 200 with no model selected; no password in response |
@@ -95,10 +101,11 @@ Labels: **VERIFIED** = inspected/tested in this environment; **FAILED** = observ
 
 ### Tests and reports
 
-- `tests/` — 150 unit/integration/component tests.
+- `tests/` — 161 unit/integration/component tests.
 - `tests/visual/` — 18 Playwright visual/accessibility tests with committed snapshots.
 - `tests/observable-runs.test.ts` — Phase 2 matrix: late Oracle reply, section 06 Architect timeout recovery, late Maker diff with exact-once application, duplicate reconciliation, permission waiting, cancellation, restart reconnect, retry lineage, mark-abandoned, prompt-progress visibility.
-- `tests/migration.test.ts` — deterministic/idempotent v1/v2/v3/v4 → v5 migration and serialization coverage.
+- `tests/oracle-discovery.test.ts` — source onboarding/security, multi-turn intake, prompt retention, memory, assumption gate, proposal provenance, and corrections.
+- `tests/migration.test.ts` — deterministic/idempotent v1/v2/v3/v4/v5 → v6 migration and serialization coverage.
 - `tests/model-access.test.ts`, `tests/budgets.test.ts`, `tests/provider-errors.test.ts` — model policy, spending-limit, and provider failure coverage.
 - `tests/phase-zero-fixtures.test.ts` — reusable provider, timing, late-result, permission, and reconciliation fixture coverage.
 - `tests/experience-hardening.test.ts` — Maker timeout/permission/budget/cancel/reconcile matrix.
@@ -142,7 +149,7 @@ The product-release criteria pass with the limitations below. Partner-category q
 | Recorded video/article/submission | NOT STARTED | Final-stage work, separate authorization |
 | Shared multi-user isolation | DEFERRED | Out of release scope |
 | Remote browser-to-local pairing | DEFERRED | Out of release scope |
-| Arbitrary repository connector | DEFERRED | Maker is demo-workspace bounded |
+| Private/authenticated repository connector | DEFERRED | Phase 3 supports only public credential-free HTTPS import; Maker remains demo-workspace bounded |
 | Moderate dependency advisories | KNOWN LIMITATION | Fix requires a breaking Sentry downgrade; production high-severity audit passes |
 
 ## Evidence handling rules

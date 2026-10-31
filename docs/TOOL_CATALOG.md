@@ -15,7 +15,7 @@ This catalog distinguishes what the product **uses**, what it **recommends**, an
 | Node.js 22.14+ | Runtime, build, and bounded Node check | **Required** | Tested on 22.22.1; `engines` minimum 22.14. |
 | React 19 + TypeScript + Vite 8 | Browser interface and build | **Integrated** | Production build and bundle budget pass. |
 | Hono 4 + `@hono/node-server` | HTTP API and static serving | **Integrated** | Security middleware, validation, SSE, and static containment are tested. |
-| Zod 4 | Shared request/state/output validation | **Integrated** | Workflow schema v5, explicit v1/v2/v3/v4 migration, model policy, provider-error, and engine/discovery contracts. |
+| Zod 4 | Shared request/state/output validation | **Integrated** | Workflow schema v6, explicit v1–v5 migration, project-source/Oracle intake, model policy, provider-error, and engine/discovery contracts. |
 | Motion 14 + Lucide | Purposeful motion and icons | **Integrated** | Free libraries only; reduced-motion fallback tested. No second animation framework. |
 
 ## Verification and operations tools
@@ -24,7 +24,7 @@ This catalog distinguishes what the product **uses**, what it **recommends**, an
 |---|---|---|---|
 | Node test runner | Unit/integration/component tests | **Integrated** | 139 passing tests. |
 | Playwright 1.62 | Visual, keyboard, contrast, zoom, reduced-motion, overflow tests | **Integrated** | 18 passing tests with committed snapshots; uses system Chromium. |
-| `scripts/check-budget.mjs` | Production bundle/asset budget | **Integrated** | Passes: initial JS 194.0 KiB gzip, all JS 266.4 KiB, CSS 14.5 KiB, hero 570.9 KiB. |
+| `scripts/check-budget.mjs` | Production bundle/asset budget | **Integrated** | Passes: initial JS 194.9 KiB gzip, all JS 269.7 KiB, CSS 14.8 KiB, hero 570.9 KiB. |
 | `scripts/preflight.mjs` | Read-only environment diagnostic | **Integrated** | Checks toolchain, DNS, loopback, OpenCode CLI/help, Git reads, Entire status. Not an integration proof. |
 | `scripts/opencode-live-diagnostic.ts` | Opt-in compatibility probe | **Integrated; run in Phase 9** | Server 2.0.32, catalog, disposable session create/read/remove. No prompt/model call. |
 | Render | Optional demo or private hosting | **Documented; not deployed** | `render.demo.yaml` and `render.yaml` reviewed statically. No live URL asserted. |

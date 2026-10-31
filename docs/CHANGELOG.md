@@ -4,6 +4,30 @@
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
+## 2026-11-01 — Upgrade Phase 3 project intake and guided discovery
+
+### Added
+
+- Four-way project-source onboarding: new project, validated local repository, public remote repository URL, or saved work.
+- Confirmation-gated remote import into a private managed workspace, with credential-bearing/private URLs rejected and Git prompts, credential helpers, redirects, and output disabled.
+- Schema v6 Oracle intake fields covering intended user, problem, desired outcome, deadline/event, must-have and optional features, budget, privacy, platforms, repository condition, non-goals, and unresolved questions.
+- Rich Oracle reply contract with question/proposal modes, explained suggested questions, assumptions, constraints, structured proposal provenance, unresolved risks, and recommended next action.
+- Structured answer/decision/assumption memory with active/superseded history and correction support.
+- Explicit v1–v5 migration preserving saved work and treating legacy projects as confirmed saved projects.
+
+### Changed
+
+- Oracle retains the complete Product Discovery procedure and now works in focused turns of no more than three high-value questions.
+- Proposal application is server-gated on confirmed source and essential intake; essential assumptions require an explicit proceed-with-assumptions action.
+- Public project responses and Oracle prompts omit canonical local and managed workspace paths.
+- The workshop shows source onboarding before OpenCode setup and renders question rationale, choices, proposal facts/decisions/assumptions, memory, correction, and assumption controls.
+
+### Not in this entry
+
+- No private/authenticated repository import, SSH clone, arbitrary redirects, submodule credentials, or remote browser-to-local pairing.
+- No expansion of Maker authority to selected/imported repositories.
+- No live provider inference, deployment, publication, or submission.
+
 ## 2026-11-01 — Upgrade Phase 2 observable, cancellable, recoverable runs
 
 ### Added

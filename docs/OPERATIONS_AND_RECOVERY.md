@@ -2,7 +2,7 @@
 
 **Status:** Implemented release candidate.
 **Owner:** Operations/engineering.
-**Last verified:** 2026-11-01; schema v5 migration, run observability/recovery, provider-budget enforcement, recovery, corruption, restart, and hosted-demo isolation covered by tests.
+**Last verified:** 2026-11-01; schema v6 migration, source onboarding/import safety, Oracle memory, run observability/recovery, provider-budget enforcement, corruption, restart, and hosted-demo isolation covered by tests.
 
 The application is a single-process Node service with one writer and one active project. It is not a multi-tenant service.
 
@@ -41,8 +41,9 @@ In hosted-demo mode the server independently enforces isolation: `/api/project` 
 | `UB_DATA_DIR/backups/project-r<revision>-<timestamp>.json` | Rolling backups | Bounded by `UB_BACKUP_COUNT` and `UB_BACKUP_MAX_AGE_DAYS` |
 | `UB_DATA_DIR/project.json.corrupt-*` | Quarantined corrupt current files | Bounded by `UB_CORRUPT_FILE_COUNT`; never overwritten by recovery |
 | `UB_DATA_DIR/project.json.lock` | Cross-process writer lock | Stale after 30 seconds; normal writes release it |
-| `UB_DATA_DIR/demo-workspace/` | The only execution workspace | Created `0700`; Maker native edits only here |
+| `UB_DATA_DIR/demo-workspace/` | Bounded Maker execution workspace | Created `0700`; Maker native edits only here |
 | `UB_DATA_DIR/spirit-workspace/` | Intentionally empty guide workspace | Created `0700`; no project files |
+| `UB_DATA_DIR/managed-imports/<project-id>/` | Explicitly confirmed public remote repository import | Root created `0700`; clone staged privately and atomically renamed; not granted to Maker in Phase 3 |
 | `dist/web/` | Built browser bundle | Served through `realpath` containment; no repository/private state |
 
 The default is `.unfinished-business/`, which is gitignored. Never place `UB_DATA_DIR` at a filesystem root, the user's home, `/tmp` itself, the repository root, or a broad system directory. Hosted deployments use a dedicated disk path such as `/var/data/unfinished-business`.
@@ -66,12 +67,14 @@ Recovery rules:
 - Current invalid, previous valid → copy the current bytes to `project.json.corrupt-*`, use the previous snapshot, and log the recovery. The corrupt original remains.
 - Both invalid → refuse to reset. State routes return `STATE_CORRUPT`; health stays minimal.
 - Newer schema version → refuse and preserve. Do not downgrade.
-- Schema v1, either supported v2 shape, schema v3, or schema v4 → deterministically migrate on read; the next successful write persists canonical schema v5.
+- Schema v1, either supported v2 shape, schema v3, schema v4, or schema v5 → deterministically migrate on read; the next successful write persists canonical schema v6.
 
 Migration policy:
 
 - preserve proposals, section content/status/version/hash, approvals, transcripts, operations, evidence, native session references, and selected model data;
 - add source/intake/memory/candidate/model-preference fields with explicit defaults;
+- map legacy projects to a confirmed saved-project source and preserve legacy Oracle summary/questions in structured intake and memory;
+- retain answer provenance and superseded corrections; do not rewrite old transcript entries as current facts;
 - map v3 `requireFreeOrLocal: true` to `FREE_OR_LOCAL_ONLY` and `false` to `ALL_ACCESSIBLE`; map a zero v3 cost limit to unlimited;
 - map legacy operation `UNKNOWN` to `ABANDONED` without erasing the recorded result or native references;
 - backfill every non-terminal migrated operation with a deterministic `AWAITING_RECONCILIATION` progress marker stamped with the fixed epoch sentinel, so old unknown runs remain reconcilable;
@@ -91,6 +94,14 @@ cp "$UB_DATA_DIR/backups/<chosen>.json" "$UB_DATA_DIR/project.json"
 
 Preserve the corrupt file and `.previous` until the incident is understood. Do not delete state to "fix" a load error.
 
+## Project-source import and recovery
+
+A remote URL selection performs validation only and records `PENDING_CONFIRMATION`. It makes no network request and grants no agent access. Confirmation revalidates the URL, clones into a private temporary directory below `managed-imports/`, and atomically renames the completed checkout to the project target. Git credential helpers, terminal prompts, redirects, and stdout/stderr are disabled.
+
+If import fails, the temporary directory is removed, the source remains pending, and the saved error is a fixed message without Git output or credentials. If the final managed target already exists, the service refuses to overwrite it. Operators should inspect the target out of band before retrying; do not delete an existing managed workspace unless its ownership and recovery value are known.
+
+Local repositories are never copied or modified during selection. Their canonical path is private state, omitted from the public project response and Oracle prompt, and validated with the same broad-root/symlink policy used for application workspaces.
+
 ## Retention
 
 | Data | Default | Notes |
@@ -105,7 +116,7 @@ Preserve the corrupt file and `.previous` until the incident is understood. Do n
 | Corrupt files | 5 | Quarantined originals |
 | Backup age | 30 days | Older files pruned |
 
-Deletion: stop the app and remove `UB_DATA_DIR` to delete the project, demo workspace, backups, and quarantined files. Rotate `UB_SESSION_TOKEN` to invalidate browser sessions and `UB_ACCESS_PASSWORD` to invalidate hosted Basic Auth. No destructive reset endpoint exists.
+Deletion: stop the app and remove `UB_DATA_DIR` to delete the project, managed imports, demo workspace, backups, and quarantined files. Rotate `UB_SESSION_TOKEN` to invalidate browser sessions and `UB_ACCESS_PASSWORD` to invalidate hosted Basic Auth. No destructive reset endpoint exists.
 
 ## Late, unapplied, and abandoned native runs
 

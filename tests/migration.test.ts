@@ -64,6 +64,7 @@ function populatedProject() {
     expectedOutput: "MAKER_DIFF",
     retryOf: null,
     progress: null,
+    oracleProceedWithAssumptions: false,
   });
   current.evidence.push({
     id: "ev-1",
@@ -141,9 +142,9 @@ function legacyProjectV2() {
 function legacyProjectV3() {
   const current = populatedProject();
   return {
-    ...current,
+    ...legacyProjectV5(current),
     schemaVersion: 3,
-    operations: current.operations.map(({ providerError: _providerError, progress: _progress, ...operation }) => operation),
+    operations: current.operations.map(({ providerError: _providerError, progress: _progress, oracleProceedWithAssumptions: _oracleProceed, ...operation }) => operation),
     modelPreferences: {
       access: {
         requireFreeOrLocal: true,
@@ -156,9 +157,34 @@ function legacyProjectV3() {
   };
 }
 
-test("v1 fixed-model projects migrate to v5 without losing workflow history", () => {
+function legacyProjectV5(input = populatedProject()) {
+  const { structuredProposal: _structuredProposal, ...product } = input.product;
+  return {
+    ...input,
+    schemaVersion: 5,
+    product,
+    source: { kind: "workspace", label: "Saved fixture", externalId: null, importedAt: null },
+    oracleIntake: {
+      status: "COLLECTING",
+      summary: "Preserved intake summary.",
+      questions: [{ prompt: "Preserved question?", answer: null }],
+      constraints: ["Preserved constraint."],
+      successCriteria: ["Preserved success criterion."],
+      updatedAt: "2026-10-31T10:06:00.000Z",
+    },
+    memory: {
+      facts: input.memory.facts.map(({ field: _field, status: _status, supersedesId: _supersedesId, ...entry }) => entry),
+      decisions: input.memory.decisions.map(({ field: _field, status: _status, supersedesId: _supersedesId, ...entry }) => entry),
+      constraints: input.memory.constraints.map(({ field: _field, status: _status, supersedesId: _supersedesId, ...entry }) => entry),
+      risks: input.memory.risks.map(({ field: _field, status: _status, supersedesId: _supersedesId, ...entry }) => entry),
+    },
+    operations: input.operations.map(({ oracleProceedWithAssumptions: _oracleProceed, ...operation }) => operation),
+  };
+}
+
+test("v1 fixed-model projects migrate to v6 without losing workflow history", () => {
   const migrated = migrateProject(legacyProjectV1()).project;
-  assert.equal(migrated.schemaVersion, 5);
+  assert.equal(migrated.schemaVersion, 6);
   assert.equal(migrated.createdAt, MIGRATION_TIMESTAMP);
   assert.equal(migrated.engine.model, null);
   assert.equal(migrated.engine.source, "migrated-legacy");
@@ -181,8 +207,8 @@ test("v1 fixed-model projects migrate to v5 without losing workflow history", ()
 test("v2 projects preserve proposals, approvals, evidence, operations, and selected model", () => {
   const legacy = legacyProjectV2();
   const migrated = migrateProject(legacy).project;
-  assert.equal(migrated.schemaVersion, 5);
-  assert.deepEqual(migrated.product, legacy.product);
+  assert.equal(migrated.schemaVersion, 6);
+  assert.equal(migrated.product.proposal, legacy.product.proposal);
   assert.deepEqual(migrated.approvals, legacy.approvals);
   assert.equal(migrated.sections[0].content, legacy.sections[0].content);
   assert.deepEqual(migrated.transcript, legacy.transcript);
@@ -209,7 +235,7 @@ test("v2 UNKNOWN operations migrate to ABANDONED without losing native reference
   });
 });
 
-test("v3 projects migrate to v5 with their access policy, limits, and selected model preserved", () => {
+test("v3 projects migrate to v6 with their access policy, limits, and selected model preserved", () => {
   const legacy = legacyProjectV3();
   legacy.engine = {
     model: { providerID: "acme", id: "paid-model", variant: "high" },
@@ -221,7 +247,7 @@ test("v3 projects migrate to v5 with their access policy, limits, and selected m
   const migrated = migrateProject(legacy);
   assert.equal(migrated.fromVersion, 3);
   assert.equal(migrated.migrated, true);
-  assert.equal(migrated.project.schemaVersion, 5);
+  assert.equal(migrated.project.schemaVersion, 6);
   assert.deepEqual(migrated.project.engine.model, legacy.engine.model);
   assert.equal(migrated.project.modelPreferences.access.mode, "ALL_ACCESSIBLE");
   assert.equal(migrated.project.modelPreferences.access.dataPolicy, "NO_TRAINING_REQUIRED");
@@ -239,8 +265,8 @@ test("v3 projects migrate to v5 with their access policy, limits, and selected m
   assert.equal(freeMigration.modelPreferences.budget.maxCostUsd, null);
 });
 
-test("v4 projects migrate to v5 with recovery metadata and keep prior run history", () => {
-  const legacy = populatedProject();
+test("v4 projects migrate to v6 with recovery metadata and keep prior run history", () => {
+  const legacy = legacyProjectV5();
   legacy.operations[0].status = "ABANDONED";
   legacy.operations[0].appliedAt = null;
   const v4 = {
@@ -251,14 +277,14 @@ test("v4 projects migrate to v5 with recovery metadata and keep prior run histor
   const migrated = migrateProject(v4);
   assert.equal(migrated.fromVersion, 4);
   assert.equal(migrated.migrated, true);
-  assert.equal(migrated.project.schemaVersion, 5);
+  assert.equal(migrated.project.schemaVersion, 6);
 
   // v4 rows that already carry progress are preserved.
   const operation = migrated.project.operations[0];
   assert.equal(operation.intent, "maker-run");
   assert.equal(operation.idempotencyKey, "legacy-action-1");
 
-  const withProgress = populatedProject();
+  const withProgress = legacyProjectV5();
   withProgress.operations[0].status = "ABANDONED";
   withProgress.operations[0].progress = {
     phase: "WAITING_PERMISSION",
@@ -281,34 +307,56 @@ test("migration is deterministic and idempotent", () => {
 
   const repeated = migrateProject(first.project);
   assert.equal(repeated.migrated, false);
-  assert.equal(repeated.fromVersion, 5);
+  assert.equal(repeated.fromVersion, 6);
   assert.deepEqual(repeated.project, first.project);
 });
 
-test("loading and saving a migrated project persists schema v5", async () => {
+test("loading and saving a migrated project persists schema v6", async () => {
   const directory = await mkdtemp(join(tmpdir(), "ub-migration-"));
   const path = join(directory, "project.json");
   await writeFile(path, JSON.stringify(legacyProjectV1()), "utf8");
   const store = new AtomicProjectStore(path);
   const loaded = await store.load();
-  assert.equal(loaded.state.schemaVersion, 5);
+  assert.equal(loaded.state.schemaVersion, 6);
   const revised = reviseSection(loaded.state, "control", "migrated scope");
   await store.save(loaded.state.revision, revised);
   const persisted = JSON.parse(await readFile(path, "utf8"));
-  assert.equal(persisted.schemaVersion, 5);
+  assert.equal(persisted.schemaVersion, 6);
   assert.equal(persisted.engine.legacyModel, LEGACY_FIXED_MODEL_KEY);
-  assert.equal(projectSchema.parse(persisted).schemaVersion, 5);
+  assert.equal(projectSchema.parse(persisted).schemaVersion, 6);
 });
 
-test("new v5 projects serialize all additive foundations and default to all accessible models", () => {
+test("new v6 projects serialize guided discovery state and default to all accessible models", () => {
   const project = createProject("/workspace", "local", { now: "2026-11-01T00:00:00.000Z" });
-  project.source = { kind: "import", label: "Fixture import", externalId: "fixture-1", importedAt: "2026-11-01T00:00:01.000Z" };
+  project.source = {
+    kind: "REMOTE_REPOSITORY",
+    status: "CONFIRMED",
+    label: "Fixture import",
+    repositoryUrl: "https://github.com/example/fixture.git",
+    workspacePath: "/managed/fixture",
+    managedWorkspace: true,
+    importedAt: "2026-11-01T00:00:01.000Z",
+    confirmedAt: "2026-11-01T00:00:01.000Z",
+    repositoryCondition: "Imported fixture.",
+  };
   project.oracleIntake = {
     status: "COLLECTING",
-    summary: "A structured fixture idea.",
-    questions: [{ prompt: "Who is this for?", answer: "A test builder." }],
-    constraints: ["No network."],
-    successCriteria: ["Round-trip without drift."],
+    intendedUser: { value: "A test builder.", source: "USER", updatedAt: "2026-11-01T00:00:02.000Z" },
+    problem: null,
+    desiredOutcome: null,
+    deadlineEvent: null,
+    mustHaveFeatures: null,
+    optionalFeatures: null,
+    budget: null,
+    privacyRequirements: null,
+    platforms: null,
+    repositoryCondition: { value: "Imported fixture.", source: "SYSTEM", updatedAt: "2026-11-01T00:00:02.000Z" },
+    nonGoals: null,
+    unresolvedQuestions: [{ id: "user", field: "intendedUser", prompt: "Who is this for?", whyItMatters: "Scope depends on it.", suggestedChoices: [] }],
+    assumptions: [],
+    knownConstraints: ["No network."],
+    unresolvedRisks: [],
+    recommendedNextAction: "Answer the open question.",
     updatedAt: "2026-11-01T00:00:02.000Z",
   };
   project.memory.facts.push({
@@ -332,8 +380,8 @@ test("new v5 projects serialize all additive foundations and default to all acce
   const serialized = JSON.stringify(project);
   const roundTripped = projectSchema.parse(JSON.parse(serialized));
   assert.deepEqual(roundTripped, project);
-  assert.equal(roundTripped.schemaVersion, 5);
-  assert.equal(roundTripped.source.kind, "import");
+  assert.equal(roundTripped.schemaVersion, 6);
+  assert.equal(roundTripped.source.kind, "REMOTE_REPOSITORY");
   assert.equal(roundTripped.oracleIntake.status, "COLLECTING");
   assert.equal(roundTripped.memory.facts[0].id, "memory-1");
   assert.equal(roundTripped.sections[0].candidateRevisions[0].id, "candidate-1");
@@ -342,7 +390,7 @@ test("new v5 projects serialize all additive foundations and default to all acce
   assert.equal(roundTripped.modelPreferences.budget.maxCostUsd, 1);
 });
 
-test("provider errors round-trip on v5 operations without losing their safe references", () => {
+test("provider errors round-trip on v6 operations without losing their safe references", () => {
   const project = populatedProject();
   project.operations[0].providerError = providerErrorSchema.parse({
     category: "PROVIDER_RATE_LIMIT",
@@ -365,7 +413,19 @@ test("provider errors round-trip on v5 operations without losing their safe refe
   assert.deepEqual(roundTripped.operations[0].providerError, project.operations[0].providerError);
   const repeated = migrateProject(roundTripped);
   assert.equal(repeated.migrated, false);
-  assert.equal(repeated.fromVersion, 5);
+  assert.equal(repeated.fromVersion, 6);
+});
+
+test("v5 saved projects migrate explicitly to guided discovery memory", () => {
+  const migrated = migrateProject(legacyProjectV5());
+  assert.equal(migrated.fromVersion, 5);
+  assert.equal(migrated.project.schemaVersion, 6);
+  assert.equal(migrated.project.source.kind, "SAVED_PROJECT");
+  assert.equal(migrated.project.source.status, "CONFIRMED");
+  assert.equal(migrated.project.oracleIntake.desiredOutcome?.value, "Preserved intake summary.");
+  assert.equal(migrated.project.oracleIntake.unresolvedQuestions[0]?.prompt, "Preserved question?");
+  assert.deepEqual(migrated.project.memory.answers, []);
+  assert.deepEqual(migrated.project.memory.assumptions, []);
 });
 
 test("operation states expose the complete Phase 0 state model", () => {

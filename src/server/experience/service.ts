@@ -123,8 +123,14 @@ export class ExperienceService {
     });
   }
 
-  async sendMessage(actionId: string, expectedRevision: number, intent: "clarify" | "draft" | "question" | "witness", text: string) {
-    const payload = { intent, text };
+  async sendMessage(
+    actionId: string,
+    expectedRevision: number,
+    intent: "clarify" | "draft" | "question" | "witness",
+    text: string,
+    proceedWithAssumptions = false,
+  ) {
+    const payload = { intent, text, proceedWithAssumptions };
     const claimed = await this.claim(actionId, payload, expectedRevision);
     if (claimed.duplicate) return { project: claimed.project, duplicate: true };
     const project = claimed.project;
@@ -134,7 +140,7 @@ export class ExperienceService {
         // operations: the request returns as soon as the run is queued. The
         // `question` adapter stays synchronous because it changes no saved
         // state and answers directly.
-        return await this.queueGuide(actionId, payload, expectedRevision, intent, text, project);
+        return await this.queueGuide(actionId, payload, expectedRevision, intent, text, project, proceedWithAssumptions);
       }
       return await this.question(actionId, payload, expectedRevision, project, text);
     } catch (error) {
@@ -220,6 +226,7 @@ export class ExperienceService {
           detail: PHASE_DETAIL.CONNECTING,
           updatedAt: startedAt,
         },
+        oracleProceedWithAssumptions: false,
       });
       rememberTranscript(next, "user", retryOf
         ? this.redactPrompt(`Retried the Maker run after a confirmed failure.`)
@@ -541,9 +548,20 @@ export class ExperienceService {
     intent: "clarify" | "draft" | "witness",
     text: string,
     project: Project,
+    proceedWithAssumptions: boolean,
   ) {
     if (intent === "clarify" && project.product.status === "APPROVED") {
       throw new ExperienceFailure("The product proposal is already approved.", "PRODUCT_ALREADY_APPROVED", 409, false);
+    }
+    if (intent === "clarify" && project.source.status !== "CONFIRMED") {
+      throw new ExperienceFailure(
+        project.source.status === "PENDING_CONFIRMATION"
+          ? "Confirm the managed remote workspace before starting Oracle discovery."
+          : "Choose a project source before starting Oracle discovery.",
+        "PROJECT_SOURCE_REQUIRED",
+        409,
+        false,
+      );
     }
     if (intent === "draft" && (project.product.status !== "APPROVED" || !project.currentSectionId)) {
       throw new ExperienceFailure("Drafting waits for an approved product and an active section.", "SECTION_NOT_READY", 409, false);
@@ -600,6 +618,7 @@ export class ExperienceService {
           detail: PHASE_DETAIL.CONNECTING,
           updatedAt: startedAt,
         },
+        oracleProceedWithAssumptions: intent === "clarify" && proceedWithAssumptions,
       });
       rememberTranscript(next, "user", this.redactPrompt(text));
       return refreshNextAction(next);
@@ -689,6 +708,7 @@ export class ExperienceService {
           expectedOutput: "QUESTION_REPLY",
           retryOf: null,
           progress: null,
+          oracleProceedWithAssumptions: false,
         });
         return refreshNextAction(next);
       });
@@ -699,7 +719,7 @@ export class ExperienceService {
     const procedure = await loadStagePrompt(role === "maker" ? "maker" : stagePrompt[role], this.options.promptRoot);
     const section = project.sections.find((item) => item.id === project.currentSectionId);
     const shape = role === "oracle"
-      ? '{"clarification":"...","proposal":"...","openQuestions":["..."]}'
+      ? '{"mode":"questions|proposal","questions":[{"id":"...","field":"intendedUser|problem|desiredOutcome|deadlineEvent|mustHaveFeatures|optionalFeatures|budget|privacyRequirements|platforms|repositoryCondition|nonGoals|unresolvedQuestions","prompt":"...","whyItMatters":"...","suggestedChoices":["..."]}],"assumptions":[{"id":"...","field":"...","statement":"...","reason":"..."}],"knownConstraints":["..."],"intake":{"intendedUser":{"value":"...","source":"USER|ASSUMPTION|SYSTEM"}|null,"problem":null,"desiredOutcome":null,"deadlineEvent":null,"mustHaveFeatures":{"value":["..."],"source":"USER|ASSUMPTION|SYSTEM"}|null,"optionalFeatures":null,"budget":null,"privacyRequirements":null,"platforms":null,"repositoryCondition":null,"nonGoals":null},"proposal":null|{"title":"...","summary":"...","intendedUser":"...","problem":"...","desiredOutcome":"...","mustHaveFeatures":["..."],"optionalFeatures":["..."],"nonGoals":["..."],"successCriteria":["..."],"facts":["..."],"userDecisions":["..."],"assumptions":["..."]},"unresolvedRisks":["..."],"recommendedNextAction":"..."}'
       : role === "architect"
         ? '{"content":"...","recommendation":"...","tradeoff":"..."}'
         : role === "witness"
@@ -713,6 +733,25 @@ export class ExperienceService {
       `selected model ${model.providerID}/${model.id}${model.variant ? `#${model.variant}` : ""}`,
       section ? `active section ${section.order}. ${section.title}; version ${section.version}; status ${section.status}` : "no active section",
       project.product.proposal ? `approved-or-proposed product:\n${project.product.proposal}` : "no product proposal yet",
+      role === "oracle"
+        ? `project source:\n${JSON.stringify({
+            kind: project.source.kind,
+            status: project.source.status,
+            label: project.source.label,
+            repositoryUrl: project.source.repositoryUrl,
+            managedWorkspace: project.source.managedWorkspace,
+            repositoryCondition: project.source.repositoryCondition,
+          })}`
+        : "",
+      role === "oracle" ? `current structured intake:\n${JSON.stringify(project.oracleIntake)}` : "",
+      role === "oracle" ? `active project memory:\n${JSON.stringify({
+        answers: (project.memory.answers ?? []).filter((entry) => entry.status !== "SUPERSEDED"),
+        assumptions: (project.memory.assumptions ?? []).filter((entry) => entry.status !== "SUPERSEDED"),
+        facts: project.memory.facts.filter((entry) => entry.status !== "SUPERSEDED"),
+        decisions: project.memory.decisions.filter((entry) => entry.status !== "SUPERSEDED"),
+        constraints: project.memory.constraints.filter((entry) => entry.status !== "SUPERSEDED"),
+        risks: project.memory.risks.filter((entry) => entry.status !== "SUPERSEDED"),
+      })}` : "",
       project.evidence.length ? `observed checks:\n${project.evidence.map((item) => `${item.checkId} ${item.result}. ${item.limitation ?? ""}`).join("\n")}` : "no observed checks yet",
       project.operations.some((item) => item.kind === "maker")
         ? `maker results:\n${project.operations.filter((item) => item.kind === "maker").map((item) => item.result ?? item.status).join("\n")}`
@@ -724,7 +763,16 @@ export class ExperienceService {
       "",
       role === "maker"
         ? "The session directory is an isolated demo workspace. Implement the approved plan and Maker scope there as a dependency-free Node module plus a node:test file. Do not edit the Unfinished Business repository, do not run shell commands, and do not claim a test passed."
-        : `Reply with one JSON object only, matching ${shape}. Do not approve, advance, or claim the user approved. A question is not approval.`,
+        : role === "oracle"
+          ? [
+              "Keep the complete Prompt 0 procedure above active; this JSON contract is only the persistence adapter for the current turn, not a replacement for those instructions.",
+              "Ask no more than two or three high-value questions in a turn. Each question must say why the answer matters and may offer concise choices.",
+              "Return the complete consolidated intake on every turn. Preserve prior USER answers unless the user corrects them. Mark inferred values ASSUMPTION and system/source facts SYSTEM.",
+              "Use mode questions while essential intake is missing. Use mode proposal only when intended user, problem, desired outcome, and at least one must-have are known, or when the user explicitly asks to proceed with clearly stated assumptions.",
+              "In proposal mode, distinguish facts, user decisions, and assumptions in the structured proposal. Never treat an assumption as a user decision.",
+              `Reply with one JSON object only, matching ${shape}. Do not approve, advance, or claim the user approved.`,
+            ].join("\n")
+          : `Reply with one JSON object only, matching ${shape}. Do not approve, advance, or claim the user approved. A question is not approval.`,
     ].join("\n");
   }
 
@@ -886,6 +934,7 @@ export class ExperienceService {
               updatedAt: new Date().toISOString(),
             }
           : null,
+        oracleProceedWithAssumptions: intent === "clarify" && Boolean((payload as { proceedWithAssumptions?: boolean }).proceedWithAssumptions),
       });
       rememberTranscript(next, "system", uncertain ? `${message} The native run was not repeated.` : message);
       return refreshNextAction(next);

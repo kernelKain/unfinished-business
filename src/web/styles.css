@@ -2340,12 +2340,36 @@ textarea:focus-visible { border-color: var(--amber); box-shadow: 0 0 0 4px var(-
 .prose { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); font-family: var(--font-display); font-size: 1.02rem; line-height: 1.7; }
 
 .proposal-card { display: grid; gap: var(--space-3); }
+.source-onboarding { width: min(100%, 860px); margin: var(--space-6) auto; }
+.source-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); margin: 0; padding: 0; border: 0; }
+.source-choice { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-sm); background: rgb(5 7 13 / 38%); cursor: pointer; }
+.source-choice.selected { border-color: var(--border-amber); background: rgb(243 182 109 / 8%); }
+.source-choice input { flex: none; margin-top: 0.3rem; }
+.source-choice span { display: grid; gap: var(--space-1); }
+.source-choice strong { color: var(--paper); }
+.source-choice small { color: var(--text-muted); font-weight: 400; line-height: 1.45; }
+.oracle-questions { display: grid; gap: var(--space-3); }
+.proposal-evidence-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); padding-top: var(--space-3); border-top: 1px dashed var(--border); white-space: normal; }
+.proposal-evidence-grid h4,
+.memory-card h4 { color: var(--amber); font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.proposal-evidence-grid ul,
+.memory-card ul { display: grid; gap: var(--space-1); margin-top: var(--space-2); padding-left: 1rem; }
+.proposal-evidence-grid li,
+.memory-card li { list-style: disc; color: var(--text-muted); font-size: 0.84rem; }
+.memory-card { padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-sm); background: rgb(5 7 13 / 32%); }
+.memory-card summary { cursor: pointer; color: var(--paper-soft); font-weight: 600; }
+.memory-card[open] { display: grid; gap: var(--space-3); }
 .proposal-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .proposal-head h3 { color: var(--paper); font-size: 1.2rem; }
 .open-questions { padding-top: var(--space-3); border-top: 1px dashed var(--border); }
 .open-questions h4 { color: var(--amber); font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; }
 .open-questions ul { display: grid; gap: var(--space-1); margin-top: var(--space-2); padding-left: 1rem; }
 .open-questions li { list-style: disc; color: var(--text-muted); font-size: 0.88rem; }
+
+@media (max-width: 720px) {
+  .source-choice-grid,
+  .proposal-evidence-grid { grid-template-columns: minmax(0, 1fr); }
+}
 
 .section-reading { min-height: 10rem; }
 .scope-card,

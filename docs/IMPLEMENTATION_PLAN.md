@@ -1,6 +1,6 @@
 # Implementation plan and phase record
 
-**Status:** Upgrade Phase 2 complete and verified.
+**Status:** Upgrade Phase 3 complete and verified.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
@@ -20,6 +20,7 @@
 | Upgrade Phase 0 — Product-upgrade preparation | Baseline record, schema v3, explicit v1/v2 migration, richer operation states, reusable provider/timing/reconciliation fixtures | Complete and verified; commit recorded by `git log -1` after phase handoff |
 | Upgrade Phase 1 — Model access and provider recovery | All accessible models, per-project access policy, optional spending limits, paid/unknown-price confirmation, structured provider errors, schema v4 migration | Complete and verified; commit recorded by `git log -1` after phase handoff |
 | Upgrade Phase 2 — Run observability and recovery | Persisted async Oracle/Architect/Witness/Maker runs, live progress phases, elapsed/cancel/retry/abandon/reconcile controls, exact-once late-result reconciliation, schema v5 migration | Complete and verified; commit recorded by `git log -1` after phase handoff |
+| Upgrade Phase 3 — Project intake and guided discovery | Four-way source onboarding, safe confirmation-gated imports, multi-turn Oracle intake, structured proposal/memory, schema v6 migration | Complete and verified; commit recorded by `git log -1` after phase handoff |
 
 The guided-interface line (`origin/main` at `b2d2654`) and the hardening line (`origin/phase-8-hardening` at `8c50439`) both descended from `2205774`. Phase 9 integrates them rather than choosing one and losing the other. The release candidate therefore keeps the landing page, onboarding, deterministic demo, security middleware, state migration, retention, and recovery in one build.
 
@@ -118,6 +119,37 @@ OpenCode operations are persisted asynchronous work with honest live progress. A
 - [x] Final typecheck, 150 unit/integration tests, build, budget, 18-test visual suite, and diff/security review pass.
 
 Phase 2 acceptance passed on 2026-11-01. No live provider inference was used for the new tests.
+
+## Upgrade Phase 3 — project intake and guided discovery
+
+### Outcome
+
+Every fresh project identifies whether it is new work, a validated local repository, a public remote repository to import into a managed workspace, or saved work before Oracle begins. Oracle then performs focused multi-turn discovery, persists field-level answers and decisions, and produces a structured proposal only when essential information is known or the user explicitly accepts stated assumptions.
+
+**Phase commit:** `feat(oracle): add project intake and guided discovery`.
+
+### Work units
+
+| Unit | Outcome | Evidence |
+|---|---|---|
+| U3-1 source contract and migration | Schema v6 adds explicit source status, complete Oracle intake, answer/assumption provenance, structured proposal, and supersedable memory; v1–v5 migrate explicitly | `src/shared/workflow.ts`, `src/server/workflow/model.ts`, `tests/migration.test.ts` |
+| U3-2 source onboarding | Four source choices exposed before OpenCode onboarding; Oracle is server-blocked until the source is confirmed | `src/web/workshop/WorkshopPage.tsx`, `src/server/app.ts`, `tests/oracle-discovery.test.ts` |
+| U3-3 repository safety | Local paths use canonical workspace validation; remote URLs reject credentials/private hosts and import only into a managed directory after explicit confirmation | `src/server/project-sources.ts`, `src/server/security/workspace.ts`, `tests/oracle-discovery.test.ts` |
+| U3-4 guided Oracle | Full Prompt 0 stays active; richer reply contract supports question/proposal modes, up to three explained questions, consolidated intake, assumptions, constraints, risks, and next action | `src/server/experience/service.ts`, `src/server/experience/parse.ts`, `tests/oracle-discovery.test.ts` |
+| U3-5 proposal gate and memory | Server validates essential intake and explicit assumption consent; answers, corrections, facts, decisions, assumptions, constraints, and risks survive reloads | `src/server/experience/guide-runs.ts`, `src/server/workflow/transitions.ts`, `tests/oracle-discovery.test.ts` |
+| U3-6 interface | Source cards, remote confirmation, question rationale/choices, proposal provenance, active memory, correction, and proceed-with-assumptions controls | `src/web/workshop/WorkshopPage.tsx`, `src/web/styles.css`, `src/web/api.ts` |
+| U3-7 documentation | README, architecture, decisions, setup/integration/recovery, implementation plan, evidence, release notes, changelog | canonical documentation set |
+
+### Acceptance status
+
+- [x] Every new project is asked for its source and Oracle cannot run before confirmation.
+- [x] Oracle asks relevant questions rather than immediately producing a shallow proposal.
+- [x] Answers survive reloads and appear in structured project memory.
+- [x] Users can correct an answer or assumption, preserving superseded history.
+- [x] Proposals distinguish facts, user decisions, and assumptions.
+- [x] Local/remote source security, v1–v5 migration, typecheck, 161 tests, build, budget, 18-test visual suite, high-severity audit, and final diff/security review pass.
+
+Phase 3 acceptance passed on 2026-11-01. No live provider inference or private repository credential was used.
 
 ## Phase 8 hardening units
 

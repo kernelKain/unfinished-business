@@ -28,6 +28,7 @@ import {
   projectV2Schema,
   projectV3Schema,
   projectV4Schema,
+  projectV5Schema,
   sectionSchema,
   sectionStatusSchema,
   transcriptEntrySchema,
@@ -73,6 +74,7 @@ export {
   projectV2Schema,
   projectV3Schema,
   projectV4Schema,
+  projectV5Schema,
   sectionSchema,
   sectionStatusSchema,
   transcriptEntrySchema,
@@ -88,7 +90,7 @@ export {
   type SpiritRole,
 };
 
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 export const MIGRATION_TIMESTAMP = "1970-01-01T00:00:00.000Z";
 
 export class UnsupportedSchemaVersionError extends Error {
@@ -148,7 +150,7 @@ export function createProject(
   }));
   const now = options?.now ?? new Date().toISOString();
   return refreshNextAction(projectSchema.parse({
-    schemaVersion: 5,
+    schemaVersion: 6,
     id: randomUUID(),
     revision: 0,
     mode,
@@ -164,7 +166,7 @@ export function createProject(
     operations: [],
     evidence: [],
     nextAction: "Describe an idea and wake the Oracle",
-    product: { status: "NONE", proposal: null, openQuestions: [] },
+    product: { status: "NONE", proposal: null, openQuestions: [], structuredProposal: null },
     makerScope: { status: "NONE", statement: null },
     transcript: [],
     capabilities: [
@@ -188,16 +190,50 @@ export function createProject(
     witnessDrafts: [],
     nativeSessions: [],
     engine: { model: null, source: "none", updatedAt: null, legacyModel: null },
-    source: { kind: mode === "hosted-demo" ? "demo" : "workspace", label: null, externalId: null, importedAt: null },
+    source: mode === "hosted-demo"
+      ? {
+          kind: "DEMO",
+          status: "CONFIRMED",
+          label: "Guided demo fixture",
+          repositoryUrl: null,
+          workspacePath: null,
+          managedWorkspace: true,
+          importedAt: null,
+          confirmedAt: now,
+          repositoryCondition: "Deterministic fixture; no repository is connected.",
+        }
+      : {
+          kind: "UNSELECTED",
+          status: "UNSELECTED",
+          label: null,
+          repositoryUrl: null,
+          workspacePath: null,
+          managedWorkspace: false,
+          importedAt: null,
+          confirmedAt: null,
+          repositoryCondition: null,
+        },
     oracleIntake: {
       status: "NOT_STARTED",
-      summary: null,
-      questions: [],
-      constraints: [],
-      successCriteria: [],
+      intendedUser: null,
+      problem: null,
+      desiredOutcome: null,
+      deadlineEvent: null,
+      mustHaveFeatures: null,
+      optionalFeatures: null,
+      budget: null,
+      privacyRequirements: null,
+      platforms: null,
+      repositoryCondition: null,
+      nonGoals: null,
+      unresolvedQuestions: [],
+      assumptions: [],
+      knownConstraints: [],
+      unresolvedRisks: [],
+      recommendedNextAction: null,
       updatedAt: null,
     },
-    memory: { facts: [], decisions: [], constraints: [], risks: [] },
+    memory: { facts: [], decisions: [], constraints: [], risks: [], answers: [], assumptions: [] },
     modelPreferences: {
       access: {
         mode: "ALL_ACCESSIBLE",
@@ -217,14 +253,102 @@ export interface MigrationResult {
   migrated: boolean;
 }
 
+type LegacySource = { kind: "workspace" | "import" | "template" | "demo"; label: string | null; externalId: string | null; importedAt: string | null };
+type LegacyIntake = {
+  status: "NOT_STARTED" | "COLLECTING" | "READY" | "APPROVED";
+  summary: string | null;
+  questions: Array<{ prompt: string; answer: string | null }>;
+  constraints: string[];
+  successCriteria: string[];
+  updatedAt: string | null;
+};
+
+function migrateSource(source: LegacySource, mode: ProjectMode, workspace: string, timestamp: string) {
+  if (mode === "hosted-demo" || source.kind === "demo") {
+    return {
+      kind: "DEMO" as const,
+      status: "CONFIRMED" as const,
+      label: source.label ?? "Guided demo fixture",
+      repositoryUrl: null,
+      workspacePath: null,
+      managedWorkspace: true,
+      importedAt: source.importedAt,
+      confirmedAt: timestamp,
+      repositoryCondition: "Deterministic fixture; no repository is connected.",
+    };
+  }
+  return {
+    kind: "SAVED_PROJECT" as const,
+    status: "CONFIRMED" as const,
+    label: source.label ?? "Saved project",
+    repositoryUrl: null,
+    workspacePath: workspace,
+    managedWorkspace: source.kind === "import" || source.kind === "template",
+    importedAt: source.importedAt,
+    confirmedAt: timestamp,
+    repositoryCondition: "Migrated saved project; repository condition was not recorded by the earlier schema.",
+  };
+}
+
+function migrateIntake(intake: LegacyIntake, timestamp: string) {
+  const updatedAt = intake.updatedAt ?? timestamp;
+  return {
+    status: intake.status,
+    intendedUser: null,
+    problem: null,
+    desiredOutcome: intake.summary ? { value: intake.summary, source: "SYSTEM" as const, updatedAt } : null,
+    deadlineEvent: null,
+    mustHaveFeatures: null,
+    optionalFeatures: null,
+    budget: null,
+    privacyRequirements: null,
+    platforms: null,
+    repositoryCondition: null,
+    nonGoals: null,
+    unresolvedQuestions: intake.questions.slice(0, 3).map((question, index) => ({
+      id: `migrated-question-${index + 1}`,
+      field: "unresolvedQuestions" as const,
+      prompt: question.prompt,
+      whyItMatters: "This question was preserved from the earlier Oracle intake.",
+      suggestedChoices: question.answer ? [question.answer] : [],
+    })),
+    assumptions: [],
+    knownConstraints: intake.constraints,
+    unresolvedRisks: [],
+    recommendedNextAction: intake.successCriteria.length
+      ? `Preserved success criteria: ${intake.successCriteria.join("; ")}`
+      : null,
+    updatedAt: intake.updatedAt,
+  };
+}
+
+function migrateMemory(memory: { facts: Array<Record<string, unknown>>; decisions: Array<Record<string, unknown>>; constraints: Array<Record<string, unknown>>; risks: Array<Record<string, unknown>> }) {
+  const upgrade = (entries: Array<Record<string, unknown>>) => entries.map((entry) => ({
+    ...entry,
+    field: null,
+    status: "ACTIVE" as const,
+    supersedesId: null,
+  }));
+  return {
+    facts: upgrade(memory.facts),
+    decisions: upgrade(memory.decisions),
+    constraints: upgrade(memory.constraints),
+    risks: upgrade(memory.risks),
+    answers: [],
+    assumptions: [],
+  };
+}
+
 /**
- * Reads every supported prior shape as schema v5.
+ * Reads every supported prior shape as schema v6.
  *
  * The guided-interface line wrote v2 with engine selection but no mode or
  * timestamps. The hardening line wrote v2 with mode/timestamps but no engine.
  * Both v2 variants are accepted through explicit deterministic defaults. A v1
- * fixed-model project preserves that legacy identity for discovery. Schema v5
- * adds run-observability metadata: operations with no recorded progress keep
+ * fixed-model project preserves that legacy identity for discovery. Schema v6
+ * preserves v5 run-observability metadata and migrates the earlier source,
+ * intake, product, and memory placeholders into guided-discovery records.
+ * Operations with no recorded progress keep
  * a deterministic AWAITING_RECONCILIATION marker when their status could still
  * be recovered, so old unknown operations remain reconcilable. No migration
  * step reads the wall clock, generates an ID, or deletes history.
@@ -256,7 +380,7 @@ export function migrateProject(raw: unknown): MigrationResult {
     const product = legacy.product;
     const project = projectSchema.parse({
       ...legacy,
-      schemaVersion: 5,
+      schemaVersion: 6,
       mode,
       demoWorkspace: "demoWorkspace" in legacy ? legacy.demoWorkspace ?? true : true,
       createdAt,
@@ -278,6 +402,7 @@ export function migrateProject(raw: unknown): MigrationResult {
           operation.status === "UNKNOWN" ? "ABANDONED" : operation.status,
           "Migrated from a legacy record; the native session can still be reconciled.",
         ),
+        oracleProceedWithAssumptions: false,
       })),
       evidence: legacy.evidence.map((evidence) => ({
         ...evidence,
@@ -285,21 +410,17 @@ export function migrateProject(raw: unknown): MigrationResult {
       })),
       witnessDrafts: legacy.witnessDrafts.map((draft) => ({ ...draft, createdAt: draft.createdAt ?? createdAt })),
       engine,
-      source: {
-        kind: mode === "hosted-demo" ? "demo" : "workspace",
-        label: null,
-        externalId: null,
-        importedAt: null,
-      },
-      oracleIntake: {
+      product: { ...product, structuredProposal: null },
+      source: migrateSource({ kind: mode === "hosted-demo" ? "demo" : "workspace", label: null, externalId: null, importedAt: null }, mode, legacy.workspace, updatedAt),
+      oracleIntake: migrateIntake({
         status: product.status === "APPROVED" ? "APPROVED" : product.status === "PROPOSED" ? "READY" : "NOT_STARTED",
         summary: product.proposal,
         questions: product.openQuestions.map((prompt) => ({ prompt, answer: null })),
         constraints: [],
         successCriteria: [],
         updatedAt: null,
-      },
-      memory: { facts: [], decisions: [], constraints: [], risks: [] },
+      }, updatedAt),
+      memory: { facts: [], decisions: [], constraints: [], risks: [], answers: [], assumptions: [] },
       modelPreferences: {
         access: {
           mode: "FREE_OR_LOCAL_ONLY",
@@ -318,7 +439,11 @@ export function migrateProject(raw: unknown): MigrationResult {
     const legacy = projectV3Schema.parse(source);
     const project = projectSchema.parse({
       ...legacy,
-      schemaVersion: 5,
+      schemaVersion: 6,
+      product: { ...legacy.product, structuredProposal: null },
+      source: migrateSource(legacy.source, legacy.mode, legacy.workspace, legacy.updatedAt),
+      oracleIntake: migrateIntake(legacy.oracleIntake, legacy.updatedAt),
+      memory: migrateMemory(legacy.memory),
       operations: legacy.operations.map((operation) => ({
         ...operation,
         providerError: null,
@@ -326,6 +451,7 @@ export function migrateProject(raw: unknown): MigrationResult {
           operation.status,
           "Migrated from schema v3; the native session can still be reconciled.",
         ),
+        oracleProceedWithAssumptions: false,
       })),
       modelPreferences: {
         access: {
@@ -351,16 +477,38 @@ export function migrateProject(raw: unknown): MigrationResult {
     const legacy = projectV4Schema.parse(source);
     const project = projectSchema.parse({
       ...legacy,
-      schemaVersion: 5,
+      schemaVersion: 6,
+      product: { ...legacy.product, structuredProposal: null },
+      source: migrateSource(legacy.source, legacy.mode, legacy.workspace, legacy.updatedAt),
+      oracleIntake: migrateIntake(legacy.oracleIntake, legacy.updatedAt),
+      memory: migrateMemory(legacy.memory),
       operations: legacy.operations.map((operation) => ({
         ...operation,
         progress: operation.progress ?? awaitRecoveryProgress(
           operation.status,
           "Migrated from schema v4; the native session can still be reconciled.",
         ),
+        oracleProceedWithAssumptions: false,
       })),
     });
     return { project, fromVersion: 4, migrated: true };
+  }
+
+  if (version === 5) {
+    const legacy = projectV5Schema.parse(source);
+    const project = projectSchema.parse({
+      ...legacy,
+      schemaVersion: 6,
+      product: { ...legacy.product, structuredProposal: null },
+      source: migrateSource(legacy.source, legacy.mode, legacy.workspace, legacy.updatedAt),
+      oracleIntake: migrateIntake(legacy.oracleIntake, legacy.updatedAt),
+      memory: migrateMemory(legacy.memory),
+      operations: legacy.operations.map((operation) => ({
+        ...operation,
+        oracleProceedWithAssumptions: false,
+      })),
+    });
+    return { project, fromVersion: 5, migrated: true };
   }
 
   const missingDefaults = !("source" in source)
@@ -373,7 +521,8 @@ export function migrateProject(raw: unknown): MigrationResult {
     || source.operations.some((operation) => !operation || typeof operation !== "object"
       || !("statusReason" in operation) || !("lastObservedAt" in operation) || !("appliedAt" in operation)
       || !("providerError" in operation)
-      || !("progress" in operation) || !("intent" in operation) || !("retryOf" in operation));
+      || !("progress" in operation) || !("intent" in operation) || !("retryOf" in operation)
+      || !("oracleProceedWithAssumptions" in operation));
   const project = projectSchema.parse(source);
   return { project, fromVersion: version, migrated: missingDefaults };
 }
@@ -413,11 +562,24 @@ export function refreshNextAction(project: Project): Project {
     return project;
   }
 
+  if (project.source.status === "UNSELECTED") {
+    project.stage = "ORACLE";
+    project.nextAction = "Choose where this project starts before guided discovery begins";
+    return project;
+  }
+  if (project.source.status === "PENDING_CONFIRMATION") {
+    project.stage = "ORACLE";
+    project.nextAction = "Confirm the managed remote workspace before importing or starting discovery";
+    return project;
+  }
+
   if (project.product.status !== "APPROVED") {
     project.stage = "ORACLE";
     project.nextAction = project.product.status === "PROPOSED"
-      ? "Approve the Oracle proposal, or ask a question"
-      : "Describe an idea and wake the Oracle";
+      ? "Review the Oracle proposal, correct an answer, or approve it"
+      : project.oracleIntake.unresolvedQuestions.length
+        ? "Answer the Oracle's focused questions or proceed with stated assumptions"
+        : "Share the project goal so the Oracle can begin focused discovery";
     return project;
   }
   if (current) {

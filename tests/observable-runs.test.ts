@@ -15,6 +15,7 @@ import {
 } from "../src/server/workflow/model.ts";
 import { WorkflowService } from "../src/server/workflow/service.ts";
 import { approveProduct, approveSection, grantMakerScope, reviseSection } from "../src/server/workflow/transitions.ts";
+import { confirmNewProjectSource, oracleProposalReply } from "./fixtures/oracle-replies.ts";
 
 const model: DiscoveredModel = {
   key: "opencode/flint-40b-free",
@@ -90,6 +91,7 @@ async function workshop(guide: SpiritGuide, options: { makerReady?: boolean } = 
   await writeFile(join(directory, "ledger.test.mjs"), "import test from 'node:test';\nimport assert from 'node:assert/strict';\ntest('ledger', () => assert.equal(1, 1));\n", "utf8");
   const store = new AtomicProjectStore(join(directory, "project.json"));
   let project = createProject(directory);
+  confirmNewProjectSource(project);
   project.engine = {
     model: { providerID: model.providerID, id: model.id, variant: null },
     source: "user",
@@ -191,7 +193,7 @@ function operationOf(project: Project, operationId: string): Project["operations
 }
 
 test("a slow Oracle run reports persisted progress before it finishes", async () => {
-  const oracleReply = JSON.stringify({ clarification: "A campus lost-and-found.", proposal: "Track found items.", openQuestions: [] });
+  const oracleReply = JSON.stringify(oracleProposalReply());
   const guideWithHold: SpiritGuide = {
     async perform() { throw new Error("unexpected"); },
     async inspect() { return "unknown"; },
@@ -237,7 +239,13 @@ test("a slow Oracle run reports persisted progress before it finishes", async ()
 });
 
 test("a late Oracle response is reconciled and applied exactly once", async () => {
-  const oracleReply = JSON.stringify({ clarification: "A campus lost-and-found.", proposal: "Track found items.", openQuestions: ["Who may claim an item?"] });
+  const oracleReply = JSON.stringify(oracleProposalReply({ questions: [{
+    id: "claimant",
+    field: "unresolvedQuestions",
+    prompt: "Who may claim an item?",
+    whyItMatters: "The answer defines the trust boundary.",
+    suggestedChoices: [],
+  }] }));
   const guide: SpiritGuide = {
     async speak(input) {
       input.onSession?.("ses_oracle");
@@ -266,7 +274,7 @@ test("a late Oracle response is reconciled and applied exactly once", async () =
   assert.equal(operation.status, "SUCCEEDED");
   assert.ok(operation.appliedAt, "the validated late reply is applied once");
   assert.equal(reconciled.project.product.status, "PROPOSED");
-  assert.equal(reconciled.project.product.proposal, "Track found items.");
+  assert.equal(reconciled.project.product.structuredProposal?.title, "Campus Lost-and-Found");
   assert.equal(operation.nativeMessageId, "msg_late_oracle");
 
   await assert.rejects(
@@ -451,7 +459,7 @@ test("cancellation leaves a guide run cancelled even when its late reply arrives
       return {
         sessionId: "ses_cancel",
         messageId: null,
-        text: JSON.stringify({ clarification: "Late.", proposal: "Late proposal.", openQuestions: [] }),
+        text: JSON.stringify(oracleProposalReply({ summary: "Late proposal." })),
         cost: 0,
       };
     },
