@@ -587,7 +587,7 @@ test("reconnecting after a server restart reconciles the persisted late maker di
   await waitFor(async () => {
     const state = (await run.store.load()).state;
     const operation = operationOf(state, startedOp.id);
-    return operation.status === "RUNNING" ? operation : null;
+    return operation.status === "RUNNING" && operation.nativeSessionId === "ses_maker_restart" ? operation : null;
   });
 
   await run.workflow.recoverAfterRestart();

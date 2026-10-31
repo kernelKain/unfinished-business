@@ -70,19 +70,20 @@ function isInside(root: string, candidate: string): boolean {
 
 export function assertNotBroadRoot(path: string): void {
   const resolved = normalized(path);
+  const realResolved = canonical(path);
   const home = canonical(homedir());
   const temporary = canonical(tmpdir());
   const repository = canonical(process.cwd());
   const filesystemRoot = parse(resolved).root;
+  const isBroad = (candidate: string) =>
+    candidate === filesystemRoot
+    || broadRoots.has(candidate)
+    || candidate === home
+    || candidate === temporary
+    || candidate === repository
+    || candidate === normalized(dirname(home));
 
-  if (
-    resolved === filesystemRoot
-    || broadRoots.has(resolved)
-    || resolved === home
-    || resolved === temporary
-    || resolved === repository
-    || resolved === normalized(dirname(home))
-  ) {
+  if (isBroad(resolved) || isBroad(realResolved)) {
     throw new WorkspacePolicyError(
       "WORKSPACE_UNSAFE_ROOT",
       "The configured workspace is a filesystem, home, temporary, or repository root. Choose a dedicated child directory.",
