@@ -502,3 +502,23 @@ The user authorized the phase commit and continuation, then completion of the Ex
 | Cost | Free-model route only. The client rejects a non-zero reported session cost or a substituted model. No new cash spending. |
 
 Experience is VERIFIED_UNCOMMITTED. The next permitted action is the single phase commit `feat: deliver the guided haunted workshop journey`, then commit and Entire inspection. Verification stays gated until that succeeds. The ledger syntax error is a demo-workspace defect, not a reason to claim the check passed.
+
+### Ghostlight interface continuation — 31 October 2026, IST
+
+The Experience commit landed on `main` as `b465fa0` (`feat: deliver the guided haunted workshop journey`). Phase 4 then added the product-facing landing page, the Ghostlight visual system, original spirit characters, a deterministic demo, and visual/accessibility verification without changing workflow authorization or adding a second coding harness.
+
+| Area | Actual evidence and result |
+|---|---|
+| Routes | `/` landing, `/demo` deterministic fixture, `/workshop` real workflow. Unknown paths fall back to the landing page. Workshop and demo are lazy chunks. |
+| Visual system | Tokenized deep-navy/amber/spectral system, layered paper/blueprint/glass/terminal surfaces, focus/status/motion tokens, responsive rules, reduced-motion and forced-colors fallbacks. Documented in `docs/UX_AND_VISUAL_SYSTEM.md`. |
+| Characters | Four original inline SVG spirits with distinct idle, working, permission, blocked, warning, success, evidence, and stamp states. State mapping is shared between the workshop and demo gallery. |
+| Hero asset | Original 21:9 master generated with the authorized tool on 2026-10-31 (`openrouter/sourceful/riverflow-v2.6-pro`), prompt/provenance recorded. Responsive AVIF/WebP/JPEG outputs and a 3:4 mobile crop are built by `scripts/build-hero-assets.py`; no text, logos, or watermarks observed. |
+| Landing truthfulness | Two usage paths, OpenCode-only positioning, fixture labels, failure-first evidence wording, no testimonials/counts/awards, and no remote local-repository claim. Covered by component copy tests. |
+| Tests | `npm run typecheck`, `npm test` (63 tests), `npm run build`, `npm run budget`, and `npm run test:visual` (13 Playwright tests, 23 snapshots) pass. Keyboard order, dialog Escape, setup tabs, 200% zoom, 390px overflow, reduced motion, and contrast are checked. |
+| Remote integration | `origin/main` advanced to `9bc5782` (`feat: add OpenCode onboarding and harness discovery`) while Phase 4 was local. The Phase 4 commit was rebased onto it; onboarding/discovery, model selection, sessions, permissions, usage, and deployment modes were integrated into `/workshop` without discarding either history. |
+| Budget | Initial JS 192.8 KiB gzip; all JS 250.2 KiB; CSS 12.6 KiB; all hero variants 570.9 KiB; largest hero 86.7 KiB. |
+| Setup verification | `npm ci`, `npm run dev`, `npm run dev:web`, and the production build/start path were exercised. OpenCode `--version` and `serve --help` were checked; a live free-model call was not repeated in Phase 4. |
+| Authorization | Session-token checks, basic-auth behavior, exact-version approvals, Maker scope, dependency invalidation, native permission authority, and atomic storage are unchanged. |
+| Cost/claims | No new model spending or paid fallback. No public hosted URL, live-inference claim, or fabricated proof is asserted. |
+
+Phase 4 is verified and ready for its single phase commit, now rebased on the remote onboarding/discovery work. Phase 5 has not started.

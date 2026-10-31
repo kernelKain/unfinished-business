@@ -1,0 +1,240 @@
+import type { WorkshopProject } from "../api.ts";
+
+export interface UsageMode {
+  id: string;
+  kicker: string;
+  title: string;
+  summary: string;
+  bullets: readonly string[];
+  cta: { label: string; href: string };
+  tone: "spectral" | "amber";
+}
+
+export const usageModes: readonly UsageMode[] = [
+  {
+    id: "hosted",
+    kicker: "Hosted demo or private deployment",
+    title: "A labeled sample with its own isolated workspace",
+    summary: "A hosted instance can show the deterministic walkthrough or run a private, password-protected workshop on the server's own isolated demo workspace.",
+    bullets: [
+      "Uses the server's demo workspace, never a visitor's local repository.",
+      "Password protection and a loopback OpenCode server are required for a hosted instance.",
+      "Hosted execution is not a public sandbox; the sample is labeled as a sample.",
+    ],
+    cta: { label: "Walk through the fixture", href: "/demo" },
+    tone: "spectral",
+  },
+  {
+    id: "local",
+    kicker: "Full local mode",
+    title: "Your machine, your OpenCode server, your session",
+    summary: "Run the API, interface, and the pinned OpenCode server locally. The workshop connects over loopback and keeps project data in an ignored local directory.",
+    bullets: [
+      "Requires Node 22.14+ and a supported OpenCode 2.x server.",
+      "Maker's edit in this release is bounded to an isolated demo workspace.",
+      "The browser receives a session token only from loopback; mutations are checked server-side.",
+    ],
+    cta: { label: "Read the local setup", href: "#local-setup" },
+    tone: "amber",
+  },
+] as const;
+
+export interface DemoStep {
+  id: string;
+  stage: "ORACLE" | "ARCHITECT" | "MAKER" | "WITNESS";
+  spirit: "oracle" | "architect" | "maker" | "witness";
+  state: "listening" | "clarification" | "drawing" | "success" | "evidence" | "warning";
+  title: string;
+  summary: string;
+  detail: string;
+  lines: readonly string[];
+}
+
+export const demoSteps: readonly DemoStep[] = [
+  {
+    id: "idea",
+    stage: "ORACLE",
+    spirit: "oracle",
+    state: "listening",
+    title: "Name the unfinished idea",
+    summary: "A stalled campus lost-and-found becomes a proposal, not an approval.",
+    detail: "The Oracle restates the useful outcome and keeps the open questions beside it.",
+    lines: ["Proposal: help students report and claim found items.", "Open question: who may verify a claim?", "Status: proposed — waiting for your approval."],
+  },
+  {
+    id: "scope",
+    stage: "ARCHITECT",
+    spirit: "architect",
+    state: "drawing",
+    title: "Approve one section at a time",
+    summary: "The Architect drafts a single planning section against its dependencies.",
+    detail: "A revision invalidates the old approval. The next section waits until the current one is approved.",
+    lines: ["Section 3 of 8: Experience.", "Draft v2 — dependencies satisfied.", "Approval target: this version and hash only."],
+  },
+  {
+    id: "build",
+    stage: "MAKER",
+    spirit: "maker",
+    state: "success",
+    title: "Grant a separate build scope",
+    summary: "Maker receives an explicit, bounded scope after the plan is approved.",
+    detail: "OpenCode performs the native edit. The workshop records the session and the result it actually observed.",
+    lines: ["Scope: isolated demo workspace only.", "Native edit: ledger.mjs (+42/−0).", "Permission: OpenCode decides, not the workflow UI."],
+  },
+  {
+    id: "evidence",
+    stage: "WITNESS",
+    spirit: "witness",
+    state: "warning",
+    title: "Keep a failed check visible",
+    summary: "Witness reports the observed failure instead of polishing it away.",
+    detail: "The evidence ledger records the failing check and its limitation. Review notes are drafts, not a submitted article.",
+    lines: ["Check: node --test.", "Result: FAIL — duplicate declaration.", "Next action: fix the test, then reconcile the evidence."],
+  },
+] as const;
+
+export interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+export const faqs: readonly FaqItem[] = [
+  {
+    question: "Is this a second coding harness?",
+    answer: "No. OpenCode supplies the agent loop, model access, native tools, permissions, and sessions. Unfinished Business adds the four-stage workshop, exact-version approvals, dependency invalidation, and an evidence ledger.",
+  },
+  {
+    question: "Does the hosted page read my local repository?",
+    answer: "No. A hosted or demo instance can only use its own isolated workspace. The browser has no remote repository mount, and this release does not claim remote access to a visitor's machine.",
+  },
+  {
+    question: "Can workflow approval override a tool denial?",
+    answer: "No. Approving a plan or granting Maker scope constrains the workflow; it never overrides OpenCode's native permission decision. A refusal is shown as blocked and is not retried automatically.",
+  },
+  {
+    question: "Which model does it use?",
+    answer: "The intended route is OpenCode's free DeepSeek model, opencode/deepseek-v4.1-flash-free. It is time-limited and not guaranteed; verify availability on your own account. No paid fallback is configured by this project.",
+  },
+  {
+    question: "What does the demo actually prove?",
+    answer: "The deterministic walkthrough is a scripted fixture. It proves the interface states and wording, not live inference or a successful build. Real runs appear in the workshop's Run Inspector with native session references.",
+  },
+  {
+    question: "What is stored locally?",
+    answer: "Project metadata lives in UB_DATA_DIR (default .unfinished-business/) and is gitignored. The app stores approval state and references to native evidence; native transcripts stay in OpenCode.",
+  },
+] as const;
+
+export const demoOperations: WorkshopProject["operations"] = [
+  {
+    id: "op-demo-maker",
+    kind: "maker",
+    status: "SUCCEEDED",
+    result: "Native edit recorded: demo-workspace/ledger.mjs (+42/−0).",
+    nativeSessionId: "ses_demo_maker_7c1a9d",
+    model: null,
+    agent: null,
+    startedAt: null,
+    finishedAt: null,
+  },
+  {
+    id: "op-demo-check",
+    kind: "check",
+    status: "FAILED",
+    result: "node --test reported a duplicate declaration in the generated workspace.",
+    nativeSessionId: "ses_demo_check_2b44e1",
+    model: null,
+    agent: null,
+    startedAt: null,
+    finishedAt: null,
+  },
+  {
+    id: "op-demo-witness",
+    kind: "witness",
+    status: "SUCCEEDED",
+    result: "Fresh review session recorded the failure and its limitation.",
+    nativeSessionId: "ses_demo_witness_5f08c2",
+    model: null,
+    agent: null,
+    startedAt: null,
+    finishedAt: null,
+  },
+] as const;
+
+export const demoEvidence: WorkshopProject["evidence"] = [
+  {
+    id: "ev-demo-check",
+    checkId: "node-test-bounded",
+    result: "FAIL",
+    limitation: "The generated ledger does not pass node --test. Do not claim a working build.",
+    model: null,
+  },
+] as const;
+
+export const demoCapabilities: WorkshopProject["capabilities"] = [
+  {
+    id: "inspect-changes",
+    purpose: "Show the diff from the Maker's native session",
+    nativeMapping: "OpenCode session.diff in the isolated demo workspace",
+    availability: "unknown",
+    permission: "Read-only inspection after a Maker run",
+    observedOutcome: null,
+  },
+  {
+    id: "node-check",
+    purpose: "Run the approved dependency-free Node test",
+    nativeMapping: "bounded node --test in the isolated demo workspace",
+    availability: "available",
+    permission: "Runs only after an explicit Maker scope grant and a native edit",
+    observedOutcome: "One recorded failure; not a passing proof.",
+  },
+] as const;
+
+export interface Recommendation {
+  idea: string;
+  fit: string;
+  path: string;
+  permission: string;
+}
+
+export const recommendations: readonly Recommendation[] = [
+  {
+    idea: "Campus lost-and-found",
+    fit: "A small state model plus one verified test",
+    path: "Node check + diff inspection",
+    permission: "node --test runs only inside the isolated demo workspace; diff inspection stays read-only.",
+  },
+  {
+    idea: "Habit streak tracker",
+    fit: "Same capability, no new install",
+    path: "Keep the bounded Node check",
+    permission: "No arbitrary shell, package install, or network tool is requested by this preview.",
+  },
+  {
+    idea: "Photo scavenger hunt",
+    fit: "Needs asset handling outside the current scope",
+    path: "Recommend a focused scope change first",
+    permission: "Do not silently expand permissions; the plan and native capability set must change explicitly.",
+  },
+] as const;
+
+export const privacyPoints: readonly { title: string; body: string }[] = [
+  {
+    title: "No remote repository mount",
+    body: "The landing page and hosted sample have no access to a visitor's local checkout. Local mode runs on the visitor's machine.",
+  },
+  {
+    title: "Loopback by default",
+    body: "Development binds the app and OpenCode to 127.0.0.1. A production deployment must set an access password and bind deliberately.",
+  },
+  {
+    title: "Server-checked mutations",
+    body: "Writes require a browser-session token issued over loopback and an expected project revision. Stale or repeated actions return a conflict instead of overwriting.",
+  },
+  {
+    title: "Untrusted model content",
+    body: "Model replies are parsed as proposals, not authority. They cannot approve a section or grant Maker scope, and native denials stay denials.",
+  },
+] as const;
+
+export const heroAlt = "A spectral night workshop with an unfinished robot on a workbench, a CRT terminal, blueprints, and four small friendly spirits drifting in the blue haze.";

@@ -5,3 +5,7 @@ dist/
 .env.*
 !.env.example
 *.log
+.cache-hero-build/
+playwright-report/
+test-results/
+.visual-data/

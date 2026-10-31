@@ -1,165 +1,161 @@
-# Architecture
+# Architecture — Unfinished Business
 
-Unfinished Business is a browser workshop on top of OpenCode's native harness. OpenCode owns the agent loop, providers, models, tools, permissions, and sessions. The application owns the product journey, staged approvals, evidence, connection discovery, and the trust boundary around secrets.
+**Status:** Implemented through Phase 4. Last updated 2026-10-31.
 
-## Runtime topology
-
-```text
-Browser (React)
-  │  same-origin HTTP, optional Basic auth, X-UB-Session-Token for mutations
-  ▼
-Unfinished Business server (Hono)
-  │  server-side Basic auth; never forwards provider credentials
-  ▼
-OpenCode server (loopback by default; HTTPS remotely)
-  │
-  ├─ OpenCode credential store / XDG data directory
-  ├─ provider + model catalog
-  ├─ agents, permissions, commands, skills, MCP
-  └─ native sessions, diffs, usage
-```
-
-The browser never calls OpenCode directly. This avoids browser CORS/origin dependencies and keeps the OpenCode password and provider credentials out of the page. The browser receives normalized model/agent/capability facts and project state only.
-
-## Server modules
-
-| Module | Responsibility |
-|---|---|
-| `src/server/app.ts` | HTTP routes, request validation, authorization guards, error mapping. |
-| `src/server/index.ts` | Process composition, deployment mode, persistent paths, stale-run reconciliation. |
-| `src/server/render-start.ts` | Hosted process supervision: starts OpenCode, then the app. |
-| `src/server/opencode/client.ts` | Exact client construction, URL policy, version policy, error classification, redaction. |
-| `src/server/opencode/connection.ts` | Connection state, settings persistence, discovery, diagnostics, model choice/validation. |
-| `src/server/opencode/discovery.ts` | Pure normalization from OpenCode catalogs to product-safe facts. |
-| `src/server/opencode/sessions.ts` | Project-scoped session list/resume/interrupt/fork/compact/revert/permission/usage actions. |
-| `src/server/experience/guide.ts` | Thin adapter from spirit roles to native sessions and model/agent selection. |
-| `src/server/experience/runs.ts` | Background Maker run lifecycle and persisted operation updates. |
-| `src/server/experience/service.ts` | Journey transitions and orchestration across Oracle/Architect/Maker/Witness. |
-| `src/server/workflow/*` | Durable project schema, exact approvals, invalidation, migration helpers. |
-| `src/server/store/*` | Atomic JSON persistence, previous snapshot, serialized writes. |
-
-## Persisted project (schema v2)
-
-```jsonc
-{
-  "schemaVersion": 2,
-  "revision": 0,
-  "stage": "ORACLE",
-  "engine": {
-    "model": { "providerID": "opencode", "id": "flint-40b-free", "variant": "high" },
-    "source": "user",
-    "updatedAt": "2026-10-31T…",
-    "legacyModel": null
-  },
-  "operations": [
-    {
-      "id": "…",
-      "kind": "maker",
-      "status": "SUCCEEDED",
-      "model": { "providerID": "opencode", "id": "flint-40b-free", "variant": "high" },
-      "agent": "build",
-      "nativeSessionId": "ses_…",
-      "startedAt": "…",
-      "finishedAt": "…",
-      "result": "…"
-    }
-  ],
-  "evidence": [
-    { "checkId": "CK-06", "result": "PASS", "model": { "providerID": "opencode", "id": "flint-40b-free" } }
-  ]
-}
-```
-
-- `engine.model` is the user's discovered model choice. It is not a constant.
-- `engine.source` records `none`, `user`, `migrated-legacy`, or `auto-discovery`.
-- Operations and evidence record the model used, so run evidence is reproducible even after a later selection change.
-- `connection.json` is a separate file and contains no password.
-
-### Migration from v1
-
-The v1 schema was written when the code hard-coded `opencode/deepseek-v4.1-flash-free`. `migrateProject()`:
-
-1. reads a v1 document;
-2. keeps every section, action, operation, evidence, and native-session reference;
-3. adds `engine: { model: null, source: "migrated-legacy", legacyModel: "opencode/deepseek-v4.1-flash-free" }`;
-4. adds null model/agent/timestamps to historical operations/evidence;
-5. returns schema v2.
-
-On the next discovery, the legacy model is used only if OpenCode still reports it and it is available. Otherwise the user chooses a reported model. No unavailable model is silently substituted. A corrupt current file is preserved and the previous snapshot is offered.
-
-## Connection state machine
+## 1. System shape
 
 ```text
-not_configured
-  → checking
-      → connected
-      → degraded (untested patch, provider auth, pending permission, model issue, partial probe)
-      → authentication_required (401)
-      → incompatible_version (major ≠ 2 or unparseable)
-      → unavailable (transport, timeout, origin/403, malformed response)
+Browser
+  ├─ /            landing page (eager)
+  ├─ /demo        deterministic walkthrough (lazy chunk)
+  └─ /workshop    real workshop (lazy chunk)
+        │
+        │ fetch /api/*  (same origin; mutations carry x-ub-session-token)
+        ▼
+Hono server (src/server/app.ts)
+  ├─ /api/health                 public
+  ├─ /api/connection             connection state + discovery summary
+  ├─ /api/connection/check       read-only connection/discovery check
+  ├─ /api/connection/configure   local only; server URL + in-memory password
+  ├─ /api/engine/selection       persist a discovered model/variant
+  ├─ /api/opencode/*             project-owned sessions, permissions, usage
+  ├─ /api/project                current snapshot
+  ├─ /api/messages               stage messages
+  ├─ /api/approvals              product + Maker scope
+  ├─ /api/sections/*             revisions + exact-version approvals
+  ├─ /api/runs/*                 Maker run, cancel, reconcile
+  ├─ /api/export                 approved plan + drafts
+  └─ static dist/web             SPA fallback for non-API paths
+        │
+        ▼
+OpenCode 2.x server over loopback
+  ├─ discovered model catalog
+  ├─ native tools and permissions
+  ├─ sessions/transcripts
+  └─ isolated demo workspace
 ```
 
-A check is read-only. It calls `/api/info` first, then catalog/agent/permission/command/skill/MCP/config endpoints. A failed check returns a diagnostic code and repair text; it never leaves an optimistic success status. The wizard and panel both surface the same diagnostics.
+Unfinished Business never implements a second agent loop, inference client, general command executor, or transcript store. OpenCode owns those. The app owns workflow state, approvals, dependency invalidation, evidence references, and the interface.
 
-### URL and trust boundary
+## 2. Frontend routing
 
-- `http://` is allowed only for `localhost`, `127.0.0.1`, and `::1`.
-- `https://` is allowed for any host.
-- URL userinfo, query strings, and fragments are rejected.
-- The server password is sent as `Authorization: Basic` from the server process. It is not sent to or stored by the browser.
-- `hosted-private` and `hosted-demo` treat the connection as managed; browser configuration routes return 409.
-- Provider keys are never accepted by any application route.
+`src/web/routes.ts` is the pure route resolver:
 
-## Asynchronous Maker lifecycle
+| Path | Route | Rendering |
+|---|---|---|
+| `/` | `landing` | Eager `LandingPage` |
+| `/demo` | `demo` | Lazy `DemoPage` |
+| `/workshop` | `workshop` | Lazy `WorkshopPage` |
+| anything else | `landing` | Landing fallback |
 
-The Phase 1 prerequisite is the non-blocking run model used here:
+`src/web/App.tsx` reads `window.location.pathname`, listens for `popstate`, updates `document.title` and `document.documentElement.dataset.route`, and scrolls to the top on route change. Navigations are ordinary anchors, so they work without a client router and the server's SPA fallback can serve `index.html`.
 
-1. `POST /api/runs` claims the action, validates Maker scope and the selected model, persists a `QUEUED` operation with model/agent/timestamps, starts the in-process runner, and returns `202` immediately.
-2. The runner persists `RUNNING`, then the native session ID as soon as OpenCode creates it.
-3. The native turn, diff, and bounded Node check run outside the HTTP request.
-4. Completion is applied with `executeLatest()`, a bounded retry against the current revision, so unrelated user actions can happen while the run is in flight.
-5. A process restart converts `QUEUED`/`RUNNING` operations to `UNKNOWN` with a repair note. Nothing is replayed.
-6. Cancellation interrupts the native session and marks the operation `CANCELLED`; a late completion cannot overwrite that state.
-7. The browser polls `/api/project` while an operation is active and renders the persisted status. It does not hold an HTTP request open for the whole run.
+The workshop and demo are split with `React.lazy`. Measured production chunks:
 
-`AtomicProjectStore` serializes writes and uses a UUID temporary filename so two background updates cannot collide or overwrite each other silently.
+- initial `index-*.js`: 192.8 KiB gzip;
+- `WorkshopPage-*.js`: 54.8 KiB gzip (includes onboarding/discovery UI);
+- `DemoPage-*.js`: 2.6 KiB gzip;
+- CSS: 12.6 KiB gzip.
 
-## Capability-driven UI
+The workshop keeps its existing Phase 3 structure: four-stage navigation, plan outline, working document, activity/evidence rail. The visual layer changed; the stage and approval semantics did not.
 
-The UI renders from discovered facts, not fixed constants:
+## 3. Static serving and assets
 
-- models, providers, variants, limits, modalities, tool support, pricing, local status;
-- agents and role mapping;
-- pending permissions;
-- commands, skills, MCP servers, formatter/LSP configuration;
-- session controls and reported usage.
+`src/server/index.ts` serves `dist/web` when it exists:
 
-Unsupported controls are visible as deferred with a reason. The main journey remains the focus; advanced controls live inside the expandable OpenCode panel.
+- `/` → `index.html`.
+- real files → their content type.
+- unknown non-API paths → `index.html` (SPA fallback).
+- `/api/*` is never served from disk.
+- Path resolution is checked against the `dist/web` root to prevent traversal.
+- Private state under `UB_DATA_DIR` is outside the static root and is never served.
 
-## Trust boundaries and data handling
+Public hero assets are produced by `scripts/build-hero-assets.py`:
 
-| Boundary | Rule |
+```text
+assets/source/hero-ghostlight-workshop.webp   (master, not shipped)
+        │
+        ├─ public/assets/hero/hero-ghostlight-wide-{1920,1280,768}.{avif,webp}
+        ├─ public/assets/hero/hero-ghostlight-wide-{1280,768}.jpg
+        └─ public/assets/hero/hero-ghostlight-portrait-{900,600}.{avif,webp}
+```
+
+Vite copies `public/` to `dist/web/`, so production URLs are `/assets/hero/...`. The `<picture>` element selects the portrait crop below 720px and wide crops above it. Explicit width/height and CSS aspect ratios prevent layout shift.
+
+## 4. Frontend modules
+
+| Path | Responsibility |
 |---|---|
-| Browser → app | Basic auth when hosted; session token for mutations; no provider credentials accepted. |
-| App → OpenCode | Server-side only; Basic auth password in memory or `OPENCODE_PASSWORD`; HTTPS required off loopback. |
-| App → disk | Project JSON, connection metadata (no password), isolated workspaces. |
-| App → logs/Sentry | Redacted error messages; no authorization headers, passwords, provider keys, or prompt bodies. |
-| App → export | Approved plan, drafts, selected engine metadata; no secrets. |
-| OpenCode → app catalogs | Normalized, allow-listed fields; raw provider/model/config settings are discarded. |
+| `src/web/App.tsx` | Route switch, lazy loading, page title |
+| `src/web/routes.ts` | Pure path resolution and titles |
+| `src/web/landing/` | Hero, usage modes, spirit roster, deterministic teaser, setup, privacy, FAQ, final CTA |
+| `src/web/demo/` | Scripted walkthrough, all-state gallery, recovery states |
+| `src/web/workshop/` | Real Oracle/Architect/Maker/Witness workflow, connection state, active-run polling |
+| `src/web/onboarding.tsx` | First-run connection check and model/variant selection |
+| `src/web/opencode-panel.tsx` | Advanced discovered capability, session, permission, usage, and revert controls |
+| `src/web/components/SpiritCharacter.tsx` | Original inline SVG characters and state classes |
+| `src/web/components/RunInspector.tsx` | Native runs, evidence ledger, permission boundary |
+| `src/web/components/SpiritStageTabs.tsx` | Semantic four-stage navigation |
+| `src/web/components/SectionCard.tsx` | Outline cards and empty state |
+| `src/web/components/SetupCommandTabs.tsx` | Accessible command tabs |
+| `src/web/components/SetupDialog.tsx` | Native `<dialog>` setup help |
+| `src/web/components/Brand.tsx` | Brand mark and type lockup |
+| `src/web/spirits.ts` | Spirit profiles and state labels |
+| `src/web/content/landing.ts` | Landing copy, fixtures, recommendations, FAQ |
+| `src/web/setup.ts` | Tested setup command data |
+| `src/web/styles.css` | Tokens, components, character states, responsive and accessibility rules |
 
-## Deployment modes
+The landing and demo import only browser-safe modules. `WorkshopProject` is a type-only import from `src/web/api.ts`; no server module enters the client bundle.
 
-- `local`: wizard may configure a loopback or HTTPS URL; project data under `UB_DATA_DIR`.
-- `hosted-private`: connection managed by environment/secret store; OpenCode XDG data on a persistent disk; visitors do not provide credentials.
-- `hosted-demo`: connection managed and read-only; no provider-key prompts; may show `NO_MODELS` when no provider is connected.
+## 5. Connection, discovery, and deployment modes
 
-See [HOSTED_DEPLOYMENT.md](HOSTED_DEPLOYMENT.md) for the exact environment.
+`ConnectionService` (`src/server/opencode/connection.ts`) owns the OpenCode server URL, optional in-memory Basic-auth password, version check, and normalized discovery. `src/shared/opencode.ts` validates the browser-safe connection and discovery shapes.
 
-## Known limitations
+- `local` allows browser connection editing and loopback HTTP.
+- `hosted-private` manages the URL/credentials in the environment and makes browser configuration read-only.
+- `hosted-demo` is read-only and may legitimately show no models until a provider is connected inside OpenCode.
 
-- OpenCode `2.0.32` has no separate HTTP tool catalog.
-- Formatter/LSP status is configuration presence, not live process health.
-- Quota/balance is not available via the HTTP API.
-- Cost/token values depend on provider reporting.
-- Other 2.x patches are degraded until the live diagnostic is run.
-- Fork requires a non-empty session.
+Discovery normalizes providers, models, agents, roles, permissions, commands, skills, MCP servers, formatter/LSP presence, capabilities, and usage. Provider settings, headers, request bodies, skill contents, and prompt text are dropped before leaving the server. Provider API keys never enter Unfinished Business; only the OpenCode server Basic-auth password may be held in memory. See `docs/OPENCODE_INTEGRATION.md`.
+
+Connection states are `not_configured`, `checking`, `connected`, `authentication_required`, `incompatible_version`, `unavailable`, and `degraded`. Every non-connected state carries at least one diagnostic with a repair action. The UI never replaces a failed check with an optimistic connected state.
+
+## 6. State and evidence flow
+
+The API contract for workflow mutations is unchanged from Phase 3:
+
+- Every mutation sends `actionId` and `expectedRevision`.
+- Browser mutations require `x-ub-session-token`, issued by `/api/session` over loopback (or after basic auth in a hosted deployment).
+- Approvals target an exact section version and hash.
+- A revision supersedes the old approval and invalidates dependent sections.
+- Maker requires all current sections approved plus a separate scope grant.
+- Runs are recorded as operations; unknown runs are reconciled, not repeated.
+- Evidence records an observed native result; a missing result is an empty state.
+
+The Run Inspector is read-only. The only write it can trigger is the existing reconcile action for an unknown operation. It cannot approve, retry, or grant permission.
+
+## 7. Workflow authorization is unchanged
+
+Phase 4 did not change:
+
+- session-token checks;
+- basic-auth behavior;
+- revision conflicts;
+- exact-version approval checks;
+- Maker scope gating;
+- native permission authority;
+- atomic project storage.
+
+The setup dialog and landing page are instructions only. Opening them does not assert that OpenCode is reachable.
+
+## 8. Why the demo is separate
+
+The deterministic demo renders fixture data with visible “scripted sample” labels. It exists because a first-time visitor should understand the interface before installing an engine, and because visual regression tests need stable states that do not depend on a model call. It is a separate route so the real workshop cannot accidentally use fixture data.
+
+## 9. Not in this architecture
+
+- A second coding harness or command executor.
+- A public arbitrary-execution sandbox.
+- Remote access to a visitor's local repository.
+- A database service.
+- Automatic publication or submission.
+- A heavy animation or 3D framework.

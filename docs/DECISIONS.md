@@ -1,81 +1,36 @@
-# Decisions
+# Decision ledger
 
-Current decisions for the OpenCode connection, discovery, and supported-control phase. Older decisions remain in the [engineering blueprint](ENGINEERING_BLUEPRINT.md) and idea packet as historical records.
+**Scope:** Phase 4 interface, landing, visual system, motion, and spirit characters.
+**Last updated:** 2026-10-31.
 
-## D-20 — OpenCode remains the only coding harness
+| ID | Decision | Alternatives considered | Rationale | Consequence |
+|---|---|---|---|---|
+| D4-01 | Use the **Ghostlight Hacker Workshop** theme | Generic SaaS landing, bright productivity app, pure terminal | Fits the existing haunted-workshop product while keeping a readable contemporary interface | Deep navy foundation, amber work light, spectral blue accents, layered paper/blueprint/glass/terminal surfaces |
+| D4-02 | Keep the landing page at `/` and the real workshop at `/workshop` | Replace the workshop with a landing page; use a hash route | A first-time visitor needs a product explanation; the workshop needs a stable direct URL | Three routes (`/`, `/demo`, `/workshop`) with SPA fallback |
+| D4-03 | Add a separate deterministic demo at `/demo` | Put fixture controls inside the real workshop; use a video only | Keeps fixture data out of the live workflow and gives visual tests stable states | The demo is explicitly labeled; it never calls a model |
+| D4-04 | Lazy-load the workshop and demo | One large bundle | Landing is the first visit; workshop-specific Motion/API code should not block it | Initial JS 192.8 KiB gzip; workshop chunk 54.8 KiB; demo 2.6 KiB |
+| D4-05 | Do not add an animation framework | GSAP, Lottie, Rive, Three.js | Motion and CSS already cover entry, state, and transitions; measured need is low | No new runtime; animation stays small and state-bound |
+| D4-06 | Draw the four spirits as original inline SVG | Generated character images; copied mascots | Crisp at every size, tiny, themeable, accessible, state-driven, and provably original | Characters are code in `SpiritCharacter.tsx`; every state is a class |
+| D4-07 | Generate one original hero image with the authorized image tool | Pure CSS landscape; stock photo; no hero image | The prompt calls for a cinematic workshop with atmospheric depth and copy space; generation was authorized | Master + responsive AVIF/WebP/JPEG outputs, prompt/provenance documented; no text/logos/watermarks |
+| D4-08 | Keep source masters out of the shipped bundle | Ship the master and resize in the browser | Avoids multi-hundred-KiB downloads and layout shift | `assets/source/` is separate from `public/assets/hero/`; explicit dimensions in `<picture>` |
+| D4-09 | Use semantic stage navigation, not disabled buttons | Keep disabled tab buttons | Disabled buttons are skipped by keyboard focus and imply interactivity | `<nav><ol><li aria-current="step">` with mini spirits and state text |
+| D4-10 | Use native `<dialog>` for setup help | Custom modal | Built-in focus trapping, Escape behavior, and backdrop semantics | Opening help never implies the engine is connected |
+| D4-11 | Use tabbed setup commands with roving tabindex | Static code blocks | The landing must show several tested commands without a wall of code | Arrow/Home/End keyboard support and copy action |
+| D4-12 | Keep workflow authorization untouched | Refactor auth while restyling | Phase 3 semantics are working and security-sensitive | No changes to session-token checks, exact-version approvals, Maker scope, or native permission authority |
+| D4-13 | Make the deterministic demo read-only | Let visitors run fake actions | Fake actions would undermine the honesty claim | Fixture controls step through states; real actions live in `/workshop` |
+| D4-14 | Commit Playwright visual snapshots | Manual screenshots only | The prompt requires visual snapshots and keyboard/contrast/reduced-motion checks | `npm run test:visual`; snapshots in `tests/visual/snapshots/` |
+| D4-15 | Prefer system Chrome/Chromium for visual tests, with Playwright fallback | Require a fixed browser download | Works in the verified Linux environment without a second browser install | `PLAYWRIGHT_CHROMIUM_EXECUTABLE` is honored; otherwise Playwright's browser is used |
+| D4-16 | Do not use fabricated social proof | Testimonials, counts, awards | The product has no measured users or endorsements | Landing copy states the absence of fabricated claims |
+| D4-17 | Remove Node `--watch` from the default dev script | Keep watch and require `.env` | Pinned Node crashes watching a missing `.env`; default setup must work from a clean checkout | `npm run dev` is stable; `npm run dev:watch` is opt-in with `.env` |
+| D4-18 | Keep the hero image decorative and put all meaning in HTML | Put product copy in the image | Accessibility, localization, and performance | Hero `<picture>` is `aria-hidden`; headings and CTAs are real text |
+| D4-19 | Merge the first-run connection/discovery wizard into the workshop route | Keep the merged version's workshop at `/` and rebuild onboarding as a separate app | A visitor needs the landing page first, but the real workflow still needs a guided connection step | `/workshop` shows onboarding when OpenCode is reachable without a selected model; an unavailable engine keeps the workshop visible with a repair action |
+| D4-20 | Discover models, providers, agents, and permissions instead of assuming a fixed model | Keep the old fixed DeepSeek assumption | The merged OpenCode integration correctly treats the catalog as server-owned and time-limited | A model must be reported by OpenCode; a disappeared model blocks a run; provider keys stay in OpenCode |
+| D4-21 | Keep the advanced OpenCode panel collapsed behind `<details>` | Put all session/permission controls in the main four-stage layout | Model/session controls are power-user surfaces; the main workflow should stay readable | Advanced controls remain reachable but do not compete with the current stage |
+| D4-22 | Preserve the remote onboarding commit and integrate it rather than overwrite it | Push the Phase 4 commit over the remote or discard onboarding | The remote work is user work and adds required connection functionality | Rebase replay preserved both histories; 63 tests pass after integration |
 
-**Decision.** The application does not add a second agent loop, provider client, tool executor, or command runner. It calls the OpenCode server through the exact `@opencode/client` version and keeps product roles as adapters.
+## Open follow-ups (not Phase 5 work)
 
-**Reason.** The product value is the workshop, staged approvals, and evidence. Rebuilding execution would duplicate permission and recovery logic.
-
-## D-21 — Discovery replaces the fixed DeepSeek assumption
-
-**Decision.** Models, providers, limits, modalities, tool support, reasoning variants, and availability come from the OpenCode catalog. The project stores the chosen model and each operation/evidence row records the model used.
-
-**Reason.** A fixed model becomes wrong when a catalog changes, a provider is removed, or a user chooses another supported model. The fixed identity remains only as a migration hint.
-
-**Consequences.** A user must choose a model when the catalog has one. If the saved model disappears, the app reports `MODEL_UNAVAILABLE` and does not silently substitute.
-
-## D-22 — Variants are model-reported, never a universal scale
-
-**Decision.** Only variant IDs returned for the selected model are selectable. “Model default” means no explicit variant. The app does not invent low/medium/high for a model that does not report them.
-
-**Reason.** OpenCode documents that variant names come from the selected model's current catalog metadata and unknown variants fail model resolution.
-
-## D-23 — Provider keys never enter Unfinished Business
-
-**Decision.** The application has no provider-key field, route, log field, browser storage key, project field, or export field. The only credential it accepts is the OpenCode server Basic-auth password.
-
-**Reason.** OpenCode owns provider authentication. Duplicating it creates a second secret store and a new leak surface.
-
-**Consequences.** The wizard asks only for the server password. Unknown credential-shaped request fields are rejected. Hosted deployments configure provider accounts inside OpenCode or its environment.
-
-## D-24 — The OpenCode server password is memory-only in the wizard
-
-**Decision.** A password entered in the wizard is held in the application process. `connection.json` stores URL, auth mode, username, and a “password previously configured” flag, never the password. Non-interactive deployments use `OPENCODE_PASSWORD` from their secret store.
-
-**Reason.** It avoids a new on-disk secret format while keeping local first-run usable. A restart can require re-entry; that is an honest state, not a silent auth failure.
-
-**Consequences.** After a restart without `OPENCODE_PASSWORD`, the next check returns `authentication_required`. The UI says the process no longer holds the password.
-
-## D-25 — Connection checks are read-only
-
-**Decision.** A check calls `/api/info`, catalogs, agents, permissions, commands, skills, MCP, and config. It does not prompt a model, edit a session, or change provider state. The live diagnostic may create/get/remove one empty session; it never prompts.
-
-**Reason.** “Connected” must not imply inference succeeded or a paid request occurred.
-
-## D-26 — Remote URLs require HTTPS; loopback may use HTTP
-
-**Decision.** `http://` is limited to `localhost`, `127.0.0.1`, and `::1`. Other hosts must be `https://`. Credentials in a URL are rejected.
-
-**Reason.** A server password over plaintext remote HTTP is unacceptable. The app connects server-side, so browser CORS is not a reason to weaken this rule.
-
-## D-27 — Session actions are project-scoped
-
-**Decision.** The session API lists and acts only on sessions referenced by the active project. It does not enumerate every OpenCode session. Fork/compact/revert/interrupt require that ownership check.
-
-**Reason.** A shared OpenCode instance may contain other projects' sessions. A browser control must not become a cross-project administration surface.
-
-## D-28 — Maker runs are asynchronous and persisted
-
-**Decision.** `POST /api/runs` returns `202` after persisting a `QUEUED` operation and starting the in-process runner. Completion is written against the latest project revision. A restart converts in-flight runs to `UNKNOWN`; cancellation cannot be overwritten by a late completion.
-
-**Reason.** The Phase 1 prerequisite required a non-blocking, non-lossy run model. Holding an HTTP request for a multi-minute model turn loses the request on a proxy timeout and hides progress.
-
-## D-29 — Unsupported controls are deferred visibly
-
-**Decision.** The installed version's gaps are rendered as deferred with a reason. In `2.0.32`: no separate HTTP tool catalog; no provider quota; formatter/LSP is configuration presence only; fork requires a non-empty session.
-
-**Reason.** “Not supported” is a product state, not a reason to guess an endpoint or fabricate a capability.
-
-## D-30 — Deployment modes are explicit
-
-**Decision.** `local`, `hosted-private`, and `hosted-demo` have different connection-edit and credential rules. Hosted modes manage the connection through environment/secret stores and expose read-only connection UI. The public demo never asks visitors for provider keys.
-
-**Reason.** A shared hosted instance must not turn a browser visitor into the owner of the OpenCode server or provider account.
-
-## D-31 — Version policy is major-compatible with tested-patch warnings
-
-**Decision.** Accept OpenCode major 2; warn/degrade on a patch other than `2.0.32`; reject other majors. Record the tested version in the integration document and expose it through the live diagnostic.
-
-**Reason.** The HTTP contract is versioned by major, but optional fields and controls can drift within a major. A warning is more honest than claiming untested compatibility.
+- A real recorded demo and final submission assets remain separate acceptance work.
+- The free-model route remains account-dependent and time-limited.
+- A public hosted URL is not asserted until a deployment is verified.
+- Any future change to the asset budget or claims requires updating `docs/UX_AND_VISUAL_SYSTEM.md` and `docs/PRODUCT_BRIEF.md`.

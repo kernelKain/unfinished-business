@@ -1,54 +1,53 @@
 # Changelog
 
-All notable changes to Unfinished Business. Dates are local execution dates.
-
-## Unreleased — Phase 2
+## 2026-10-31 — Ghostlight interface (Phase 4)
 
 ### Added
 
-- OpenCode connection state model: `not_configured`, `checking`, `connected`, `authentication_required`, `incompatible_version`, `unavailable`, `degraded`.
-- First-run wizard for server URL, Basic-auth username/password, connectivity test, provider readiness, model choice, reported variants, and harmless verification.
-- Provider/model discovery normalization: display names, pricing/free/paid, local status when known, context/input/output limits, modalities, tool support, reasoning support source, variants, availability.
-- Expandable OpenCode panel: model/variant selection, agents and explicit role mapping, pending permissions, commands, skills, MCP servers, formatter/LSP configuration, project-scoped sessions, usage.
-- Model selection persisted in project schema v2; Maker records the selected model in its operation and evidence.
-- Migration from v1 fixed-model projects to v2 with a legacy hint that is used only when the model is still reported.
-- Project-scoped session list/resume/interrupt/fork/compact/revert and permission replies.
-- Opt-in live compatibility diagnostic: `npm run diagnose:opencode`.
-- Deployment modes: `local`, `hosted-private`, `hosted-demo`.
-- Actionable diagnostics for password mismatch, provider auth, unavailable/disabled/unreported models, unsupported variants, unsupported server version, origin/proxy rejection, local model limits, and process restart.
+- Landing page at `/` with hero, OpenCode-only positioning, two honest usage paths, four-spirit workflow, deterministic demo teaser, Run Inspector preview, idea-to-tool recommendations, tested local setup tabs, privacy boundary, FAQ, and final CTA.
+- Deterministic walkthrough at `/demo` with scripted fixture labels, all-state spirit gallery, fixture evidence, and recovery/error states.
+- Original inline SVG Oracle, Architect, Maker, and Witness characters with distinct idle, working, permission, blocked, warning, and success states.
+- Ghostlight design tokens for color, type, spacing, radius, elevation, borders, focus, motion, and status.
+- Native setup dialog, accessible setup command tabs with copy support, semantic four-stage navigation, section cards, Run Inspector, empty states, and error/warning panels.
+- Responsive hero asset pipeline (`scripts/build-hero-assets.py`) with a 21:9 master, AVIF/WebP/JPEG outputs, a 3:4 mobile crop, and explicit dimensions.
+- Component/route tests (`tests/web.test.ts`) and Playwright visual/accessibility tests (`tests/visual/landing.spec.ts`) with committed snapshots.
+- Production budget check (`scripts/check-budget.mjs`).
+- Documentation: product brief, UX/visual system, local setup, hosted deployment, demo/submission guidance, architecture, decisions, implementation plan, changelog.
+
+### Integrated
+
+- Merged the remote OpenCode onboarding/discovery work rather than overwriting it. `/workshop` now uses the first-run connection wizard, discovered provider/model/variant selection, active-run polling and cancellation, project-owned session controls, pending permissions, usage, and deployment-mode policy.
+- Added `src/web/onboarding.tsx` and `src/web/opencode-panel.tsx` to the Ghostlight interface, with the advanced panel collapsed by default.
+- Added a visual snapshot for the first-run connection panel and kept the landing/demo snapshots intact.
+- Preserved `src/server/opencode/connection.ts`, discovery, sessions, role mapping, and the new API contract from the remote commit.
 
 ### Changed
 
-- Replaced the hard-coded free DeepSeek model with the discovered `engine` selection.
-- `POST /api/runs` now returns `202` immediately and the browser polls persisted state. The run manager records `QUEUED`/`RUNNING`/terminal states, model, agent, and timestamps.
-- Background project updates use latest-revision retry; store writes are serialized and use UUID temp names.
-- Cancellation interrupts the native session and cannot be overwritten by a late completion.
-- Process restart converts in-flight operations to `UNKNOWN` for explicit reconciliation.
-- Provider credentials are never accepted by the application; only the OpenCode server password is accepted (memory-only in the wizard).
-- Active setup docs and README no longer instruct users to require a fixed model.
+- `App.tsx` is now a small route switch; the workshop moved to `src/web/workshop/WorkshopPage.tsx`.
+- Workshop header, stage navigation, outline, document, Activity/evidence rail, and setup affordances use the shared visual system.
+- The old single-page workshop stylesheet was replaced by the tokenized Ghostlight system.
+- `npm run dev` no longer uses Node watch mode by default; `npm run dev:watch` is opt-in for environments with `.env`.
+- README now documents the landing, demo, workshop, and current verification commands.
 
-### Tests
+### Fixed
 
-- Non-blocking run lifecycle, completion, failure, duplicate action, cancellation, and inactive-run behavior.
-- URL policy, version policy, auth failure/recovery, provider/model normalization, secret redaction, local-limit diagnostics, managed-mode lock.
-- v1 → v2 migration and persistence.
-- Model/variant validation and onboarding HTTP flow.
-- Project-scoped session authorization and actions.
-- Onboarding browser end-to-end flow against a mock `2.0.32` OpenCode server.
-- Full suite: 55 tests pass; typecheck and production build pass.
+- Corrected the pinned OpenCode invocation in setup guidance to execute the ELF binary directly.
+- Fixed horizontal overflow at 200% text zoom caused by flex-item wrapping in check lists and non-wrapping status chips.
+- Fixed mobile header overflow by allowing controlled wrapping.
+- Fixed a missing capsule/portrait hero crop for narrow screens.
+- Added reduced-motion `animation: none` fallback so character states remain complete without motion.
 
-### Deferred
+### Verification
 
-- Separate tool catalog (not exposed by OpenCode `2.0.32`).
-- Provider quota/balance (not exposed by the HTTP API).
-- Live formatter/LSP health.
-- Phase 3 final acceptance and submission materials.
+- `npm run typecheck` — pass.
+- `npm test` — 63 pass.
+- `npm run build` — pass.
+- `npm run budget` — pass (initial JS 192.8 KiB gzip; CSS 12.6 KiB; hero 570.9 KiB total).
+- `npm run test:visual` — 13 pass, 23 snapshots.
+- Keyboard focus order, dialog Escape, setup tab arrow keys, contrast, reduced motion, 200% zoom, and 390px overflow checked by the visual suite.
 
-## Phase 1 prerequisite — asynchronous runs
+### Not in this entry
 
-- Maker runs are queued and executed outside the HTTP request; operation state remains the source of truth.
-- Restart and cancellation are loss-aware rather than replaying native work.
-
-## Historical phases
-
-The project previously committed the foundation, durable workflow, and guided workshop experience. The [engineering blueprint](ENGINEERING_BLUEPRINT.md) records those phases and their evidence, including the earlier fixed-model proof. That record is intentionally preserved as history; the current contract is [OPENCODE_INTEGRATION.md](OPENCODE_INTEGRATION.md).
+- A live free-model run was not repeated.
+- No public hosted URL, testimonial, usage figure, award, or endorsement is claimed.
+- Phase 5 was not started.

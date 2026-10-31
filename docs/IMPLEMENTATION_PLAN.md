@@ -1,64 +1,79 @@
-# Implementation plan
+# Implementation plan and phase record
 
-## Phase 1 prerequisite — asynchronous run lifecycle
+**Last updated:** 2026-10-31.
+**Current boundary:** Phase 4 complete and verified. Phase 5 has not started.
 
-Status: **implemented, tested, documented** before Phase 2 configuration UI.
+## Phase history
 
-| Unit | Work | Evidence |
+| Phase | Outcome | State |
 |---|---|---|
-| P1.1 | Persist `QUEUED`/`RUNNING`/terminal operation state with model, agent, start/finish timestamps. | `src/server/experience/runs.ts`, `src/server/workflow/model.ts` |
-| P1.2 | Return `202` from `POST /api/runs` after enqueue; poll project state instead of holding the request. | `src/server/app.ts`, `src/web/api.ts`, `src/web/App.tsx` |
-| P1.3 | Apply background completion against the latest revision; serialize store writes and use unique temp files. | `WorkflowService.executeLatest`, `AtomicProjectStore` |
-| P1.4 | Interrupt/cancel semantics that cannot be overwritten by late completion. | `ExperienceService.cancel`, `MakerRunCoordinator` |
-| P1.5 | Restart recovery: in-flight runs become `UNKNOWN`, never replayed. | `markInterruptedRuns` in `src/server/index.ts` |
-| P1.6 | Tests for non-blocking return, completion, failure, duplicate action, cancel, and inactive run. | `tests/runs.test.ts`; 53 tests pass |
+| Foundation | Node/Hono/React/Vite shell, atomic project store, shared contracts | Complete |
+| Staged workflow | Oracle, Architect, Maker, Witness transitions; exact-version approvals; dependency invalidation | Complete |
+| Guided experience | Real native edit path, recovery, Run Inspector data, evidence references | Complete |
+| OpenCode onboarding/discovery | First-run connection wizard, model/provider/agent discovery, model selection, sessions, permissions, usage, deployment modes | Complete and verified |
+| Phase 4 — Ghostlight interface | Landing page, visual system, motion, spirit characters, deterministic demo, visual/accessibility tests | Complete and verified |
 
-The Phase 1 async lifecycle is documented in [ARCHITECTURE.md](ARCHITECTURE.md#asynchronous-maker-lifecycle).
+## Phase 4 objective
 
-## Phase 2 — onboarding, discovery, supported controls
+Make the product sell itself as an OpenCode-powered hackathon project builder, explain local and hosted choices honestly, and give the workshop a dimensional, readable, state-driven interface without changing workflow authorization or adding a second coding harness.
 
-Status: **implemented and verified for the local Phase 2 handoff**.
+## Phase 4 work units
 
-| Unit | Work | Primary files |
+| Unit | Outcome | Evidence |
 |---|---|---|
-| 2.1 | Connection state model (`not_configured`, `checking`, `connected`, `authentication_required`, `incompatible_version`, `unavailable`, `degraded`) and diagnostics. | `src/shared/opencode.ts`, `src/server/opencode/connection.ts` |
-| 2.2 | URL policy: loopback HTTP, remote HTTPS, no URL credentials. | `src/server/opencode/client.ts` |
-| 2.3 | First-run wizard: URL/auth, connectivity test, provider readiness, model choice, variant choice, harmless verification. | `src/web/onboarding.tsx` |
-| 2.4 | Provider/model normalization: key, name, pricing, local, limits, modalities, tools, reasoning, variants, availability. | `src/server/opencode/discovery.ts` |
-| 2.5 | Remove the fixed model; schema v2 `engine` selection; v1 migration preserving legacy identity only when the catalog still reports it. No unrelated/paid auto-substitution. | `src/server/workflow/model.ts`, `tests/migration.test.ts`, `tests/connection.test.ts` |
-| 2.6 | Selected-model validation; reject unavailable models and unreported variants. | `ConnectionService.validateSelection`, `tests/onboarding.test.ts` |
-| 2.7 | Capability-driven OpenCode panel: models, agents/roles, permissions, commands, skills, MCP, formatter/LSP, sessions, usage. | `src/web/opencode-panel.tsx` |
-| 2.8 | Role mapping to explicit agents with visible fallback. | `src/server/opencode/discovery.ts`, `src/server/experience/guide.ts` |
-| 2.9 | Project-scoped session list/resume/interrupt/fork/compact/revert and permission replies. | `src/server/opencode/sessions.ts`, `tests/sessions.test.ts` |
-| 2.10 | Maker uses the chosen model and records it in operation/evidence/export. | `src/server/experience/service.ts`, `src/server/experience/runs.ts`, `tests/experience.test.ts` |
-| 2.11 | Secret redaction and rejection of provider-key payloads; no browser storage. | `src/server/opencode/client.ts`, `src/server/app.ts`, `tests/connection.test.ts` |
-| 2.12 | Deployment modes and managed connection UI. | `src/server/index.ts`, `src/web/onboarding.tsx`, `render.yaml` |
-| 2.13 | Opt-in live compatibility diagnostic. | `scripts/opencode-live-diagnostic.ts` |
-| 2.14 | Documentation set and active-doc cleanup. | `docs/*`, `README.md`, `.env.example` |
+| P4-01 | Verify Phase 3 navigation and preserve stage/approval semantics | Existing workflow tests remain green; stage strip rebuilt as a semantic list |
+| P4-02 | Define Ghostlight tokens and component system | `src/web/styles.css`, this docs set |
+| P4-03 | Build the landing page and all required sections | `src/web/landing/`, `tests/web.test.ts` |
+| P4-04 | Build the deterministic demo and state gallery | `src/web/demo/`, `/demo` route |
+| P4-05 | Create hero and character assets | `assets/source/`, `public/assets/hero/`, `SpiritCharacter.tsx`, `scripts/build-hero-assets.py` |
+| P4-06 | Apply the system to workshop header, stages, cards, inspector, dialogs, errors, empty states, setup panels | `src/web/workshop/`, shared components |
+| P4-07 | Add motion with reduced-motion fallbacks | CSS state classes + Motion seal entry; Playwright reduced-motion test |
+| P4-08 | Add component/route and visual/accessibility tests | `tests/web.test.ts`, `tests/visual/landing.spec.ts`, `tests/visual/snapshots/` |
+| P4-09 | Measure and document production budget | `scripts/check-budget.mjs`, `docs/UX_AND_VISUAL_SYSTEM.md` |
+| P4-10 | Update setup, deployment, product, architecture, decision, demo, README docs | This documentation set |
+| P4-11 | Integrate the remote OpenCode onboarding/discovery work without losing either history | Rebased Phase 4 onto `origin/main`; first-run wizard, model discovery, sessions, permissions, and usage wired into `/workshop`; 63 tests pass |
 
-## Verification matrix
+## Verification gate
 
-| Check | Status | Evidence |
-|---|---|---|
-| Typecheck | PASS | `npm run typecheck` |
-| Full tests | PASS — 55 tests | `npm test` (connection, migration, onboarding, runs, sessions, experience, workflow, recovery) |
-| Production build | PASS | `npm run build`; Vite reports only the existing large-chunk warning |
-| Live OpenCode compatibility | PASS for tested surface | `npm run diagnose:opencode` against `2.0.32`; no inference |
-| Onboarding browser E2E | PASS | built app + mock server at `2.0.32`: unavailable → reconnect → model step → model saved; no secrets in browser storage or API response |
-| Secret redaction | PASS | `tests/connection.test.ts` |
-| Async run prerequisite | PASS | `tests/runs.test.ts` |
-| Model migration | PASS | `tests/migration.test.ts` |
+Run in this order:
 
-## Deferred / out of scope
+```bash
+npm run typecheck
+npm test
+npm run build
+npm run budget
+npm run test:visual
+```
 
-- Phase 3: independent final acceptance, article/video/social/submission materials.
-- A separate tool catalog UI (not exposed by OpenCode `2.0.32`).
-- Provider quota/balance programmatically (not exposed by the HTTP API).
-- Live formatter/LSP health (configuration presence only).
-- Automatic provider-key entry (never; keys belong in OpenCode).
-- Arbitrary remote OpenCode URLs over plain HTTP (never).
-- Automatic replay of an interrupted native run (never; reconcile instead).
+Observed results on 2026-10-31:
 
-## Phase handoff rule
+| Check | Result |
+|---|---|
+| Typecheck | PASS |
+| Unit/integration/component tests | PASS — 63 tests |
+| Production build | PASS |
+| Budget | PASS — initial JS 192.8 KiB gzip, all JS 250.2 KiB, CSS 12.6 KiB, hero 570.9 KiB total, largest hero 86.7 KiB |
+| Playwright visual/accessibility suite | PASS — 13 tests, 23 snapshots |
+| 200% text zoom | PASS |
+| 390px overflow | PASS |
+| Reduced motion | PASS (`animation: none`) |
+| Token contrast (tested pairs) | PASS (≥4.5:1) |
+| Setup commands | `npm ci`, `npm run dev`, `npm run dev:web`, build/start verified; OpenCode `--version` and `serve --help` verified |
 
-Stop after Phase 2 verification and documentation. Do not start Phase 3.
+A live free-model call is not part of the Phase 4 gate. The previous native execution evidence remains the Phase 3 record; Phase 4 did not re-run inference.
+
+The remote `9bc5782` OpenCode onboarding/discovery commit was integrated rather than overwritten. It was replayed under the Phase 4 commit, and the workshop route now uses the new connection/model/session APIs. The integration preserves the remote work and the landing/demo/visual-system work in one history.
+
+## Exit criteria
+
+- A first-time visitor can explain the product, the four roles, OpenCode's role, and the two usage paths.
+- The landing page contains tested local setup guidance.
+- The interface has visible depth and coherent state-driven motion without harming readability.
+- Characters are distinct, original, accessible, and tied to workflow state.
+- Reduced-motion and low-bandwidth fallbacks remain complete.
+- Production assets meet the documented budget; tests and build pass.
+- Workflow authorization is unchanged.
+
+## Next boundary
+
+Stop at Phase 4. Phase 5 is not started and requires a new explicit instruction.

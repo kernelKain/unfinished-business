@@ -1,98 +1,327 @@
-# UX and visual system
+# UX and visual system — Ghostlight Hacker Workshop
 
-The product is a guided workshop, not a control panel. The main journey is always visible first; OpenCode configuration and harness controls live behind one expandable panel.
+**Status:** Implemented in Phase 4. Last updated 2026-10-31.
+**Source of truth:** `src/web/styles.css`, `src/web/spirits.ts`, `src/web/components/`, `src/web/content/landing.ts`.
 
-## Onboarding states
+## 1. Theme
 
-The first-run wizard has three visible steps: **Server**, **Model**, **Verify**.
+The Ghostlight Hacker Workshop is a deep-navy night workshop lit by one amber work lamp and a spectral blue engine glow. Four friendly spirits occupy the bench:
 
-| State | What the user sees | Primary action |
+- **Oracle** — lantern orb seer.
+- **Architect** — spectral blueprint/compass spirit.
+- **Maker** — friendly mechanical ghost with a tool belt.
+- **Witness** — archival moth with a camera lens eye.
+
+The theme is atmospheric, not decorative at the expense of clarity. Every surface is layered from a dark foundation: matte paper, blueprint lines, smoked glass, and terminal black. Depth comes from gradients, inset highlights, borders, and restrained shadows. There is no scroll hijacking, no continuous high-cost animation, and no essential information inside an image.
+
+### Visual principles
+
+1. **Readable first.** Body copy stays at AA contrast; amber is an accent, not a paragraph color.
+2. **One obvious next action.** Each stage has a primary action and a visible stop condition.
+3. **Show the boundary.** Permission, scope, failure, and empty states are designed surfaces, not error afterthoughts.
+4. **Depth with restraint.** Small SVG characters and layered surfaces carry the theme; no WebGL or heavy 3D runtime.
+5. **Honest artifacts.** A fixture is labeled a fixture. A failure is labeled a failure.
+
+## 2. Design tokens
+
+Tokens live in `:root` in `src/web/styles.css`.
+
+### Color
+
+| Token | Value | Use |
 |---|---|---|
-| `not_configured` | The start command, URL field, username, password field, and the provider-key ownership note. | **Test connection** |
-| `checking` | Button label changes to **Checking…**; no success is implied. | Wait |
-| `authentication_required` | “OpenCode rejected the application connection” plus the server-password repair, not a provider-key request. | Re-enter password / retry |
-| `incompatible_version` | Exact server version, tested `2.0.32`, and a 2.x repair. | Install compatible server |
-| `unavailable` | “The server did not answer” plus start/URL/port repair. | Start OpenCode, retry |
-| `connected` / `degraded` | Provider readiness, full model list, limit/pricing/tool/modality facts, and only the variants reported for the chosen model. | Choose model |
-| Model saved | Model and variant appear in the main journey’s **Run model** panel and in the OpenCode panel. | Continue journey |
-| Wizard dismissed | The journey is visible with a connection/model banner; Maker stays blocked until setup is repaired. | **Choose model** / **Open setup** |
+| `--ink-0` | `#05070d` | Page foundation |
+| `--ink-1` | `#090d17` | Hero/panel base |
+| `--ink-2` | `#0e1422` | Raised surface |
+| `--ink-3` | `#141c2f` | Card surface |
+| `--ink-4` | `#1b2540` | Highest neutral surface |
+| `--paper` | `#f0ebe1` | Display headings, paper light |
+| `--paper-soft` | `#ded7c9` | Secondary light text |
+| `--amber` | `#f3b66d` | Primary action, lantern light |
+| `--amber-bright` | `#ffd08a` | Action gradient top, focus |
+| `--amber-ink` | `#24170a` | Text on amber actions |
+| `--violet` | `#b9a4ff` | Eyebrows, Witness, spectral accent |
+| `--spectral` | `#8ba4ff` | Blue engine light |
+| `--cyan` | `#9fe7ff` | Architect, terminal accents |
+| `--mint` | `#8fe3b8` | Success |
+| `--rose` | `#ffb4a8` | Errors and blocked states |
+| `--text` | `#f4f1e9` | Primary text |
+| `--text-muted` | `#b8b3c7` | Body copy |
+| `--text-dim` | `#8d88a0` | Metadata and captions |
 
-### Copy rules
+### Surfaces and borders
 
-- Say **OpenCode server password**, never “API key”.
-- State clearly that provider keys stay in OpenCode and that the workshop cannot accept them.
-- A failure names the exact state and gives one repair path. Do not say “something went wrong”.
-- A model is never called “free” unless every reported cost row is zero.
-- A model is never given a generic low/medium/high scale. Variants are exactly the reported IDs, plus **Model default**.
-- Usage is shown only when reported; otherwise say “not reported”, not `0`.
-- Quota is not available programmatically; link to the provider console and say so.
-
-## Main journey
-
-The existing spirit strip, lantern, outline, working document, and activity/evidence sidebars remain. New information is deliberately small:
-
-- A **Run model** panel in the left sidebar shows the selected model, variant, pricing, tool support, context, and local status.
-- Connection problems appear as a banner above the working document with **Open setup** or **Review**.
-- An active run appears as a banner saying it is working in the background, with **Cancel run**. The saved document is not replaced by a blocking spinner.
-- An unselected or disappeared model blocks Maker with an explicit **Choose model** action. No silent substitution.
-- The top bar has an **OpenCode** button for the connection wizard.
-
-## Advanced OpenCode panel
-
-One `<details>` disclosure, collapsed by default, labelled **OpenCode settings and controls**. Sections:
-
-1. **Status** — state pill, URL, version, managed/local, refresh, connection setup, diagnostics.
-2. **Model and reasoning** — discovered models grouped by provider, variant list for the chosen model, pricing/limits/tools/modality/locality, **Save model**.
-3. **Agents, roles, and permissions** — Oracle/Architect/Maker/Witness mapping with explicit fallback; visible agents; pending requests with **Allow once**, **Always**, **Reject**.
-4. **Discovered harness capabilities** — supported/deferred matrix with a reason for each deferred item; commands, skills, MCP, formatter/LSP configuration.
-5. **Usage, tokens, and cost** — only reported totals; quota explanation and provider links.
-6. **Project sessions** — list/resume, fork (disabled when empty), compact, interrupt, revert stage/clear/commit, cancel active run.
-7. **Export check** — the same review-note limitation as the journey.
-
-### Deferred rendering
-
-A control the installed version does not support is rendered as **deferred**, not hidden and not fabricated. Examples: separate tool catalog, provider quota, live formatter/LSP health. The reason is visible in the capability grid and in `docs/OPENCODE_INTEGRATION.md`.
-
-## Visual tokens
-
-The existing haunted-workshop palette is retained:
-
-- background `#111018`, surface `#1b1824`, raised `#252031`;
-- text `#f4f0e8`, muted `#b8afca`;
-- accent `#f4b66c`, spirit `#bfa3ff`, success `#8bd5a7`, danger `#ffb4a8`;
-- Georgia for headings, system sans for UI, monospace for technical metadata;
-- 16px cards, 12px controls, 44px minimum action height.
-
-New components reuse these tokens rather than introducing a second design language.
-
-## Accessibility
-
-- Onboarding is a labelled region; diagnostics are a list with text, not color alone.
-- State pills include the state word, so color is supplementary.
-- The advanced panel uses native disclosure semantics.
-- Inputs have visible labels; the password field has a specific description.
-- Focus remains a 3px solid outline plus a `box-shadow` ring for browsers that report outline style inconsistently.
-- Reduced-motion preference disables the lantern flicker and seal fade.
-- `prefers-contrast: more` strengthens borders; forced-colors keeps buttons and the lantern usable.
-- The layout stacks at narrow widths; long model IDs, URLs, diagnostics, and diffs wrap rather than overflow.
-
-## Error and recovery copy examples
-
-| Situation | Copy |
+| Token | Value/role |
 |---|---|
-| Password mismatch | “OpenCode rejected the application connection. Enter the same password printed by `opencode serve`.” |
-| No models | “OpenCode returned no selectable models. Connect a provider inside OpenCode with `/connect`, then retry.” |
-| Unavailable model | “The selected model is no longer reported by OpenCode. Choose another model; the previous selection was not replaced automatically.” |
-| Unsupported variant | “Variant `max` is not attached to this model. Reported variants: low, medium, high.” |
-| Local limits | “This local model reports a small context/output window. Reduce scope or choose a model with larger limits. OpenCode does not report free RAM or VRAM.” |
-| Origin/proxy | “A proxy or origin rule rejected the server-side request. Browser CORS is not required because the app connects from its own process.” |
-| Restart during run | “The application restarted while this native run was in flight. Reconcile the OpenCode session before another attempt.” |
+| `--surface-1` | `rgb(14 20 34 / 82%)` glass panel |
+| `--surface-2` | `rgb(20 28 47 / 78%)` raised glass |
+| `--surface-3` | `rgb(27 37 64 / 72%)` selected surface |
+| `--surface-paper` | `rgb(240 235 225 / 7%)` paper wash |
+| `--surface-terminal` | `#070b12` command terminal |
+| `--border` | `rgb(226 222 255 / 13%)` |
+| `--border-strong` | `rgb(226 222 255 / 26%)` |
+| `--border-amber` | `rgb(243 182 109 / 42%)` |
+| `--border-violet` | `rgb(185 164 255 / 38%)` |
 
-## What not to do
+Layering order: page gradient → section glass → paper/blueprint inset → terminal block. Do not stack more than three translucent surfaces in one card.
 
-- Do not put provider-key inputs anywhere.
-- Do not put model or connection controls in the main document.
-- Do not show a fixed model name in marketing copy or a default chip.
-- Do not claim a run passed, a model is free, or a quota is available without an observed value.
-- Do not auto-approve a permission request.
-- Do not automatically switch a project to a different model when the saved one disappears.
+### Typography
+
+| Token | Stack/role |
+|---|---|
+| `--font-display` | `"Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif` |
+| `--font-ui` | `"Avenir Next", Avenir, "Segoe UI", Inter, system-ui, -apple-system, sans-serif` |
+| `--font-mono` | `"SFMono-Regular", "Cascadia Code", "Roboto Mono", ui-monospace, monospace` |
+| `--leading-tight` | `1.02` |
+| `--leading-snug` | `1.2` |
+| `--leading-body` | `1.65` |
+
+- Display headings use the serif at weight 500 with balanced wrapping.
+- UI labels use the sans stack at 600–700.
+- Status, state, command, and metadata text use mono, uppercase, with letter spacing.
+- No web font is downloaded. System fallbacks keep first paint fast and privacy-preserving.
+
+### Spacing, radius, elevation
+
+| Group | Values |
+|---|---|
+| Spacing | `0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6rem` (`--space-1` … `--space-9`) |
+| Radius | `6, 10, 16, 24, 32px`, pill `999px` |
+| Shadow 1 | inset top highlight + `0 8px 24px rgb(0 0 0 / 18%)` |
+| Shadow 2 | inset top highlight + `0 18px 48px rgb(0 0 0 / 32%)` |
+| Shadow 3 | inset top highlight + `0 32px 90px rgb(0 0 0 / 45%)` |
+| Glow | amber `0 0 40px rgb(243 182 109 / 18%)`; violet `0 0 44px rgb(139 164 255 / 18%)` |
+
+### Motion
+
+| Token | Value |
+|---|---|
+| `--dur-instant` | `80ms` |
+| `--dur-fast` | `140ms` |
+| `--dur-base` | `240ms` |
+| `--dur-slow` | `520ms` |
+| `--ease-standard` | `cubic-bezier(0.2, 0.7, 0.2, 1)` |
+| `--ease-out` | `cubic-bezier(0.16, 1, 0.3, 1)` |
+
+### Status
+
+| Tone | Token | Usage |
+|---|---|---|
+| Positive | `--status-positive` `#8fe3b8` | PASS, SUCCEEDED, APPROVED, GRANTED |
+| Active | `--status-active` `#9fe7ff` | RUNNING, QUEUED, DRAFT, DRAWING |
+| Warning | `--status-warning` `#ffd08a` | WAITING_PERMISSION, UNKNOWN, NOT_RUN, INCONCLUSIVE, STALE |
+| Danger | `--status-danger` `#ffb4a8` | FAIL, FAILED, BLOCKED, CANCELLED |
+| Neutral | `--status-neutral` `#b8b3c7` | NOT_STARTED, NONE, CANCELLED |
+
+Status chips include a dot and text; color is never the only signal. `.status-chip[data-tone]` maps the tone.
+
+## 3. Component rules
+
+### Site header
+
+- Sticky, blurred near-black bar with brand, section anchors, and two actions.
+- Under 720px: navigation collapses; header actions may wrap; the brand name may wrap instead of overflowing.
+- Never hide the primary “Open workshop” action behind hover.
+
+### Hero
+
+- 21:9 cinematic image with a dark left-to-right and bottom-up veil; copy in the left third.
+- `<picture>` serves AVIF, WebP, and a JPEG fallback; mobile gets a 3:4 portrait crop.
+- Explicit `width="1920" height="823"` on the fallback image prevents layout shift.
+- The hero image is decorative (`aria-hidden` on the `<picture>`); its description is preserved in `heroAlt` for catalog and fallback use. All essential meaning is in text.
+- Headline uses a non-breaking `hackathon-ready` unit to avoid an orphaned hyphen.
+
+### Mode cards
+
+- Exactly two on wide screens; one per row on mobile.
+- Each card states what the path **is** and what it **is not**.
+- Do not place a “live” badge on the deterministic sample.
+
+### Spirit cards
+
+- Four columns wide, two at tablet, one on mobile.
+- Art panel, form label, name, role, summary, boundary note, and state pills.
+- Each spirit has its own accent token (amber, cyan, mint, violet).
+- Cards remain readable without animation.
+
+### Stage tabs
+
+- A semantic `<nav aria-label="Four-stage workflow">` containing an ordered list.
+- Non-interactive stage items: they do not pretend to be clickable tabs. `aria-current="step"` marks the current stage.
+- Each item includes a mini spirit, stage number, name, state text, and a visually hidden “Stage X of 4”.
+- Horizontal scroll on narrow screens; never truncate the current stage text.
+
+### Section cards
+
+- Outline items show order, title, status chip, version, and a “Current” flag.
+- Stale sections use a dashed violet border plus text.
+- Current section uses an amber border; do not rely on the border alone.
+
+### Run Inspector
+
+- Read-only presentation of native runs, evidence, and capability boundaries.
+- Empty states say “No native run yet” and “No check observed”; they never show green.
+- Unknown runs show a reconcile action, not an automatic retry.
+- Evidence uses native IDs/references where available; fixture IDs are visibly labeled.
+- Permission footnote: “Workflow approval is not tool permission.”
+
+### Dialogs
+
+- Native `<dialog>` with `showModal()`; Escape closes; click on the backdrop closes.
+- Focus is trapped by the browser dialog, and the close control is first in reading order.
+- Content is instructions only; opening the dialog never claims the engine is connected.
+
+### Errors and warnings
+
+- `.error-panel` for engine unreachable or failed actions; `.warning-panel` for stale or uncertain state.
+- Role `status`, `alert`, or equivalent live semantics depending on urgency.
+- Include the recovery action and state that nothing was overwritten or repeated when true.
+
+### Empty states
+
+- Dashed border, small glyph, plain title, and an explanation of why empty is correct.
+- No illustration that implies content exists.
+
+### Setup panels
+
+- Tabbed commands with roving tabindex, Arrow/Home/End keyboard support, `aria-selected`, and `aria-controls`.
+- Commands are sourced from `docs/LOCAL_SETUP.md` and the repository scripts.
+- Copy button uses the clipboard and provides a visible confirmation.
+- Active tab is indicated by border, background, and color, not color alone.
+
+### First-run connection and model panel
+
+- A two-phase wizard: server check, then model/variant selection.
+- Status copy is derived from `ConnectionStatus`, not optimistic labels. Every failure includes a diagnostic and a repair action.
+- The server URL and password fields are clearly separated from provider credentials. The panel never asks for a provider API key.
+- Model options show the provider/model key, free/paid/unknown pricing, limits, modalities, tool support, and only the variants OpenCode reports.
+- The panel never auto-selects a fixed model. If the catalog changes, the run is blocked until a reported model is selected.
+- In `hosted-private` or `hosted-demo`, configuration is read-only and the panel explains that the deployment manages the connection.
+- Visual treatment: onboarding card on the Ghostlight surface, amber current step, mint completed step, status chips with text.
+
+### Advanced OpenCode panel
+
+- A native `<details>` control, collapsed by default, so it does not compete with the four-stage workflow.
+- Shows connection state, base URL, version, diagnostics, model selection, role mapping, agents, pending permissions, project-owned sessions, usage, and revert controls.
+- Buttons are explicit (`Allow once`, `Always`, `Reject`, `Interrupt`, `Fork`, `Compact`, `Stage revert`, `Clear`, `Commit`); nothing auto-approves.
+- The panel does not enumerate arbitrary sessions. It only exposes sessions referenced by the project.
+- Empty or unsupported values say “not reported” rather than inventing a number.
+
+## 4. Character states
+
+Characters are original inline SVG (`src/web/components/SpiritCharacter.tsx`). They are code, not generated images, so they stay crisp, tiny, accessible, and state-driven.
+
+| Spirit | State | Visual | Workflow trigger |
+|---|---|---|---|
+| Oracle | `idle` | Dim lantern, folded rings | No proposal yet |
+| Oracle | `listening` | Rings shimmer, halo breathes | Idea is being read |
+| Oracle | `clarification` | Three open question motes | Proposal exists with open questions |
+| Architect | `idle` | Compass at rest | Waiting for the next section |
+| Architect | `drawing` | Drafting arm moves, blueprint sheet lifts | Section draft or stale review |
+| Architect | `approval` | Seal star glows | Exact version approved |
+| Maker | `idle` | Tool belt clipped, visor low | No run yet |
+| Maker | `building` | Sparks and tapping arm | QUEUED/RUNNING |
+| Maker | `permission` | Raised hand + amber keyhole | WAITING_PERMISSION or UNKNOWN |
+| Maker | `blocked` | Rose shield with slash | FAILED/CANCELLED/refused |
+| Maker | `success` | Mint ring and check | SUCCEEDED |
+| Witness | `idle` | Folded wings | No review yet |
+| Witness | `scanning` | Lens scan line | Review in progress |
+| Witness | `evidence` | Document impression | Drafts/evidence recorded |
+| Witness | `warning` | Amber triangle pulse | FAIL/INCONCLUSIVE evidence |
+| Witness | `stamp` | Stamp thump | Review filed (not published) |
+
+The state classes also drive the workshop header character: Oracle listening/clarifying, Architect drawing/approval, Maker permission/blocked/success, Witness scanning/evidence/warning.
+
+## 5. Motion rules
+
+- Idle character float: 7s, 3px translate, small SVG only.
+- Working states: ripple, draw, spark, scan, warning pulse, stamp thump. Each is state-bound and small.
+- Entry: one-time opacity/scale on approval seals via Motion.
+- UI transitions: 140–240ms for color, border, and transform.
+- No autoplay carousel, scroll hijack, parallax on large images, or infinite full-page animation.
+- `prefers-reduced-motion: reduce` disables all CSS animations (`animation: none !important`) and reduces transitions to effectively instant. State groups still render because visibility is class-based, not animation-dependent.
+- Hover is never required for information or action.
+
+## 6. Accessibility
+
+- Semantic landmarks (`header`, `nav`, `main`, `footer`), one `h1` per route.
+- Skip link is the first focusable element on each route.
+- Visible 3px amber focus ring with a soft halo.
+- Minimum 44px targets for actions, tabs, stage rows, and demo controls.
+- Tabs use roving tabindex and full arrow-key support.
+- Stage strip is a list, not a set of disabled buttons.
+- Status chips pair color with text.
+- Character SVGs are decorative by default; labelled instances expose `role="img"` and `<title>`.
+- No essential information in the hero image.
+- Text zoom to 200% keeps the page usable; flex/grid children have `min-width: 0`, and long labels wrap.
+- Contrast checks cover body, muted body, amber action text, and warning text; the Playwright suite enforces ≥4.5:1 for the tested token pairs.
+- `prefers-contrast: more` increases border contrast and widths.
+- `forced-colors: active` adds system borders and disables the grain overlay.
+- Reduced-motion and low-bandwidth fallbacks are complete: AVIF → WebP → JPEG, no animation dependency, no font dependency.
+
+## 7. Hero asset: prompt, provenance, crops
+
+### Master
+
+- File: `assets/source/hero-ghostlight-workshop.webp`
+- Dimensions: **1512 × 648** (exactly 21:9)
+- Size: 212 KiB
+- Generated: 2026-10-31 with the environment's authorized image-generation tool, model `openrouter/sourceful/riverflow-v2.6-pro`.
+- Output is an original project asset used under the repository's MIT license. It does not intentionally depict a third-party protected character, logo, or trademark. The source prompt explicitly excluded text, logos, watermarks, and UI panels. The CRT contains abstract geometric shapes only.
+- Master files live outside `public/` and are not shipped.
+
+### Prompt
+
+> Wide 21:9 cinematic matte painting of a spectral hacker workshop at night, designed as a website hero background. An unfinished friendly robot sits on a workbench with a CRT-style terminal, scattered blueprints, coils of cable, and hand tools. Four subtle, friendly glowing spirits drift in the background: a lantern orb, a compass-like blueprint spirit, a small mechanical ghost, and an archival moth with a camera lens. Deep navy and indigo atmosphere, restrained amber lantern/workbench light, ultraviolet and spectral blue glow, layered depth, soft volumetric haze, fine film grain. Composition: keep the left third dark, calm, and uncluttered with empty space for hero copy; place the workbench and characters to the right. Elegant, original, painterly, dimensional. Absolutely no text, no letters, no numbers, no logos, no watermarks, no user interface panels, no frames, no borders.
+
+### Derived outputs
+
+Built by `scripts/build-hero-assets.py` (`npm run assets:hero`) into `public/assets/hero/`:
+
+| Name | Dimensions | Formats | Typical use |
+|---|---|---|---|
+| `hero-ghostlight-wide-1920` | 1920 × 823 | AVIF, WebP | Wide hero ≥1280px |
+| `hero-ghostlight-wide-1280` | 1280 × 549 | AVIF, WebP, JPEG | Default wide |
+| `hero-ghostlight-wide-768` | 768 × 329 | AVIF, WebP, JPEG | Small landscape/fallback |
+| `hero-ghostlight-portrait-900` | 900 × 1200 | AVIF, WebP | Mobile 3:4 crop |
+| `hero-ghostlight-portrait-600` | 600 × 800 | AVIF, WebP | Narrow mobile |
+
+The portrait crop focuses on the workbench robot and CRT; it is generated from the master, not a separate scene. The `<picture>` element selects the mobile portrait below 720px. The fallback `<img>` carries explicit `1920 × 823` dimensions; CSS aspect ratios prevent layout shift for the portrait source.
+
+### Character provenance
+
+All four characters are hand-authored SVG in this repository. They are not generated, traced, or derived from protected characters. Their state vocabulary is defined in `src/web/spirits.ts` and shared with the demo gallery.
+
+## 8. Performance budget
+
+### Budget
+
+| Metric | Budget | Measured (2026-10-31) | Status |
+|---|---|---|---|
+| Initial JS (gzip) | ≤ 220 KiB | 192.8 KiB | PASS |
+| All JS chunks (gzip) | ≤ 280 KiB | 250.2 KiB | PASS |
+| CSS (gzip) | ≤ 15 KiB | 12.6 KiB | PASS |
+| All hero variants (total) | ≤ 640 KiB | 570.9 KiB | PASS |
+| Largest single hero file | ≤ 190 KiB | 86.7 KiB | PASS |
+
+The initial route is the landing page. Workshop and demo are lazy-loaded (54.8 KiB and 2.6 KiB gzip). The workshop chunk includes the connection/discovery wizard and advanced OpenCode panel. The hero transfers **34.7–58.2 KiB** as AVIF on a typical wide viewport and **30.9–49.1 KiB** as AVIF on mobile depending on pixel density; the total covers all breakpoints and formats, not one visit.
+
+### Rules
+
+- Run `npm run build && npm run budget` after changing assets or routes.
+- Update this table deliberately if a budget changes; do not silently raise it.
+- Source masters and test snapshots are excluded from the production bundle.
+- No animation may run continuously on the whole page; motion is limited to small SVGs and short UI transitions.
+- Do not add a second animation framework. Motion and CSS are sufficient.
+
+### Verification commands
+
+```bash
+npm run typecheck
+npm test
+npm run build
+npm run budget
+npm run test:visual
+```
+
+`npm run test:visual` requires a Chromium browser. It prefers `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, then a system Chrome/Chromium, then Playwright's installed browser. Snapshots live in `tests/visual/snapshots/`.

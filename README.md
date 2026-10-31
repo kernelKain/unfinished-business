@@ -1,72 +1,74 @@
 # Unfinished Business
 
-**Bring your ideas to life.**
+**Turn unfinished ideas into hackathon-ready builds.**
 
-A local browser companion built on OpenCode's open-source coding harness. Four friendly spirits guide a builder from an unfinished idea through an approved plan, real implementation, verification, and submission drafts.
+Unfinished Business is an OpenCode-powered hackathon project builder. Four friendly spirits guide one idea through a clear proposal, an approved plan, a real bounded build, and evidence you can defend.
+
+![Ghostlight Hacker Workshop landing page](tests/visual/snapshots/landing-wide.png)
+
+## What it is
+
+- A **landing page** at `/` that explains the product, the four roles, OpenCode's role, and the two honest usage paths.
+- A **deterministic walkthrough** at `/demo` with scripted fixture data, every spirit state, and representative recovery/error states. It does not call a model.
+- The **real workshop** at `/workshop`, which connects to a local OpenCode server and records what actually happened.
+- A **first-run connection and discovery flow** that checks a supported OpenCode server, lists the models/providers/agents it actually reports, and lets the builder choose a model and reported reasoning variant. Provider API keys stay inside OpenCode.
+
+OpenCode supplies the agent loop, model access, native tools, permissions, execution, interruption, and native sessions. Unfinished Business adds the four-stage workshop, exact-version approvals, dependency invalidation, evidence views, the onboarding/discovery flow, and the Ghostlight interface. It does **not** ship a second coding harness or a general command executor.
 
 | Spirit | Role |
 |---|---|
-| Oracle | Clarify an idea and approve a useful product scope |
-| Architect | Present one planning section, revise it, and wait for approval before continuing |
-| Maker | Use OpenCode to perform approved work and show actual results |
-| Witness | Review evidence and prepare honest final materials |
+| Oracle | Clarify an idea into a product proposal and open questions |
+| Architect | Draft one planning section and wait for approval of that exact version |
+| Maker | Perform an approved, bounded native edit through OpenCode |
+| Witness | Inspect evidence in a fresh session and prepare honest review drafts |
 
-OpenCode provides the agent loop, model access, tools, permissions, and native sessions. Unfinished Business adds the workshop interface, stage progression, versioned approvals, decision history, evidence views, and a safe first-run connection/discovery experience.
+## Two ways to use it
 
-## Status
+**Hosted demo or private deployment** — a labeled deterministic sample, or a private, password-protected workshop using the server's own isolated demo workspace. It does not reach into a visitor's local repository, and it is not a public execution sandbox.
 
-Phase 2 is implemented: a clean user can connect a compatible OpenCode server, repair authentication, inspect providers/models/capabilities, choose a supported model and reported reasoning variant, and start a bounded Maker run. The Phase 1 asynchronous run lifecycle is the prerequisite: runs return immediately, persist their state, survive a restart as `UNKNOWN`, and are never silently replayed.
+**Full local mode** — the browser app, local API, and pinned OpenCode server on your machine over loopback. Maker's edit in this release is bounded to an isolated demo workspace. App approval never overrides an OpenCode permission denial.
 
-The application no longer assumes a fixed model. Models, providers, limits, modalities, tools, variants, and availability are discovered from OpenCode. The chosen model is stored per project and recorded in Maker operation and evidence records. A v1 project with the old fixed-model hint migrates safely; the hint is used only if OpenCode still reports that model.
+`UB_DEPLOYMENT_MODE` selects `local`, `hosted-private`, or `hosted-demo`. Local mode can edit the connection and enter the server password in memory. Hosted-private manages the URL/credentials in the environment and keeps browser configuration read-only. Hosted-demo is read-only and may legitimately show no models until a provider is connected inside OpenCode.
 
-Provider API keys stay in OpenCode. The application accepts only the OpenCode server Basic-auth password, holds it in memory (or reads `OPENCODE_PASSWORD` for non-interactive starts), and never writes it to project JSON, browser storage, logs, events, Sentry, or exports.
-
-## Requirements
-
-- Node.js `>=22.14`
-- OpenCode `2.x`; tested with `2.0.32`
-- Linux for the first release (the lockfile includes the Linux baseline CLI)
+Models are discovered from OpenCode rather than assumed. The free DeepSeek route, `opencode/deepseek-v4.1-flash-free`, was the intended development route and is still listed by the tested server, but its availability is time-limited and must be verified on your own account. No paid fallback is configured.
 
 ## Quick start
 
+Prerequisites: Linux, Node **22.14+**, npm, and a supported OpenCode 2.x server. Copying `.env.example` to `.env` is optional for local work; the first-run wizard can hold the server password in memory.
+
 ```bash
 npm ci
+cp .env.example .env   # optional
 ```
 
-Start OpenCode in one terminal:
+Terminal 1 — OpenCode:
 
 ```bash
-opencode serve --hostname 127.0.0.1 --port 4096
+./node_modules/@opencode/cli-linux-x64-baseline/bin/opencode serve --hostname 127.0.0.1 --port 4096
 ```
 
-Copy `.env.example` to `.env` if you want non-interactive settings. Then:
+Terminal 2 — API:
 
 ```bash
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. The first-run wizard asks for the server URL and the password printed by `opencode serve`. Provider accounts are connected inside OpenCode with `/connect`, then a model is chosen with `/models`. The wizard lists only the catalog OpenCode reports.
-
-For the built app:
+Terminal 3 — interface:
 
 ```bash
-npm run build && npm start
+npm run dev:web
 ```
 
-Open `http://127.0.0.1:4200`. Set `UB_PORT` if `4200` is taken. Project data stays in `UB_DATA_DIR` (default `.unfinished-business/`), which is gitignored.
+Open `http://127.0.0.1:5173/`. The first-run wizard asks for the server URL and the password printed by `opencode serve`; provider accounts are connected inside OpenCode with `/connect`, and the model list comes from OpenCode's catalog.
 
-## Documentation
+For a single production process:
 
-- [OpenCode integration contract](docs/OPENCODE_INTEGRATION.md) — exact tested version/API surface, credentials ownership, discovery, roles, permissions, sessions, limitations.
-- [Local setup](docs/LOCAL_SETUP.md) — install/start/connect/provider/model steps and troubleshooting.
-- [Hosted deployment](docs/HOSTED_DEPLOYMENT.md) — private-hosted credential handling and public-demo restrictions.
-- [Architecture](docs/ARCHITECTURE.md) — configuration and trust boundaries.
-- [UX and visual system](docs/UX_AND_VISUAL_SYSTEM.md) — onboarding and advanced-control states.
-- [Decisions](docs/DECISIONS.md), [implementation plan](docs/IMPLEMENTATION_PLAN.md), and [changelog](docs/CHANGELOG.md).
-- [Engineering blueprint](docs/ENGINEERING_BLUEPRINT.md) — historical phase record and evidence.
-- [Product idea packet](docs/Unfinished-Business-Idea-Packet-v1.md) — approved product scope.
-- [Complete local prompt set](docs/prompts/README.md) — Prompts 0–3 and project context.
-- [Project Prompt 1](docs/prompts/PROMPT_1_ARCHITECT.md) — project-specific Architect instructions.
+```bash
+npm run build
+npm start
+```
+
+Then open `http://127.0.0.1:4200/`. The detailed, tested guide is [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md).
 
 ## Verification
 
@@ -74,40 +76,53 @@ Open `http://127.0.0.1:4200`. Set `UB_PORT` if `4200` is taken. Project data sta
 npm run typecheck
 npm test
 npm run build
+npm run budget
+npm run test:visual
 ```
 
-The test suite covers the asynchronous run lifecycle, connection state and URL/version policy, provider/model normalization, secret redaction, fixed-model migration, model/variant validation, onboarding HTTP flow, session authorization, and the existing workflow/recovery/contracts/prompt checks.
+Current results (2026-10-31):
 
-An opt-in live compatibility check is available:
+- 63 unit/integration/component tests pass.
+- 13 Playwright visual/accessibility tests pass with 23 committed snapshots.
+- Initial JS is **192.8 KiB gzip**; CSS **12.6 KiB gzip**; all hero variants **570.9 KiB** total.
+- Keyboard focus order, dialog Escape, setup tab arrow keys, 200% text zoom, 390px overflow, reduced motion, and token contrast are checked.
+- Connection/discovery, model/variant validation, secret redaction, migration, asynchronous runs, sessions, and permissions are covered by the server test suite.
 
-```bash
-OPENCODE_LIVE_DIAGNOSTIC=1 \
-OPENCODE_BASE_URL=http://127.0.0.1:4096 \
-OPENCODE_PASSWORD='the server password' \
-npm run diagnose:opencode
-```
+`npm run test:visual` needs a Chromium executable. It prefers `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, then system Chrome/Chromium, then Playwright's browser.
 
-It performs no prompt or model inference; it may create/read/remove one disposable empty session. Without the opt-in flag it prints `SKIP`.
+## Status
 
-## Hosted deployments
+The guided workflow, native execution path, recovery, and evidence ledger are implemented. Phase 4 adds the Ghostlight landing page, visual system, characters, motion, deterministic demo, and visual/accessibility tests. The merged OpenCode onboarding/discovery work adds first-run connection setup, model selection, session controls, and deployment-mode policy. A live free-model run was not repeated during the Phase 4 interface work; the previous native execution evidence remains the workflow record.
 
-`UB_DEPLOYMENT_MODE` selects the policy:
+A real recorded demo, final article/video, and submission packaging remain separate acceptance work. A public hosted URL is not asserted here. Hosted and private deployment configuration is in [docs/HOSTED_DEPLOYMENT.md](docs/HOSTED_DEPLOYMENT.md).
 
-- `local` — first-run connection editing, loopback HTTP allowed.
-- `hosted-private` — connection managed by environment/secret store; read-only browser configuration; OpenCode credentials in its persistent XDG data.
-- `hosted-demo` — read-only connection and no provider-key prompts; may legitimately show no models.
+## Documentation
 
-The existing password-protected Render service is a private hosted deployment. See [docs/HOSTED_DEPLOYMENT.md](docs/HOSTED_DEPLOYMENT.md).
+- [Product brief](docs/PRODUCT_BRIEF.md) — positioning, landing claims, two usage paths.
+- [OpenCode integration contract](docs/OPENCODE_INTEGRATION.md) — tested version/API surface, discovery, credentials ownership, roles, sessions, limitations.
+- [UX and visual system](docs/UX_AND_VISUAL_SYSTEM.md) — theme, tokens, components, character states, onboarding states, motion, accessibility, asset prompt/provenance, performance budget.
+- [Local setup](docs/LOCAL_SETUP.md) — tested commands and troubleshooting.
+- [Hosted deployment](docs/HOSTED_DEPLOYMENT.md) — Render/private instance, secrets, security boundary.
+- [Demo and submission](docs/DEMO_AND_SUBMISSION.md) — approved screenshots, capture guidance, claim rules.
+- [Architecture](docs/ARCHITECTURE.md) — routes, asset loading, evidence flow, unchanged authorization.
+- [Decisions](docs/DECISIONS.md) — Phase 4 design decisions and alternatives.
+- [Implementation plan](docs/IMPLEMENTATION_PLAN.md) — phase history, work units, verification gate.
+- [Changelog](docs/CHANGELOG.md) — Phase 4 changes.
+- [Engineering blueprint](docs/ENGINEERING_BLUEPRINT.md) — canonical implementation plan and amendments.
+- [Product idea packet](docs/Unfinished-Business-Idea-Packet-v1.md) — approved product scope and decisions.
+- [Sentry and OpenCode setup](docs/SENTRY_AND_OPENCODE_SETUP.md) — release/source-map and password matching.
+- [Render deployment](docs/RENDER_DEPLOYMENT.md) — original deployment notes.
+- [Complete local prompt set](docs/prompts/README.md) — Prompts 0–3 and project overrides.
 
 ## Development policy
 
 - Repository: [kernelKain/unfinished-business](https://github.com/kernelKain/unfinished-business).
 - Work on the existing `main` branch. Do not create phase branches.
 - Complete and verify each phase, then make one commit for that phase before starting the next phase.
-- Commit subjects describe the change without phase or step numbering.
+- Steps are work/checklist units, not individual commits. Commit subjects describe the change without phase or step numbering.
 - Preserve unrelated changes. A blocked commit blocks entry to the next implementation phase; do not bypass access restrictions.
-
-Phase 2 stops at its handoff. Phase 3 independent acceptance, publication, and submission work has not started.
+- No fabricated testimonials, usage figures, awards, or live-run claims.
+- No second coding harness, remote repository mount, or public arbitrary-execution sandbox.
 
 ## Delivery
 
@@ -115,4 +130,4 @@ The first release targets a local browser on Linux. A real recorded demonstratio
 
 ## License
 
-[MIT](LICENSE). Dependency, prompt, and asset attribution must be checked before redistribution.
+[MIT](LICENSE). Dependency, prompt, and asset attribution must be checked before redistribution. The generated hero asset's prompt and provenance are documented in [docs/UX_AND_VISUAL_SYSTEM.md](docs/UX_AND_VISUAL_SYSTEM.md).

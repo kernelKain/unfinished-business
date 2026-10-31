@@ -7,8 +7,13 @@
     "node": ">=22.14.0"
   },
   "scripts": {
-    "dev": "node --env-file-if-exists=.env --import tsx --watch src/server/start.ts",
+    "dev": "node --env-file-if-exists=.env --import tsx src/server/start.ts",
+    "dev:watch": "node --env-file-if-exists=.env --import tsx --watch src/server/start.ts",
+    "dev:web": "vite",
     "build": "vite build",
+    "assets:hero": "python3 scripts/build-hero-assets.py",
+    "budget": "node scripts/check-budget.mjs",
+    "test:visual": "playwright test",
     "start": "node --env-file-if-exists=.env --import tsx src/server/start.ts",
     "start:render": "node --import tsx src/server/render-start.ts",
     "typecheck": "tsc --noEmit",
@@ -39,6 +44,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
     "@sentry/bundler-plugins": "^11.10.0",
     "@types/node": "22.20.5",
     "@types/react": "19.3.0",
