@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@hono/node-server": "2.1.5",
-    "@opencode/cli": "2.0.32",
+    "@opencode/cli-linux-x64-baseline": "2.0.32",
     "@opencode/client": "2.0.32",
     "@sentry/hono": "^11.10.0",
     "@sentry/node": "^11.10.0",

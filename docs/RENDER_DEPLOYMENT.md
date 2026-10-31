@@ -1,6 +1,6 @@
 # Render deployment
 
-The repository includes a Render Blueprint in `render.yaml`. It creates one paid Node web service that runs both Unfinished Business and a private OpenCode server. A 1 GB persistent disk stores workflow state and OpenCode data.
+The repository includes a Render Blueprint in `render.yaml`. It creates one paid Linux x64 Node web service that runs both Unfinished Business and a private OpenCode server. The OpenCode Linux baseline binary is pinned directly to avoid platform-detection install scripts in Render's build environment. A 1 GB persistent disk stores workflow state and OpenCode data.
 
 ## Create the service
 

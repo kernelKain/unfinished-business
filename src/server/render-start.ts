@@ -5,7 +5,7 @@ const password = process.env.OPENCODE_PASSWORD?.trim();
 if (!password) throw new Error("OPENCODE_PASSWORD is required on Render.");
 
 const port = process.env.OPENCODE_PORT?.trim() || "4096";
-const executable = resolve("node_modules/.bin/opencode");
+const executable = resolve("node_modules/@opencode/cli-linux-x64-baseline/bin/opencode");
 const openCode = spawn(executable, ["serve", "--hostname", "127.0.0.1", "--port", port], {
   cwd: process.cwd(),
   stdio: "inherit",
