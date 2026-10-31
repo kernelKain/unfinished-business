@@ -1,0 +1,86 @@
+# Phase 6 prompt — Implement honest local and hosted usage modes
+
+Implement only Phase 6 of the Unfinished Business roadmap. Make local full execution, public hosted demo, and private hosted deployment explicit and safe. Do not imply that a hosted browser can directly edit a visitor's local repository.
+
+## Prerequisite
+
+Verify OpenCode onboarding, Maker runs, navigation, and setup documentation are stable. Inspect the current Render blueprint and persistent-data behavior before changing deployment mode.
+
+## Outcome
+
+Users can choose:
+
+1. **Full local mode** — Unfinished Business and OpenCode run on the user's machine and can work in an explicitly selected local repository.
+2. **Hosted demo** — a public, deterministic, non-secret demo that performs no arbitrary filesystem or provider-key work.
+3. **Private hosted deployment** — the user deploys their own protected Render instance, provides its secrets through Render, and accepts its cost/persistence constraints.
+
+The primary landing language may group the two hosted choices together, but setup and security behavior must keep them distinct.
+
+## Work to perform
+
+### Mode model and UX
+
+- Add an explicit deployment/runtime mode to configuration and health responses.
+- Display a mode badge and capabilities so users know whether repository execution, live OpenCode, persistence, and provider configuration are available.
+- Add mode selection/setup pages with requirements, privacy consequences, cost notices, and recovery instructions.
+- Never silently downgrade from live execution to a simulation; label deterministic demo data clearly.
+
+### Full local mode
+
+- Provide tested installation/start instructions and a safe connection diagnostic.
+- Allow explicit workspace selection only within validated server-side policy; never accept arbitrary browser-supplied path traversal.
+- Default OpenCode to loopback and explain provider connection through OpenCode.
+- Document local state, backups, logs, and how to stop/restart safely.
+
+### Hosted demo
+
+- Disable arbitrary repository paths, provider credential entry, shell/file mutation, and user-specific persisted secrets.
+- Serve deterministic demo data or isolated disposable fixtures only.
+- Add clear reset and privacy behavior.
+- Ensure public health/demo endpoints reveal no sensitive configuration.
+
+### Private hosted deployment
+
+- Keep HTTP/application access protection and OpenCode server authentication.
+- Store application/OpenCode state on the private persistent disk and secrets in Render's secret store.
+- Validate disk, cold-start, build/runtime separation, backup, and cost assumptions.
+- Offer a “Deploy your private copy” flow/documentation without automatically creating a Render resource.
+- Preserve Sentry source-map/release behavior and redact run content.
+
+### Deferred remote connector
+
+Do not implement a browser-to-local tunnel unless separately approved after a threat model. Record requirements for explicit pairing, loopback default, HTTPS, origin allowlist, scoped short-lived tokens, revocation, and user-visible connection state as a later decision.
+
+## Tests and verification
+
+- Capability tests for each mode.
+- Public demo cannot call mutation/run endpoints or accept secrets/paths.
+- Local mode validates workspace roots and OpenCode connectivity.
+- Private hosted configuration validates required secrets and persistence without printing them.
+- Health responses remain minimal.
+- Fresh local setup works from documented commands.
+- Render blueprint/configuration can be statically validated; do not deploy without explicit authorization.
+- E2E tests prove mode labels and unavailable-action explanations.
+
+## Documentation requirements
+
+Update:
+
+- `docs/LOCAL_SETUP.md` with prerequisites, commands, workspace selection, OpenCode connection, troubleshooting, and data locations;
+- `docs/HOSTED_DEPLOYMENT.md` with hosted demo versus private Render behavior, costs, secrets, disk, backups, and verification;
+- `docs/ARCHITECTURE.md` with deployment diagrams, capability boundaries, and trust boundaries;
+- `docs/OPERATIONS_AND_RECOVERY.md` with mode-specific restart, backup, reset, and incident behavior;
+- `docs/PRODUCT_BRIEF.md`, `docs/UX_AND_VISUAL_SYSTEM.md`, `docs/DECISIONS.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/CHANGELOG.md`, `.env.example`, `render.yaml`, and `README.md` as applicable.
+
+Remove obsolete statements that claim only one mode, but preserve historical context in legacy documents until Phase 9.
+
+## Acceptance
+
+- Users can distinguish the three operational modes and their limits.
+- Public hosted demo cannot access a visitor's repository or secrets.
+- Local mode provides the full OpenCode workflow with tested setup.
+- Private Render documentation is reproducible and honest about paid persistent storage.
+- No account, deployment, secret, or credit is changed without explicit authorization.
+- All automated checks and configuration validation pass.
+
+Finish with the required phase handoff and stop. Do not start Phase 7.
