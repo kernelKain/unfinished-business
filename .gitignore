@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.unfinished-business/
+.env
+.env.*
+!.env.example
+*.log
