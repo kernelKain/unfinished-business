@@ -1,0 +1,75 @@
+{
+  "cli_version": "0.12.3-nightly.202610310614.54b6a5cac",
+  "checkpoint_id": "01M6A0RWTSHB5YYH2Y97S6T39Q",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "README.md",
+    "docs/ARCHITECTURE.md",
+    "docs/CHANGELOG.md",
+    "docs/DECISIONS.md",
+    "docs/EVIDENCE.md",
+    "docs/IMPLEMENTATION_PLAN.md",
+    "docs/OPERATIONS_AND_RECOVERY.md",
+    "docs/RELEASE_NOTES.md",
+    "docs/TOOL_CATALOG.md",
+    "docs/UX_AND_VISUAL_SYSTEM.md",
+    "scripts/check-budget.mjs",
+    "src/server/app.ts",
+    "src/server/experience/guide-runs.ts",
+    "src/server/experience/parse.ts",
+    "src/server/experience/service.ts",
+    "src/server/workflow/model.ts",
+    "src/server/workflow/transitions.ts",
+    "src/shared/demo.ts",
+    "src/shared/diff.ts",
+    "src/shared/markdown.ts",
+    "src/shared/section-contracts.ts",
+    "src/shared/workflow.ts",
+    "src/web/api.ts",
+    "src/web/components/Markdown.tsx",
+    "src/web/components/RevisionDiff.tsx",
+    "src/web/components/RevisionReview.tsx",
+    "src/web/components/SectionCard.tsx",
+    "src/web/styles.css",
+    "src/web/workshop/WorkshopPage.tsx",
+    "tests/experience.test.ts",
+    "tests/fixtures/section-drafts.ts",
+    "tests/http-workflow.test.ts",
+    "tests/markdown.test.ts",
+    "tests/migration.test.ts",
+    "tests/observable-runs.test.ts",
+    "tests/revisions.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 354662,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 43462016,
+    "output_tokens": 73902,
+    "api_call_count": 222
+  },
+  "redaction": {
+    "replacements": 14,
+    "layers": {
+      "betterleaks": 4,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 4,
+      "credentialed_uri": 0,
+      "entropy": 2,
+      "key_context": 0,
+      "provider_token": 6,
+      "shell_stdin": 0
+    }
+  }
+}
