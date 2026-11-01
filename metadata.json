@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.12.3-nightly.202610310614.54b6a5cac",
+  "checkpoint_id": "01M6AB99X2HQE2FJKNRK8ERW0E",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "src/server/opencode/auth-seed.ts",
+    "src/server/render-start.ts",
+    "tests/model-policy-and-credentials.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 231027,
+    "cache_creation_tokens": 1772,
+    "cache_read_tokens": 4735988,
+    "output_tokens": 6040,
+    "api_call_count": 23
+  },
+  "redaction": {
+    "replacements": 1828,
+    "layers": {
+      "betterleaks": 24,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 10,
+      "credentialed_uri": 0,
+      "entropy": 1790,
+      "key_context": 0,
+      "provider_token": 4,
+      "shell_stdin": 0
+    }
+  }
+}
