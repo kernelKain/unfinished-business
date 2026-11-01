@@ -12,6 +12,7 @@ const secretPatterns: Array<[RegExp, string]> = [
   [/((?:set-)?cookie\s*[:=]\s*)[^\r\n]+/gi, "$1[REDACTED]"],
   [/((?:OPENCODE_PASSWORD|OPENCODE_SERVER_PASSWORD|UB_ACCESS_PASSWORD|UB_SESSION_TOKEN|SENTRY_AUTH_TOKEN)\s*[=:]\s*)[^\s,;]+/gi, "$1[REDACTED]"],
   [/((?:password|passwd|api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|secret)\s*[:=]\s*)[^\s,;]+/gi, "$1[REDACTED]"],
+  [/("(?:key|token|apiKey|api_key|accessToken|access_token|secret|password)"\s*:\s*")[^"]*(")/gi, "$1[REDACTED]$2"],
   [/\b(?:sk|rk|pk)-[A-Za-z0-9_-]{16,}\b/g, "[REDACTED_API_KEY]"],
   [/\bgh[pousr]_[A-Za-z0-9]{20,}\b/g, "[REDACTED_GITHUB_TOKEN]"],
   [/\bxox[abprs]-[A-Za-z0-9-]{10,}\b/g, "[REDACTED_SLACK_TOKEN]"],

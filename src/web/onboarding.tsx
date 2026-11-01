@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, KeyRound, LockKeyhole, PlugZap, Server, Sparkles } from "lucide-react";
 import type { ConnectionStatus, DiscoveredModel, OpenCodeDiscovery } from "../shared/opencode.ts";
+import { preferredWorkshopModel } from "../shared/workflow.ts";
 import {
   ApiError,
   checkConnection,
@@ -81,9 +82,7 @@ export function Onboarding(props: {
   const selectedKey = selected ? `${selected.providerID}/${selected.id}` : "";
   const selectedIsAvailable = props.connection.discovery?.models.some((model) => model.key === selectedKey && model.availability === "available") ?? false;
   const [chosenKey, setChosenKey] = useState(
-    selectedIsAvailable ? selectedKey : props.connection.discovery?.models.find((model) => model.availability === "available" && model.pricing === "free" && model.tools)?.key
-      ?? props.connection.discovery?.models.find((model) => model.availability === "available")?.key
-      ?? "",
+    selectedIsAvailable ? selectedKey : preferredWorkshopModel(props.connection.discovery?.models ?? [])?.key ?? "",
   );
   const [variant, setVariant] = useState(selected?.variant ?? "");
   const [accessMode, setAccessMode] = useState(props.project.modelPreferences.access.mode);
@@ -114,8 +113,7 @@ export function Onboarding(props: {
       props.onConnection(status);
       if (status.discovery) {
         setPhase("model");
-        const preferred = status.discovery.models.find((model) => model.availability === "available" && model.pricing === "free" && model.tools)
-          ?? status.discovery.models.find((model) => model.availability === "available");
+        const preferred = preferredWorkshopModel(status.discovery.models);
         if (preferred) {
           setChosenKey(preferred.key);
           setVariant("");

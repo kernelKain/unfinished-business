@@ -107,6 +107,7 @@ Canonical mode is `UB_DEPLOYMENT_MODE` (`local`, `private-hosted`, `hosted-demo`
 | `UB_MAX_SESSION_COST_USD` | Optional | `unlimited` (default), `disabled`, or `0` for no app ceiling; a positive value sets a deployment-wide USD ceiling. A project limit can be stricter; cost is checked against OpenCode's reported value. |
 | `OPENCODE_BASE_URL` | Yes | Keep `http://127.0.0.1:4096` for the private child. Remote targets require HTTPS + allowlist. |
 | `OPENCODE_PASSWORD` | Private hosted | Required by `render-start.ts`; passed to OpenCode as both `OPENCODE_PASSWORD` and `OPENCODE_SERVER_PASSWORD`. |
+| `OPENCODE_AUTH_JSON` | Private hosted, secret | OpenCode's credential file for the OpenCode Go route (the `opencode` entry from the local `auth.json`). Set in the Render dashboard only. `render-start.ts` writes it to `OPENCODE_DATA_HOME/opencode/auth.json` with mode 0600 before OpenCode starts. Invalid JSON stops startup without printing the value. |
 | `UB_OPENCODE_EXECUTABLE` | Optional | Explicit CLI path for the resolver. Omit to prefer `PATH`, then the lockfile package. |
 | `OPENCODE_DATA_HOME` / `OPENCODE_CONFIG_HOME` | Private hosted | XDG paths on the persistent disk. |
 | `UB_OPENCODE_ALLOWED_HOSTS` | Remote only | Explicit HTTPS host allowlist. |

@@ -35,6 +35,8 @@ services:
         value: http://127.0.0.1:4096
       - key: OPENCODE_PASSWORD
         generateValue: true
+      - key: OPENCODE_AUTH_JSON
+        sync: false
       - key: OPENCODE_DATA_HOME
         value: /var/data/xdg-data
       - key: OPENCODE_CONFIG_HOME

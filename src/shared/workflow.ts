@@ -14,6 +14,20 @@ import { z } from "zod";
  */
 
 export const LEGACY_FIXED_MODEL_KEY = "opencode/deepseek-v4.1-flash-free";
+export const DEFAULT_WORKSHOP_MODEL_KEY = "opencode-go/deepseek-v4.1-flash";
+
+/**
+ * The model a new project starts on: the workshop default when OpenCode reports
+ * it, otherwise the first free tool-capable model, otherwise any available one.
+ * A priced default still needs first-use confirmation in the UI.
+ */
+export function preferredWorkshopModel<T extends { key: string; availability: string; pricing: string; tools: boolean }>(
+  models: T[],
+): T | undefined {
+  return models.find((model) => model.key === DEFAULT_WORKSHOP_MODEL_KEY && model.availability === "available")
+    ?? models.find((model) => model.availability === "available" && model.pricing === "free" && model.tools)
+    ?? models.find((model) => model.availability === "available");
+}
 
 export const projectModeSchema = z.enum(["local", "hosted-demo", "private-hosted"]);
 export type ProjectMode = z.infer<typeof projectModeSchema>;

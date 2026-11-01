@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createLogger } from "./observability/logger.ts";
+import { seedOpenCodeAuth } from "./opencode/auth-seed.ts";
 import {
   classifyServerStartError,
   serverStartDiagnostic,
@@ -47,6 +48,15 @@ log.info("opencode_resolved", {
   source: resolution.source,
   version: resolution.version,
 });
+
+try {
+  if (await seedOpenCodeAuth(dataHome, process.env.OPENCODE_AUTH_JSON)) {
+    log.info("opencode_auth_seeded", { source: "OPENCODE_AUTH_JSON" });
+  }
+} catch (error) {
+  log.error("opencode_auth_invalid", { message: error instanceof Error ? error.message : "invalid OPENCODE_AUTH_JSON" });
+  process.exit(1);
+}
 
 const openCode = spawn(resolution.executable, ["serve", "--hostname", "127.0.0.1", "--port", port], {
   cwd: process.cwd(),
