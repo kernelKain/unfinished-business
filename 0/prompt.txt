@@ -1,0 +1,71 @@
+Implement Phase 8: perform final quality, accessibility, security, and release hardening.
+
+Objectives:
+
+- Verify the complete upgraded workflow.
+- Resolve remaining visual and accessibility problems.
+- Produce honest release evidence and documentation.
+
+Implementation requirements:
+
+1. Test the complete user journey:
+   - project source selection;
+   - Oracle questions;
+   - proposal approval;
+   - section drafting;
+   - revision preview;
+   - approvals;
+   - Maker scope;
+   - live progress;
+   - timeout recovery;
+   - Witness evidence.
+2. Add responsive coverage for at least:
+   - 390px
+   - 768px
+   - 1440px
+3. Audit:
+   - keyboard navigation;
+   - focus order;
+   - visible focus;
+   - screen-reader announcements;
+   - reduced motion;
+   - WCAG AA contrast;
+   - zoom and text reflow;
+   - long model names;
+   - long generated sections;
+   - empty, loading, error, and offline states.
+4. Add security tests for:
+   - secret redaction;
+   - malicious Markdown;
+   - repository path traversal;
+   - unsafe remote URLs;
+   - duplicate operations;
+   - stale revisions;
+   - replayed mutation requests.
+5. Upgrade vulnerable dependencies carefully, including Sentry packages, without combining unrelated major migrations.
+6. Run the complete project verification suite.
+7. Refresh visual snapshots only after manual inspection.
+8. Update:
+   - architecture;
+   - setup;
+   - OpenCode integration;
+   - security model;
+   - recovery behavior;
+   - supported platforms;
+   - limitations;
+   - release notes;
+   - implementation-plan completion state.
+9. Produce an evidence matrix mapping major product claims to tests, screenshots, or native session evidence.
+10. Prepare hackathon/release copy and assets in the repository, but do not publish an external submission without explicit authorization.
+
+Acceptance criteria:
+
+- All automated verification passes.
+- No high-severity accessibility or security issue remains open.
+- Documentation matches actual behavior.
+- Every important product claim has evidence or is explicitly labelled as a limitation.
+- The repository is clean after commit and push.
+
+Commit message:
+
+chore(release): harden and document the upgraded workshop
