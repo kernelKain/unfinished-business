@@ -95,7 +95,11 @@ refactor(demo): say a session was not run instead of NOT_RUN
 Entire-Checkpoint: 01M6AFB74ZNJM4MXC6K2FAZE5A
 ```
 
-That link matters when a diff is no longer enough. A maintainer can trace a change back to the agent session and checkpoint that produced it, instead of reverse-engineering intent from the final code. At the time of this write-up, the GitHub remote contains 37 Entire checkpoint refs covering model integration, platform fixes, Render hardening, documentation, and the recorded demo.
+That link matters when a diff is no longer enough. A maintainer can trace a change back to the agent session and checkpoint that produced it, instead of reverse-engineering intent from the final code. At the time of this write-up, Entire shows 37 checkpoints across 42 commits, covering model integration, platform fixes, Render hardening, documentation, and the recorded demo. Those checkpoints contain 59 recorded messages and about 7.0 million tracked tokens—6.0 million input and 972,500 output—with one development trail merged. The numbers make the practical value clearer: this was a long, multi-harness build, and Entire kept its history inspectable instead of reducing it to one final diff.
+
+![Entire session dashboard showing 37 checkpoints across 42 commits, 59 messages, and approximately 7 million tracked tokens](https://raw.githubusercontent.com/kernelKain/unfinished-business/main/docs/assets/screenshots/entire-session-dashboard.png)
+
+*The public Entire dashboard captures the scale of the development trail: 37 checkpoints, 42 linked commits, 59 messages, and one merged trail.*
 
 Entire also exposed a useful failure honestly: later documentation-only commits made while the `entire` binary was unavailable did not receive a checkpoint trailer. The Git hook reported that and continued without pretending the session had been captured. That is exactly the behavior I wanted for this project—missing evidence stays missing instead of being reconstructed after the fact.
 
