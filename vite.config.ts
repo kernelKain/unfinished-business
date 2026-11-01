@@ -10,7 +10,8 @@ export default defineConfig(({ mode }) => {
   const releaseName = env.SENTRY_RELEASE?.trim()
     || (renderCommit ? `unfinished-business@${renderCommit}` : undefined);
   const deployEnvironment = env.SENTRY_DEPLOY_ENVIRONMENT?.trim();
-  if (env.RENDER && !authToken) {
+  const hostedDemo = (env.UB_DEPLOYMENT_MODE ?? "").trim() === "hosted-demo";
+  if (env.RENDER && !authToken && !hostedDemo) {
     throw new Error("SENTRY_AUTH_TOKEN is required for Render builds so deployed source maps are uploaded.");
   }
   if (authToken && !releaseName) {
