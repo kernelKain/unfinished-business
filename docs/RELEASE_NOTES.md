@@ -15,7 +15,7 @@
 - Added route-level security cases for local-source traversal/broad roots/system symlinks, remote URL schemes/credentials/query/fragment/port/traversal, failed imports, stale revisions, duplicate approvals, and replayed memory mutations.
 - Kept Sentry on the latest 11.10.0 line and overrode only the vulnerable transitive `glob`/`minimatch` pair to `glob@14.0.3` and `minimatch@11.0.3`. Both `npm audit` and the production high-severity audit now report **0 vulnerabilities**.
 - Added [Security model](SECURITY_MODEL.md), [hackathon/release copy](release/HACKATHON_COPY.md), and an asset manifest. Nothing was published or submitted externally.
-- Verification passes: typecheck, **207 tests**, **26 visual/accessibility/resilience tests**, production build, all five bundle/asset budgets, platform diagnostics, OpenCode server smoke, and a zero-vulnerability audit.
+- Verification passes: typecheck, **207 tests**, **26 visual/accessibility/resilience tests**, production build, all five bundle/asset budgets, platform diagnostics, OpenCode server smoke, and a zero-vulnerability audit. CI run `41255172209` passed the same matrix on `linux-x64`, `darwin-arm64`, and `darwin-x64`.
 
 Known limits: the complete journey uses a deterministic guide and makes no live provider call; macOS execution remains CI evidence; automated Chromium checks do not replace a full manual screen-reader or cross-browser audit; the release copy is prepared but not published.
 

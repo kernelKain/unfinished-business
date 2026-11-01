@@ -328,7 +328,7 @@ The upgraded workshop has one complete journey test, responsive evidence at 390p
 - [x] Keyboard, focus return, live announcements, reduced motion, contrast, zoom, long names/content, and loading/offline states have automated evidence or an explicit limitation.
 - [x] Security tests cover redaction, malicious Markdown, repository traversal, unsafe URLs, duplicate/replayed mutations, and stale revisions.
 - [x] `npm audit` reports zero vulnerabilities after the narrow transitive override; Sentry has no unrelated major migration.
-- [x] Typecheck, 207 tests, 26 visual tests, build, budget, platform diagnostics, and OpenCode smoke pass.
+- [x] Typecheck, 207 tests, 26 visual tests, build, budget, platform diagnostics, and OpenCode smoke pass; CI run `41255172209` passed all three host jobs.
 - [x] The final worktree is clean after the phase commit; only pre-existing untracked `.backboard/` remains.
 
 Phase 8 acceptance passed on 2026-11-01. No live provider inference was used. Automated accessibility checks do not replace a full manual screen-reader or cross-browser audit.

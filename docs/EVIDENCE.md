@@ -109,7 +109,7 @@ Labels: **VERIFIED** = inspected/tested in this environment; **CI-GATED** = auto
 | `npm run test:platform` | PASS — platform gate, resolver, setup/CI contracts, and Linux workspace/macOS-root safety |
 | `npm run diagnose:platform` | PASS — `linux-x64`, version `2.0.32`, no diagnostics |
 | `npm run smoke:opencode` | PASS — disposable server on loopback; `/api/info` reports `2.0.32`; no prompt/model call |
-| CI matrix (`41252770576`, `41253037115`) | PASS — `linux-x64`, `darwin-arm64`, `darwin-x64`; install, CLI resolution, typecheck, tests, build, workspace safety, OpenCode smoke |
+| CI matrix (`41252770576`, `41253037115`, `41255172209`) | PASS — `linux-x64`, `darwin-arm64`, `darwin-x64`; install, CLI resolution, typecheck, tests, build, workspace safety, OpenCode smoke |
 | `npm audit --omit=dev --audit-level=high` | PASS (exit 0); 0 vulnerabilities |
 | `npm audit` | PASS (exit 0); 0 vulnerabilities after the narrow `glob`/`minimatch` override |
 | `node scripts/preflight.mjs` | PASS for required checks: supported platform, OpenCode CLI `2.0.32`, client metadata, DNS, Git read, loopback, and Node; partner/runtime proofs remain NOT_RUN | No inference or Git writes |
@@ -221,6 +221,7 @@ Labels: **VERIFIED** = inspected/tested in this environment; **CI-GATED** = auto
 | Mutation security | PASS | Stale revision → 409; replay returns duplicate without a second mutation; same action with different payload → 409 |
 | Dependency audit | PASS — 0 vulnerabilities | Sentry 11.10.0 unchanged; `glob@14.0.3`/`minimatch@11.0.3` overrides; build and CJS/ESM imports checked |
 | Release copy | PREPARED — NOT PUBLISHED | `docs/release/HACKATHON_COPY.md`; no external submission, article, video, or deployment |
+| CI matrix | PASS — run `41255172209` | `linux-x64`, `darwin-arm64`, and `darwin-x64`: install, CLI resolution, typecheck, tests, build, workspace safety, and OpenCode smoke |
 | Migration | NOT REQUIRED | No schema change; schema v7 and saved projects remain unchanged |
 
 ## Release classification
