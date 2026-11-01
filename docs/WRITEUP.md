@@ -71,6 +71,8 @@ There are two deployment paths, and I kept them separate on purpose:
 
 ![Unfinished Business architecture](https://raw.githubusercontent.com/kernelKain/unfinished-business/main/docs/assets/architecture.svg)
 
+*The hosted path stops at a read-only recording. Real model access, approvals, and repository changes remain in the user's local OpenCode environment.*
+
 The Render path ends at a deterministic, read-only fixture. The local path continues from the browser to the Unfinished Business server, then to the user's own OpenCode server and managed workspace. This is why the public demo can be useful without quietly becoming a shared remote coding environment.
 
 Project state is written atomically. Runs are persisted operations with progress, elapsed time, cancellation, retry, and reconciliation controls. A response that arrives after a timeout is validated and applied at most once.
