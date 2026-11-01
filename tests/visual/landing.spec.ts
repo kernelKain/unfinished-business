@@ -15,7 +15,6 @@ test.describe("landing", () => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Finish the project you already started.");
     await expect(page.getByRole("link", { name: "Try the example" }).first()).toHaveAttribute("href", "/demo");
     await expect(page.getByRole("link", { name: "Run locally" }).first()).toHaveAttribute("href", "/workshop");
-    await expect(page.getByRole("link", { name: "Set up locally" }).first()).toHaveAttribute("href", "#local-setup");
     await expect(page.getByRole("button", { name: "Connect OpenCode" }).first()).toBeVisible();
     await expect(page.getByText("The example is recorded and labeled.")).toBeVisible();
     await expect(page.getByText("OpenCode does the coding. This workshop does the deciding.")).toBeVisible();
@@ -51,7 +50,6 @@ test.describe("landing", () => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(1);
     await expect(page.getByRole("link", { name: "Try the example" }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: "Set up locally" }).first()).toBeVisible();
   });
 
   test("keyboard order starts with skip link and shows a visible focus ring", async ({ page }) => {
@@ -84,20 +82,12 @@ test.describe("landing", () => {
     await expect(trigger).toBeFocused();
   });
 
-  test("setup tabs expose tested commands and arrow-key navigation", async ({ page }) => {
-    await page.goto("/#local-setup");
-    const tabs = page.getByRole("tablist", { name: "Local setup commands" });
-    await expect(tabs.getByRole("tab", { name: "Install" })).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("tabpanel")).toContainText("npm ci");
-
-    await tabs.getByRole("tab", { name: "Install" }).focus();
-    await page.keyboard.press("ArrowRight");
-    await expect(tabs.getByRole("tab", { name: "API" })).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("tabpanel")).toContainText("npm run dev");
-
-    await page.keyboard.press("ArrowRight");
-    await expect(tabs.getByRole("tab", { name: "Interface" })).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("tabpanel")).toContainText("npm run dev:web");
+  test("the landing page does not repeat the local setup instructions", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText("Before you start")).toHaveCount(0);
+    await expect(page.getByText("npm run dev", { exact: false })).toHaveCount(0);
+    await expect(page.getByRole("tablist", { name: "Local setup commands" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Set up locally" })).toHaveCount(0);
   });
 
   test("reduced motion removes character animation", async ({ page }) => {
@@ -235,13 +225,13 @@ test.describe("canonical sample consistency", () => {
     await expect(page.getByText("Driftwatch").first()).toBeVisible();
     await page.locator(".sample-details > summary").click();
     await expect(page.getByText(/4 tests passed, 0 failed/).first()).toBeVisible();
-    await expect(page.getByText(/The live native session remains/)).toBeVisible();
+    await expect(page.getByText(/The live native session was not run./)).toBeVisible();
 
     await page.goto("/demo");
     await expect(page.getByRole("heading", { level: 1, name: "Driftwatch" })).toBeVisible();
     await expect(page.getByText(/4 tests passed, 0 failed/).first()).toBeVisible();
     await page.locator(".demo-honesty-details summary").click();
-    await expect(page.getByText(/The live session remains/).first()).toBeVisible();
+    await expect(page.getByText(/live session was not run/i).first()).toBeVisible();
     await expect(page.getByText(/Campus Umbrella Relay/)).toHaveCount(0);
   });
 });

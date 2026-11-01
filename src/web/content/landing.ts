@@ -34,7 +34,7 @@ export const usageModes: readonly UsageMode[] = [
       "Maker's edit in this release is bounded to an isolated demo workspace.",
       "Changes are checked server-side; the token is issued over loopback or after private-hosted sign-in.",
     ],
-    cta: { label: "Read the local setup", href: "#local-setup" },
+    cta: { label: "Open the workshop", href: "/workshop" },
     tone: "amber",
   },
 ] as const;

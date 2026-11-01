@@ -101,7 +101,7 @@ export function DemoTeaser() {
           <p>{DEMO_SOURCE_LABEL}. The sample is version {DEMO_FIXTURE_VERSION} and uses no repository, provider key, model quota, or visitor state.</p>
           <p>
             The command shown is <code>{sampleStory.command}</code>. The recorded result is “{sampleStory.check}”.
-            The live native session remains <strong>{sampleStory.liveProof}</strong>.
+            The live native session was not run.
           </p>
           <p>{demoFixture.scenario.provenance}</p>
         </div>
@@ -111,7 +111,7 @@ export function DemoTeaser() {
           capabilities={demoFixture.project.capabilities}
           eyebrow="Sample evidence"
           title="The same evidence view, with recorded data"
-          note="Every row comes from the canonical sample. The check is recorded; the live session is NOT_RUN."
+          note="Every row comes from the canonical sample. The check is recorded; the live session was not run."
           sourceLabel="Recorded sample"
           demo
         />

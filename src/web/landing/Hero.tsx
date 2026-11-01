@@ -58,11 +58,6 @@ export function Hero() {
             <PlugZap size={18} aria-hidden="true" /> Run locally
           </a>
         </div>
-        <p className="hero-secondary-link">
-          <a className="text-link" href="#local-setup">
-            <TerminalSquare size={15} aria-hidden="true" /> Set up locally
-          </a>
-        </p>
         <p className="hero-note">
           <CircleDot size={14} aria-hidden="true" />
           The example is recorded and labeled. Run locally to connect your own OpenCode server.

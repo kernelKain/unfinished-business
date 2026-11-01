@@ -13,7 +13,6 @@ import {
   type CliProbeResult,
 } from "../src/server/opencode/executable.ts";
 import { TESTED_OPENCODE_VERSION } from "../src/shared/opencode.ts";
-import { setupTabs } from "../src/web/setup.ts";
 
 const localBinary = resolve("node_modules/@opencode/cli/bin/opencode.exe");
 
@@ -183,15 +182,12 @@ test("the repository installs the official cross-platform CLI, not a Linux-only 
   assert.match(lock, /"@opencode\/cli-linux-x64"/);
 });
 
-test("user-facing setup commands are platform-neutral and name npm and Homebrew installs", () => {
-  const commands = setupTabs.map((tab) => tab.command).join("\n");
-  const notes = setupTabs.map((tab) => tab.note).join("\n");
-  assert.doesNotMatch(commands, /cli-linux|node_modules\/@opencode\/cli-linux/);
-  assert.match(commands, /npx --no-install opencode serve/);
-  assert.match(notes, /npm install -g @opencode\/cli@2\.0\.32/);
-  assert.match(notes, /brew install anomalyco\/tap\/opencode-v2/);
-  assert.match(notes, /macOS Apple Silicon/);
-  assert.match(notes, /macOS Intel/);
+test("user-facing setup commands are platform-neutral and name npm and Homebrew installs", async () => {
+  const readme = await readFile("README.md", "utf8");
+  assert.doesNotMatch(readme, /cli-linux|node_modules\/@opencode\/cli-linux/);
+  assert.match(readme, /npx --no-install opencode serve/);
+  assert.match(readme, /Node 22\.14\+/);
+  assert.match(readme, /macOS/);
 });
 
 test("CI exercises Linux, macOS Apple Silicon, macOS Intel, and the OpenCode smoke path", async () => {

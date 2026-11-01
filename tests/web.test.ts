@@ -20,7 +20,6 @@ import {
   usageModes,
 } from "../src/web/content/landing.ts";
 import { resolveRoute } from "../src/web/routes.ts";
-import { setupTabs } from "../src/web/setup.ts";
 import { spiritProfiles } from "../src/web/spirits.ts";
 
 function text(html: string): string {
@@ -57,7 +56,7 @@ test("landing hero presents one primary action and four user outcomes", () => {
   assert.match(copy, /A workshop for unfinished hackathon projects/i);
   assert.match(copy, /Try the example/);
   assert.match(copy, /Run locally/);
-  assert.match(copy, /Set up locally/);
+  assert.match(copy, /Run locally/);
   assert.doesNotMatch(copy, /Watch the guided workflow/);
   assert.match(copy, /The example is recorded and labeled/);
   for (const outcome of ["Clarify the idea", "Approve the plan", "Build with OpenCode", "Verify the result"]) {
@@ -65,7 +64,7 @@ test("landing hero presents one primary action and four user outcomes", () => {
   }
   assert.match(html, /href="\/demo"/);
   assert.match(html, /href="\/workshop"/);
-  assert.match(html, /href="#local-setup"/);
+  assert.doesNotMatch(html, /#local-setup/);
   assert.match(html, /width="1920"/);
   assert.match(html, /height="823"/);
 });
@@ -118,25 +117,14 @@ test("the four spirits each expose distinct roles and states", () => {
   }
 });
 
-test("setup tabs expose the tested local commands", () => {
-  const commands = setupTabs.map((tab) => tab.command).join("\n");
-  assert.match(commands, /npm ci/);
-  assert.match(commands, /npm run dev\n/);
-  assert.match(commands, /npm run dev:web/);
-  assert.match(commands, /npm install -g @opencode\/cli@2\.0\.32/);
-  assert.match(commands, /npx --no-install opencode serve/);
-  assert.doesNotMatch(commands, /cli-linux/);
-  assert.match(commands, /npm run build && npm start/);
-
-  const notes = setupTabs.map((tab) => tab.note).join("\n");
-  assert.match(notes, /brew install anomalyco\/tap\/opencode-v2/);
-  assert.match(notes, /macOS Apple Silicon/);
-  assert.match(notes, /macOS Intel/);
-
+test("the landing page keeps setup in one place: the README and the wizard", () => {
   const html = renderToStaticMarkup(createElement(LandingPage));
-  for (const tab of setupTabs) assert.ok(text(html).includes(tab.label));
-  assert.match(text(html), /Commands are checked against docs\/LOCAL_SETUP\.md/);
-  assert.match(text(html), /Linux x64, macOS Apple Silicon, or macOS Intel/);
+  const copy = text(html);
+  assert.doesNotMatch(copy, /Before you start/);
+  assert.doesNotMatch(copy, /npm run dev/);
+  assert.doesNotMatch(copy, /Stop the dev servers/);
+  assert.doesNotMatch(html, /#local-setup/);
+  assert.match(copy, /Setup lives in the repository README and the in-app wizard/);
 });
 
 test("demo and evidence previews use the canonical sample and keep the missing live proof visible", () => {
@@ -146,7 +134,7 @@ test("demo and evidence previews use the canonical sample and keep the missing l
   assert.match(copy, /This is a recorded sample/);
   assert.match(copy, /No OpenCode session, provider call, repository read, or model quota is used/);
   assert.match(copy, /Every run, diff, check, and finding is recorded sample data/);
-  assert.match(copy, /The live session remains NOT_RUN/);
+  assert.match(copy, /live session was not run/i);
   assert.match(copy, /Representative diff and recorded check/);
   assert.match(copy, /Reset changes only this sample/);
   assert.match(copy, /The same evidence view, with recorded data/);
@@ -182,7 +170,7 @@ test("landing preview and guided demo share one canonical sample outcome", () =>
     assert.ok(surface.includes(demoFixture.verification.summary), "recorded check must match on both pages");
   }
   assert.ok(demoPreviewSteps[3].lines.some((line) => line.includes(demoFixture.verification.summary)));
-  assert.ok(demoPreviewSteps[3].lines.some((line) => line.includes("NOT_RUN")));
+  assert.ok(demoPreviewSteps[3].lines.some((line) => /not run/i.test(line)));
   assert.doesNotMatch(landing, /Do not claim a working build|Idea to tool recommendation|Campus Umbrella Relay/);
   assert.doesNotMatch(demo, /Campus Umbrella Relay/);
 });

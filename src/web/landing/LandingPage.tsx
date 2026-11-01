@@ -7,7 +7,6 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Brand } from "../components/Brand.tsx";
-import { SetupCommandTabs } from "../components/SetupCommandTabs.tsx";
 import { SetupDialog } from "../components/SetupDialog.tsx";
 import { SpiritCharacter } from "../components/SpiritCharacter.tsx";
 import { faqs, privacyPoints, usageModes } from "../content/landing.ts";
@@ -28,7 +27,6 @@ export function LandingPage() {
             <a href="#workflow">Workflow</a>
             <a href="#demo">Sample</a>
             <a href="#why-opencode">Why OpenCode</a>
-            <a href="#local-setup">Setup</a>
             <a href="#faq">FAQ</a>
           </nav>
           <div className="site-header-actions">
@@ -63,13 +61,13 @@ export function LandingPage() {
           </ul>
         </section>
 
-        <section className="section setup-section" id="local-setup" aria-labelledby="setup-title">
+        <section className="section setup-section" aria-labelledby="section-title">
           <div className="section-heading">
-            <p className="eyebrow">Local setup and privacy</p>
-            <h2 id="setup-title">Run it on your machine, or use the read-only sample</h2>
+            <p className="eyebrow">Privacy and security</p>
+            <h2 id="section-title">Run it on your machine, or use the read-only sample</h2>
             <p>
-              Both paths use the same four-stage workshop. Neither silently reaches into a visitor's local
-              repository. These commands match the repository scripts and <span className="mono">docs/LOCAL_SETUP.md</span>.
+              Both paths use the same four-stage workshop, and neither silently reaches into a visitor's local
+              repository. Setup lives in the repository README and the in-app wizard, not here.
             </p>
           </div>
 
@@ -88,23 +86,6 @@ export function LandingPage() {
               </li>
             ))}
           </ul>
-
-          <div className="setup-grid">
-            <div className="setup-copy">
-              <h3>Before you start</h3>
-              <ul className="check-list">
-                <li><Check size={15} aria-hidden="true" /><span>Node 22.14 or newer on Linux x64, macOS Apple Silicon, or macOS Intel.</span></li>
-                <li><Check size={15} aria-hidden="true" /><span>A gitignored <span className="mono">.env</span> copied from <span className="mono">.env.example</span>.</span></li>
-                <li><Check size={15} aria-hidden="true" /><span>OpenCode 2.x and a model route that answers on your account, or a local model.</span></li>
-              </ul>
-              <p>
-                The app and OpenCode bind to loopback by default. The browser never receives the OpenCode
-                password; the server connects to the local engine.
-              </p>
-              <a className="text-link" href="#privacy">Read the privacy boundary <ArrowRight size={15} aria-hidden="true" /></a>
-            </div>
-            <SetupCommandTabs />
-          </div>
 
           <div className="privacy-block" id="privacy">
             <div className="section-heading">
@@ -152,7 +133,6 @@ export function LandingPage() {
           <div className="final-actions">
             <a className="action action-large" href="/demo">Try the example <ArrowRight size={18} aria-hidden="true" /></a>
             <a className="action action-large secondary" href="/workshop">Run locally</a>
-            <a className="text-link" href="#local-setup">Read the setup guide <ArrowRight size={15} aria-hidden="true" /></a>
           </div>
         </section>
       </main>

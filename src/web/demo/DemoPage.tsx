@@ -124,7 +124,7 @@ export function DemoPage() {
               <p>{demoFixture.sourceLabel}. No OpenCode session, provider call, repository read, or model quota is used.</p>
               <ul>
                 <li>Every run, diff, check, and finding is recorded sample data.</li>
-                <li>The live session remains <strong>NOT_RUN</strong>.</li>
+                <li>The live session was not run.</li>
                 <li>Reset changes only this sample.</li>
               </ul>
             </details>
@@ -246,7 +246,7 @@ export function DemoPage() {
               capabilities={demoFixture.project.capabilities}
               eyebrow="Recorded sample evidence"
               title="Observed result, including the missing live proof"
-              note="Every row is recorded sample data. The passing check is not live; the live session is NOT_RUN."
+              note="Every row is recorded sample data. The passing check is not live; the live session was not run."
               sourceLabel="Recorded sample"
               demo
             />
@@ -407,7 +407,6 @@ export function DemoPage() {
           </div>
           <div className="final-actions">
             <a className="action action-large" href="/workshop">Run locally <ArrowRight size={18} aria-hidden="true" /></a>
-            <a className="action action-large secondary" href="/#local-setup">Local setup</a>
           </div>
           <p className="demo-capability-note">
             <Check size={15} aria-hidden="true" /> {demoMode.capabilities.find((item) => item.id === "mutations")?.detail}

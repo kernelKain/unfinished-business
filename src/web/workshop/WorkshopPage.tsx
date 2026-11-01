@@ -618,7 +618,6 @@ function HostedDemoPanel() {
       </ul>
       <div className="actions">
         <a className="action" href="/demo">Try the guided example</a>
-        <a className="action secondary" href="/#local-setup">Set up locally</a>
         <a className="action ghost" href="/">Read the overview</a>
       </div>
       <p className="meta">All mutation, run, approval, and session-token routes are rejected in this mode.</p>
