@@ -1,5 +1,7 @@
 # Local setup
 
+> The single supported setup path is [Run it locally](../README.md#run-it-locally) in the README. This page keeps troubleshooting notes and diagnostics commands; if the two disagree, the README wins.
+
 **Status:** Linux x64 verified locally; macOS Apple Silicon and macOS Intel verified by CI run `41252770576`.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01 on Linux x64 with Node 22.22.1, npm 9.2.0, Git, and the pinned OpenCode 2.0.32 CLI. macOS jobs run the same install, resolution, typecheck, test, build, workspace-safety, and OpenCode smoke steps. This guide is the source for the landing page's setup tabs.

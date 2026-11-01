@@ -42,69 +42,69 @@ The landing page has one primary action, **Try the example** (`/demo`), and one 
 
 Models are discovered from OpenCode rather than assumed. New projects default to **All accessible models**, so any model OpenCode reports as available can be selected. A project can deliberately switch to **Free and local only**, which blocks paid and unknown-price remote models. Paid or unknown-price remote models require an explicit first-use confirmation; the app never silently substitutes a model or makes a paid request without that confirmation. An optional USD session spending limit can be set, and the deployment can impose a stricter `UB_MAX_SESSION_COST_USD` ceiling. Cost is checked against the value OpenCode reports; an unknown-price provider may report it only after a request.
 
-## Run it locally (judge path)
+## For judges
 
-Prerequisites: Linux x64 or macOS, Node 22.14+, and npm.
+**Start here, no login, about 90 seconds:** <https://unfinished-business-demo.onrender.com>
+
+Press **Try the example** on the landing page, or open `/demo` directly. This is the recorded Driftwatch walkthrough: Oracle clarifies, Architect drafts and you approve each section, Maker makes one bounded change in an isolated workspace, and Witness reports what actually ran. It is labeled as recorded, makes no model call, and is read-only: every write returns `403 DEMO_READ_ONLY`.
+
+**Live instance, password required:** <https://unfinished-business.onrender.com>
+
+- Username: `unfinished-business`. **Ask the organizer for the password.** It is not in this repository or the submission post.
+- Open `/workshop`. The workspace asks for the OpenCode server password as well; the organizer has that too.
+- The instance runs its own OpenCode server on a private disk and edits only its isolated demo workspace.
+
+**What each stage does**
+
+| Stage | What it does | What you approve |
+|---|---|---|
+| Oracle | Asks up to three focused questions and drafts a product proposal | The idea and its assumptions |
+| Architect | Drafts one plan section at a time against a content contract | Each section, by exact version |
+| Maker | Performs one bounded native edit through OpenCode | The edit scope, before anything runs |
+| Witness | Reviews the observed diff and check result in a fresh session | Nothing; it reports honestly, including failures |
+
+**What a live run costs**
+
+DeepSeek V4.1 Flash is a paid model. The first time you select it, the workspace asks you to confirm the charge, and nothing is sent until you do. OpenCode reports the session cost after it runs; the workspace never claims a price it was not given. Cancelling before the first message costs nothing.
+
+**How to stop a run**
+
+Open **Activity & results** and choose **Cancel**. A run that times out can be reconciled or marked abandoned; the workspace never silently repeats a native action.
+
+**Troubleshooting**
+
+| Symptom | Fix |
+|---|---|
+| `Port 4310 is already in use by: …` | Stop the process named in the message, or set `UB_PORT` in `.env` to a free port. |
+| The wizard cannot connect, or shows `authentication_required` | Start OpenCode (`npx --no-install opencode serve --hostname 127.0.0.1 --port 4096`) and paste the password it prints. |
+| `Free usage limit reached`, or the model is unavailable | The free OpenCode allowance is exhausted. Use your own OpenCode account, or pick another model in the wizard. |
+
+## Run it locally
+
+Prerequisites:
+
+- **Node 22.14+**, npm, and **Linux x64** or **macOS** (Apple Silicon or Intel). Windows and Linux ARM64 are unsupported.
+- **OpenCode 2.0.32**, installed by `npm ci` from the lockfile; a compatible global `opencode` on `PATH` is preferred automatically.
+- **Provider access, optional, for live runs only.** Configure it inside OpenCode (for example OpenCode Go or your own provider). The workspace never holds the provider key. Without it, the landing page and the recorded sample still work; live stages report that no model is available.
 
 ```bash
-# Terminal 1: OpenCode. Keep it running. Note the server password it prints.
-npx --no-install opencode serve --hostname 127.0.0.1 --port 4096
-
-# Terminal 2: the app. Builds the interface, then serves it and the API.
 npm ci
 npm start
 ```
 
-Open the URL the app prints, `http://127.0.0.1:4310/`. The landing page and the recorded sample at `/demo` need nothing else. For a live run, open `/workshop`, connect to OpenCode with the password from Terminal 1, and choose a model. If the port is busy, `npm start` names the process holding it. Set `UB_PORT` in `.env` to use another port.
+`npm start` builds the interface, refuses a port that is already in use (naming the process), and prints one URL. Open that URL (`http://127.0.0.1:4310/` by default) and follow the wizard.
 
-## Live instance (judges)
-
-A hosted copy runs at `https://unfinished-business.onrender.com`. It is password-protected: the browser asks for Basic auth. Username `unfinished-business`. The password is shared with judges separately and is not stored in this repository. Health check: `https://unfinished-business.onrender.com/api/health`. The live instance runs its own OpenCode server on a private disk and edits only its isolated demo workspace. Open the workshop at `/workshop`. The wizard asks for the OpenCode server password, which is shared with judges separately along with the Basic-auth password.
-
-Where live model runs happen: the local workshop runs DeepSeek V4.1 Flash (`opencode/deepseek-v4.1-flash` through OpenCode Go). The hosted instance reaches the free OpenCode route, which is subject to free-tier limits; if it reports a usage limit, run the live workshop locally with the steps above. The hosted instance is still the place to see the product, the recorded sample, and the connection check without installing anything.
-
-## Quick start
-
-Prerequisites: **Linux x64**, **macOS Apple Silicon**, or **macOS Intel**, Node **22.14+**, npm, and a supported OpenCode 2.x server. The pinned `@opencode/cli` package selects the native binary for the host; a compatible global `opencode` on `PATH` is preferred automatically. Copying `.env.example` to `.env` is optional for local work; the first-run wizard can hold the server password in memory.
-
-```bash
-npm ci
-cp .env.example .env   # optional
-```
-
-Terminal 1 — OpenCode (the pinned lockfile binary works on all three supported hosts):
+For live stages, OpenCode must be running. In a second terminal:
 
 ```bash
 npx --no-install opencode serve --hostname 127.0.0.1 --port 4096
 ```
 
-To use a global install instead:
+Leave it running and paste the password it prints into the wizard. If OpenCode is not running, `npm start` says so and the app still serves the landing page and the sample.
 
-```bash
-# Linux or macOS with npm
-npm install -g @opencode/cli@2.0.32
+**Offline.** The landing page, the recorded sample, and the connection screen work with no internet. Live Oracle, Architect, Maker, and Witness runs need a model provider, so they need network access. No fully offline model is bundled.
 
-# macOS with Homebrew
-brew install anomalyco/tap/opencode-v2
-```
-
-Terminal 2 — API:
-
-```bash
-npm run dev
-```
-
-Terminal 3 — interface:
-
-```bash
-npm run dev:web
-```
-
-Open `http://127.0.0.1:5173/`. The first-run wizard asks for the server URL and the password printed by `opencode serve`; provider accounts are connected inside OpenCode with `/connect`, and the model list comes from OpenCode's catalog.
-
-The detailed, tested guide is [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md). All state and mutation API routes require the browser session token; the browser client obtains it from `/api/session` automatically.
-
-If OpenCode cannot be resolved, run:
+If OpenCode cannot be resolved:
 
 ```bash
 npm run diagnose:platform   # CLI, platform, version, and permission diagnostics
