@@ -72,7 +72,9 @@ export function WorkshopPage() {
         setConnection(native);
       })
       .catch((caught: unknown) => {
-        setError(caught instanceof Error ? caught.message : "The workshop could not be loaded.");
+        setError(caught instanceof ApiError
+          ? caught.message
+          : "The workshop lost its connection. Reload before trying again.");
       });
   }, []);
 

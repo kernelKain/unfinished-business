@@ -1,8 +1,10 @@
 # Architecture — Unfinished Business
 
-**Status:** Platform Phase 7 (macOS support) implemented on the verified Upgrade Phase 6 baseline.
+**Status:** Phase 8 hardening complete on the Platform Phase 7 baseline.
 **Owner:** Engineering.
-**Last verified:** 2026-11-01 against the Platform Phase 7 verification matrix recorded in `docs/EVIDENCE.md`.
+**Last verified:** 2026-11-01 against the Phase 8 verification matrix recorded in `docs/EVIDENCE.md`.
+
+Phase 8 adds no schema or runtime architecture change. It hardens the existing architecture with an end-to-end journey test, responsive/loading/offline coverage, accessible revision tabs and live progress announcements, route-level replay/stale-revision tests, and a resolved dependency audit. The readable security boundary is in `docs/SECURITY_MODEL.md`.
 
 ## 1. System shape
 
@@ -108,7 +110,7 @@ Public hero assets are produced by `scripts/build-hero-assets.py` into `public/a
 | `src/shared/` | Browser-safe workflow, OpenCode, mode, and demo contracts; section content contracts; safe Markdown parser; line diff |
 | `src/web/components/Markdown.tsx` | Safe React renderer for the Markdown subset (no raw HTML) |
 | `src/web/components/ProjectMemory.tsx` | Editable decisions, answers, assumptions, constraints, and unresolved questions; corrections supersede prior entries |
-| `src/web/components/RevisionReview.tsx`, `RevisionDiff.tsx` | Candidate summary, full revision preview, unified/side-by-side diff, accept/reject/request-another controls |
+| `src/web/components/RevisionReview.tsx`, `RevisionDiff.tsx` | Candidate summary, full revision preview, unified/side-by-side diff, arrow-key tab panel, accept/reject/request-another controls |
 | `src/web/components/RunInspector.tsx` | Activity & results: Progress, Changes, Checks, and collapsed technical details |
 
 ## 5. Deployment modes
@@ -237,7 +239,15 @@ src/shared/workflow.ts   production Zod schemas + types
 
 In `hosted-demo` mode the server independently returns the fixture from `/api/project` and `/api/export`, returns a read-only connection status, rejects `/api/session` and every non-GET `/api/*` request, and never constructs an OpenCode connection.
 
-## 9. Trust boundaries and residual risks
+## 9. Accessibility, responsive, and resilience verification
+
+The browser surface is verified at 390px, 768px, and 1440px. The tablet rules hide low-priority header links and the model label, keep the brand on one line, and preserve the engine/model controls. The workshop loading, API-loss, empty, permission, and provider-error states are explicit; an API loss shows an alert and a reload action instead of a raw fetch message.
+
+Revision review is a real tab panel: both tabs expose `aria-controls`, `aria-selected`, roving `tabindex`, Arrow/Home/End behavior, and a labelled `tabpanel`. Live run progress is a polite status region. The global reduced-motion rule disables spirit/seal animation and scroll smoothing. The test suite checks landing/workshop/demo overflow, 200% text zoom, long model identities, long unbroken Markdown, token contrast, dialog focus return, and reduced motion.
+
+The complete user journey is exercised in `tests/journey.test.ts`: source selection, Oracle questions, proposal, product approval, section revision preview/supersede/accept, exact-version approvals, Maker scope, live progress, timeout, reconciliation, Node evidence, Witness drafts, and export. The test uses a deterministic guide and performs no provider call.
+
+## 10. Trust boundaries and residual risks
 
 | Boundary | Enforced controls |
 |---|---|
@@ -256,9 +266,10 @@ Residual risks:
 3. **Local process trust.** Any process running as the same OS user can read the data directory and local credentials.
 4. **Provider facts are incomplete.** Model availability, pricing, quota, training terms, and billing are controlled by OpenCode/provider. The optional spending limit is enforced only against cost OpenCode reports after a session; an unknown-price route can bill before that value is visible. A tool-call budget is not claimed.
 5. **Telemetry is best-effort.** Sentry delivery failure does not block the workshop. Provider error cards expose only redacted technical detail and a diagnostic reference; live release/source-map/trace verification needs authorized credentials.
-6. **Dependency audit gap.** Six moderate `glob`/`minimatch` advisories are reachable through the Sentry bundler plugin during developer builds. The production audit at `--audit-level=high` passes; the suggested fix is a breaking Sentry downgrade.
+6. **Dependency audit is clean in the automated checks.** Sentry stays on the latest 11.10.0 line; the vulnerable transitive `glob`/`minimatch` pair is overridden to `glob@14.0.3` and `minimatch@11.0.3`. `npm audit` reports zero vulnerabilities. This is not a formal penetration test.
+7. **Responsive and accessibility checks are automated at three widths.** They do not replace a full manual screen-reader and cross-browser audit.
 
-## 10. Not in this architecture
+## 11. Not in this architecture
 
 - A second coding harness or command executor.
 - A public arbitrary-execution sandbox.

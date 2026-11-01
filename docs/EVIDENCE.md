@@ -1,9 +1,9 @@
 # Evidence index and requirements matrix
 
-**Status:** Platform Phase 7 complete and verified.
+**Status:** Phase 8 complete and verified.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
-**Baseline revision:** `ddf632a` (`feat(demo): unify the project revival story`). Upgrade Phase 6's 186 tests passed before Platform Phase 7 edits.
+**Baseline revision:** `6641d71` (`docs(platform): record the green macOS CI matrix`). Platform Phase 7's 200 tests passed before Phase 8 edits.
 **Environment:** Linux x64, Node `22.22.1`, npm `9.2.0`, pinned OpenCode `2.0.32`, system Chromium. macOS arm64 and x64 are exercised by the CI matrix. No provider credentials were used for inference in any phase.
 
 Labels: **VERIFIED** = inspected/tested in this environment; **CI-GATED** = automated job defined, result required before the platform is claimed; **FAILED** = observed failure; **UNAVAILABLE** = prerequisite absent; **DEFERRED** = explicitly out of this release; **BLOCKED** = required prerequisite missing.
@@ -21,6 +21,13 @@ Labels: **VERIFIED** = inspected/tested in this environment; **CI-GATED** = auto
 | Platform | Render-specific behavior is isolated from local development | VERIFIED | `src/server/render-start.ts` uses the shared resolver and environment-derived XDG paths; local start never imports it | Render deployment itself remains a separate authorized action |
 | Platform | Workspace security handles macOS roots and resolved temporary paths | VERIFIED | `tests/security.test.ts` macOS broad-root and realpath cases | Symlink policy remains realpath-based |
 | Platform | Setup UI and docs contain no Linux-only package path and name npm/Homebrew installs | VERIFIED | `tests/platform.test.ts`, `tests/web.test.ts`, `src/web/setup.ts`, README, `docs/LOCAL_SETUP.md` | Homebrew installs the current tap version, not necessarily the 2.0.32 patch |
+| Phase 8 journey | The complete source → Oracle → proposal → revision → approval → Maker → recovery → Witness path composes | VERIFIED | `tests/journey.test.ts` | Deterministic guide; no live provider inference |
+| Phase 8 responsive | Landing, workshop, demo, and onboarding are usable at 390px, 768px, and 1440px | VERIFIED | `tests/visual/hardening.spec.ts`, `tests/visual/landing.spec.ts`, `tests/visual/demo.spec.ts`, committed snapshots | Automated Chromium only; no cross-browser matrix |
+| Phase 8 accessibility | Revision tabs are keyboard-operable; live progress is announced; focus return, reduced motion, contrast, zoom, and long content are checked | VERIFIED | `tests/web.test.ts`, `tests/visual/landing.spec.ts`, `tests/visual/hardening.spec.ts` | Automated checks do not replace a full screen-reader audit |
+| Phase 8 states | Loading, API-loss/offline, empty, permission, and provider-error states are explicit and actionable | VERIFIED | `tests/visual/hardening.spec.ts`, `tests/web.test.ts`, `docs/LOCAL_SETUP.md` | No simulated long-duration network partition beyond the loading/offline cases |
+| Phase 8 security | Source traversal/symlink/broad-root, remote URL matrix, import failure, stale revisions, duplicate/replayed mutations | VERIFIED | `tests/oracle-discovery.test.ts`, `tests/http-workflow.test.ts`, `tests/security.test.ts`, `tests/store-hardening.test.ts` | Not a formal penetration test |
+| Phase 8 dependencies | `npm audit` reports zero vulnerabilities without an unrelated Sentry major migration | VERIFIED | `npm audit`, `npm audit --omit=dev --audit-level=high`; `package.json` overrides | Transitive override; re-check on future Sentry updates |
+| Phase 8 release copy | Pitch, description, demo script, claims, limits, and asset manifest are prepared; nothing published | VERIFIED | `docs/release/HACKATHON_COPY.md` | External publication/submission requires separate authorization |
 | Project source | Every fresh project chooses new, local, remote, or saved work before Oracle | VERIFIED | `tests/oracle-discovery.test.ts`; source-first workshop rendering; `PROJECT_SOURCE_REQUIRED` server gate | Demo fixture carries an explicit `DEMO` source |
 | Project source | Local repositories pass existing workspace-security rules and private paths stay server-only | VERIFIED | `tests/oracle-discovery.test.ts`, `tests/security.test.ts`; public project serialization assertion | Selection validates but does not assess repository contents |
 | Project source | Remote URL is credential-free/public HTTPS, staged without import, then imported into a managed workspace only after confirmation | VERIFIED | `tests/oracle-discovery.test.ts`; injected importer asserts no call before confirm and managed target after confirm | Public unauthenticated Git only; no SSH/private/submodule credentials |
@@ -79,10 +86,10 @@ Labels: **VERIFIED** = inspected/tested in this environment; **CI-GATED** = auto
 | Recovery | Previous snapshot offered; corrupt bytes preserved; no silent reset | VERIFIED | `tests/recovery.test.ts`, `tests/store-hardening.test.ts` | Both-corrupt state requires operator restore |
 | Serialization | Schema v7 JSON round-trip preserves source, field-level intake, answer/assumption provenance, structured proposal, candidate base/summary/decision metadata, access/budget policy, provider errors, operations, approvals, evidence, and recovery metadata | VERIFIED | `tests/migration.test.ts`, `tests/provider-errors.test.ts`, `tests/demo.test.ts` (projectSchema round-trip of the updated fixture) | Model cost/privacy facts remain provider-owned |
 | Accessibility | Keyboard/focus/dialog/tabs/drawers/zoom/overflow/reduced motion/contrast | VERIFIED | `tests/visual/landing.spec.ts`, `tests/visual/demo.spec.ts` (20 tests) | Automated checks do not replace a screen-reader audit |
-| Performance | Bundle/asset budgets | VERIFIED | `npm run budget`: initial JS 201.5 KiB gzip, all JS 280.1 KiB, CSS 17.0 KiB, hero 581.2 KiB, largest 87.8 KiB | All-JS budget remains 290 KiB; Vite reports a >500 KiB minified initial chunk warning |
+| Performance | Bundle/asset budgets | VERIFIED | `npm run budget`: initial JS 201.5 KiB gzip, all JS 280.4 KiB, CSS 17.0 KiB, hero 581.2 KiB, largest 87.8 KiB | All-JS budget remains 290 KiB; Vite reports a >500 KiB minified initial chunk warning |
 | Documentation | Canonical routes/schema/env/modes/UI terms and history pointers | VERIFIED | This documentation set; link scan | Ongoing maintenance |
 | Documentation | Runtime prompts separated from implementation prompts | VERIFIED | `src/server/prompts/loader.ts`, `tests/prompts.test.ts`, `docs/prompts/README.md` | Loader reads a fixed map |
-| Dependency audit | No high/critical production advisory | VERIFIED at high threshold | `npm audit --omit=dev --audit-level=high` exit 0 | 6 moderate `glob`/`minimatch` advisories remain in the Sentry bundler path; `npm audit` exits 1 |
+| Dependency audit | No high/critical production advisory; full audit clean | VERIFIED | `npm audit --omit=dev --audit-level=high` and `npm audit` both exit 0 after the narrow `glob`/`minimatch` override | Re-check on future Sentry updates |
 | Sentry | Release/source-map/trace association | NOT RUN (optional telemetry) | Config reviewed statically | No authorized `SENTRY_AUTH_TOKEN` or deployment; no release claim |
 | Render/private host | Blueprint/env/security review | REVIEWED | `render.yaml`, `render.demo.yaml`, `docs/HOSTED_DEPLOYMENT.md`; static YAML check asserted private-hosted disk/secrets and demo no-disk/no-OpenCode | No live deployment authorized |
 | Entire | Development capture/checkpoint provenance | VERIFIED as prior development record | Repository hooks/checkpoints from earlier phases | Not a runtime feature; no public transcript |
@@ -95,16 +102,16 @@ Labels: **VERIFIED** = inspected/tested in this environment; **CI-GATED** = auto
 |---|---|
 | `npm ci` | PASS — exact lockfile install |
 | `npm run typecheck` | PASS |
-| `npm test` | PASS — 200 tests, 0 failures |
+| `npm test` | PASS — 207 tests, 0 failures |
 | `npm run build` | PASS — `dist/web` produced; one large-chunk warning |
-| `npm run budget` | PASS — all five budgets; initial JS 201.5 KiB, all JS 280.1 KiB, CSS 17.0 KiB, hero 581.2 KiB |
-| `npm run test:visual` | PASS — 20 tests; rewritten landing, guided sample, consistency, Activity & results, and character snapshots updated; no horizontal overflow |
+| `npm run budget` | PASS — all five budgets; initial JS 201.5 KiB, all JS 280.4 KiB, CSS 17.0 KiB, hero 581.2 KiB |
+| `npm run test:visual` | PASS — 26 tests; 390/768/1440 layouts, loading/offline, zoom, long content, keyboard, contrast, reduced motion, and canonical sample |
 | `npm run test:platform` | PASS — platform gate, resolver, setup/CI contracts, and Linux workspace/macOS-root safety |
 | `npm run diagnose:platform` | PASS — `linux-x64`, version `2.0.32`, no diagnostics |
 | `npm run smoke:opencode` | PASS — disposable server on loopback; `/api/info` reports `2.0.32`; no prompt/model call |
-| CI matrix (`41252770576`) | PASS — `linux-x64`, `darwin-arm64`, `darwin-x64`; install, CLI resolution, typecheck, tests, build, workspace safety, OpenCode smoke |
-| `npm audit --omit=dev --audit-level=high` | PASS (exit 0); 6 moderate advisories reported |
-| `npm audit` | FAIL (exit 1) — same 6 moderate advisories; no high/critical |
+| CI matrix (`41252770576`, `41253037115`) | PASS — `linux-x64`, `darwin-arm64`, `darwin-x64`; install, CLI resolution, typecheck, tests, build, workspace safety, OpenCode smoke |
+| `npm audit --omit=dev --audit-level=high` | PASS (exit 0); 0 vulnerabilities |
+| `npm audit` | PASS (exit 0); 0 vulnerabilities after the narrow `glob`/`minimatch` override |
 | `node scripts/preflight.mjs` | PASS for required checks: supported platform, OpenCode CLI `2.0.32`, client metadata, DNS, Git read, loopback, and Node; partner/runtime proofs remain NOT_RUN | No inference or Git writes |
 | Local smoke | Prior Phase 2 PASS — health, mode descriptor, token issue, project read, `/api/runtime`, `/workshop` and `/demo` HTML | Phase 3 behavior is covered by HTTP integration tests; no separate live smoke was required |
 | Hosted-demo smoke | PASS — fixture project, `/api/session` 403, mutation `DEMO_READ_ONLY`, `/api/engine` 503/no engine, `/demo` HTML |
@@ -118,19 +125,23 @@ Labels: **VERIFIED** = inspected/tested in this environment; **CI-GATED** = auto
 ### Architecture and contracts
 
 - [Architecture](ARCHITECTURE.md) — system shape, trust boundaries, request pipeline, modes, persistence.
+- [Security model](SECURITY_MODEL.md) — trust boundaries, controls, threat-to-test mapping, residual risks.
 - [OpenCode integration](OPENCODE_INTEGRATION.md) — tested version/API surface, discovery, credentials, limits.
 - [Operations and recovery](OPERATIONS_AND_RECOVERY.md) — data layout, backups, retention, failure matrix.
 - [Decisions](DECISIONS.md) — product, interface, demo, hardening, and release decisions.
 
 ### Tests and reports
 
-- `tests/` — 200 unit/integration/component tests.
-- `tests/visual/` — 20 Playwright visual/accessibility tests with committed snapshots.
+- `tests/` — 207 unit/integration/component tests.
+- `tests/visual/` — 26 Playwright visual/accessibility/resilience tests with committed snapshots.
+- `tests/journey.test.ts` — one complete source-to-Witness journey with revision supersede, live progress, timeout, reconciliation, evidence, and export.
+- `tests/visual/hardening.spec.ts` — 768px tablet snapshots, loading/offline states, 200% zoom, and hostile long-content containment.
 - `tests/platform.test.ts` — platform gate, global/local CLI resolution, version/permission/start diagnostics, setup/CI static contracts, and the installed-binary resolution check.
+- `tests/http-workflow.test.ts` — reviewed candidate/approval separation, approval replay, stale revisions, and memory replay.
 - `tests/memory.test.ts` — project-memory add/correct/supersede transitions and the authenticated `/api/memory` route.
-- `tests/web.test.ts` — workshop surfaces, Activity & results structure, Project memory content, and collapsed Advanced diagnostics.
+- `tests/web.test.ts` — workshop surfaces, Activity & results structure, Project memory content, accessible revision tabs, live progress announcement, long model names, and collapsed Advanced diagnostics.
 - `tests/observable-runs.test.ts` — Phase 2 matrix: late Oracle reply, section 06 Architect timeout recovery, late Maker diff with exact-once application, duplicate reconciliation, permission waiting, cancellation, restart reconnect, retry lineage, mark-abandoned, prompt-progress visibility.
-- `tests/oracle-discovery.test.ts` — source onboarding/security, multi-turn intake, prompt retention, memory, assumption gate, proposal provenance, and corrections.
+- `tests/oracle-discovery.test.ts` — source onboarding/security, local traversal/symlink/broad-root rejection, remote URL matrix, import failure, multi-turn intake, prompt retention, memory, assumption gate, proposal provenance, and corrections.
 - `tests/revisions.test.ts` — section contracts, candidate creation/supersede, accept/reject, stale approvals, base-version conflict, and unified/side-by-side diffs.
 - `tests/markdown.test.ts` — safe Markdown rendering, raw-HTML/script rejection, unsafe-link filtering, and block parsing.
 - `tests/migration.test.ts` — deterministic/idempotent v1/v2/v3/v4/v5/v6 → v7 migration and serialization coverage.
@@ -143,9 +154,10 @@ Labels: **VERIFIED** = inspected/tested in this environment; **CI-GATED** = auto
 
 ### Screenshots and demo assets
 
-- `tests/visual/snapshots/landing-wide.png`, `landing-narrow.png` — rewritten landing hierarchy and bespoke hero.
-- `tests/visual/snapshots/workshop-wide.png`, `workshop-narrow.png`, `onboarding-wide.png` — focused workshop layout and first-run connection.
-- `tests/visual/snapshots/demo-guided-wide.png`, `demo-guided-narrow.png`, `demo-presentation-wide.png` — Driftwatch guided sample and consistency capture.
+- `tests/visual/snapshots/landing-wide.png`, `landing-tablet.png`, `landing-narrow.png` — landing hierarchy and bespoke hero at 1440/768/390.
+- `tests/visual/snapshots/workshop-wide.png`, `workshop-tablet.png`, `workshop-narrow.png`, `onboarding-wide.png`, `onboarding-tablet.png` — focused workshop and first-run connection at three widths.
+- `tests/visual/snapshots/demo-guided-wide.png`, `demo-tablet.png`, `demo-guided-narrow.png`, `demo-presentation-wide.png` — Driftwatch guided sample and consistency captures.
+- `tests/visual/snapshots/workshop-offline.png` — deliberate connection-loss alert and reload path.
 - `tests/visual/snapshots/run-inspector.png`, `recovery-unknown.png` — Activity & results and abandoned-run recovery (snapshot filename retained for history).
 - `tests/visual/snapshots/spirit-*.png` — four-spirit states.
 - `assets/source/hero-workshop-revival.webp` — four-spirit hero master (not shipped); public variants under `public/assets/hero/`.
@@ -196,6 +208,21 @@ Labels: **VERIFIED** = inspected/tested in this environment; **CI-GATED** = auto
 | macOS x64 execution | PASS — CI | `macos-15-intel` job in run `41252770576`: same steps |
 | Migration | NOT REQUIRED | Dependency and resolver change; schema v7 and saved projects are unchanged |
 
+## Phase 8 evidence
+
+| Check | Result | Detail |
+|---|---|---|
+| Complete journey | PASS | `tests/journey.test.ts`: source, Oracle questions, proposal, product approval, revision supersede/accept, eight approvals, Maker scope, live progress, timeout, reconcile, Node evidence, Witness, export |
+| Responsive matrix | PASS | 390/768/1440 landing/workshop/demo coverage; new tablet onboarding; no horizontal overflow; new snapshots manually inspected |
+| Accessibility | PASS | Revision tab panel keyboard/ARIA, live progress status, focus return, contrast tokens, reduced motion, 200% zoom |
+| Long content | PASS | 8,000-character model identity and unbroken Markdown remain contained; ellipsis on model label |
+| States | PASS | Loading screen, API-loss alert with reload action, empty Run Inspector, permission and provider-error cards |
+| Source security | PASS | Missing/broad/file/system-symlink local sources rejected; remote URL scheme/credentials/query/fragment/port/traversal matrix; import failure leaves source pending |
+| Mutation security | PASS | Stale revision → 409; replay returns duplicate without a second mutation; same action with different payload → 409 |
+| Dependency audit | PASS — 0 vulnerabilities | Sentry 11.10.0 unchanged; `glob@14.0.3`/`minimatch@11.0.3` overrides; build and CJS/ESM imports checked |
+| Release copy | PREPARED — NOT PUBLISHED | `docs/release/HACKATHON_COPY.md`; no external submission, article, video, or deployment |
+| Migration | NOT REQUIRED | No schema change; schema v7 and saved projects remain unchanged |
+
 ## Release classification
 
 The product-release criteria pass with the limitations below. Partner-category qualification (Backboard, Sentry Agent Tracing, Entire evidence) remains unverified or development-only; **no partner category is claimed**. Those pending partner claims do not block the product release, but they do block any partner-category submission claim until separately evidenced and authorized.
@@ -213,8 +240,9 @@ The product-release criteria pass with the limitations below. Partner-category q
 | Shared multi-user isolation | DEFERRED | Out of release scope |
 | Remote browser-to-local pairing | DEFERRED | Out of release scope |
 | Private/authenticated repository connector | DEFERRED | Phase 3 supports only public credential-free HTTPS import; Maker remains demo-workspace bounded |
-| Moderate dependency advisories | KNOWN LIMITATION | Fix requires a breaking Sentry downgrade; production high-severity audit passes |
+| Moderate dependency advisories | RESOLVED | Narrow `glob@14.0.3`/`minimatch@11.0.3` override; `npm audit` reports zero vulnerabilities |
 | macOS manual session | NOT RUN | macOS execution is verified by CI; no separate manual macOS session is recorded |
+| Full screen-reader / cross-browser audit | NOT RUN | Automated Chromium checks cover the listed widths and states; no manual assistive-technology audit is claimed |
 
 ## Evidence handling rules
 

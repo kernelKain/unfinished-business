@@ -2,7 +2,7 @@
 
 **Status:** Guided sample and first-release evidence complete. A real recorded video, published article, deployment, and submission remain pending explicit authorization.
 **Owner:** Demo/submission.
-**Last verified:** 2026-11-01 (20 visual/accessibility tests; 200 unit/integration/component tests).
+**Last verified:** 2026-11-01 (26 visual/accessibility/resilience tests; 207 unit/integration/component tests).
 
 ## Two different demos
 
@@ -173,6 +173,10 @@ npx playwright test --update-snapshots
 ```
 
 Review every changed image before committing. A snapshot change is a UI decision, not an automatic approval.
+
+## Release copy and assets
+
+The reviewed pitch, short/long descriptions, demo script, claim checklist, limitations, and canonical asset manifest are in [release/HACKATHON_COPY.md](release/HACKATHON_COPY.md). They are prepared in the repository only. No article, video, hosted submission, or external publication has been performed.
 
 ## Clean exit
 

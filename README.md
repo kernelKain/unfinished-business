@@ -113,11 +113,11 @@ npm run smoke:opencode
 
 Current results (2026-11-01, Linux x64, Node 22.22.1, no live provider inference):
 
-- **200 unit/integration/component tests pass**.
-- **20 Playwright visual/accessibility tests pass** with committed snapshots, including the rewritten landing wide/narrow captures, the guided sample wide/narrow/presentation captures, the canonical sample-consistency check, and the reorganized Activity & results view.
-- Initial JS is **201.5 KiB gzip**; all JS **280.1 KiB**; CSS **17.0 KiB gzip**; all hero variants **581.2 KiB** total. The all-JS budget remains 290 KiB and CSS remains within its 18 KiB budget.
+- **207 unit/integration/component tests pass**, including a complete source → Oracle → proposal → revision → approval → Maker → timeout → reconcile → Witness journey test.
+- **26 Playwright visual/accessibility/resilience tests pass** with committed snapshots at **390px, 768px, and 1440px**, plus loading, offline, 200% zoom, long-content, keyboard, reduced-motion, and contrast checks.
+- Initial JS is **201.5 KiB gzip**; all JS **280.4 KiB**; CSS **17.0 KiB gzip**; all hero variants **581.2 KiB** total. The all-JS budget remains 290 KiB and CSS remains within its 18 KiB budget.
 - Platform resolution passes on Linux x64; `npm run smoke:opencode` starts a disposable OpenCode 2.0.32 server, reads `/api/info`, and stops it without a prompt or model call.
-- macOS Apple Silicon and macOS Intel run the same install, resolution, typecheck, tests, build, workspace-safety, and smoke steps in the `macos-15` and `macos-15-intel` CI jobs. CI run `41252770576` passed all three matrix jobs.
+- macOS Apple Silicon and macOS Intel run the same install, resolution, typecheck, tests, build, workspace-safety, and smoke steps in the `macos-15` and `macos-15-intel` CI jobs. CI runs `41252770576` and `41253037115` passed all three matrix jobs.
 - Keyboard focus order, dialog Escape, setup tab arrow keys, drawer operation, 200% text zoom, 390px overflow, reduced motion, and token contrast are checked.
 - Sample playback, reset isolation, fixture/schema drift, 90-second timing, tab inspection, no-network behavior, canonical landing/demo consistency, and hosted-sample mutation rejection are covered.
 - State migration deterministically upgrades schema v1, both supported v2 shapes, schema v3, schema v4, schema v5, and schema v6 to v7 without dropping proposals, approvals, transcripts, operations, evidence, selected model data, provider policy, limits, or candidate history.
@@ -126,18 +126,18 @@ Current results (2026-11-01, Linux x64, Node 22.22.1, no live provider inference
 - Model access policy, paid/unknown-price confirmation, optional spending limits, provider failure classification/redaction, and runtime confirmation gates are covered.
 - Local and hosted-sample smoke journeys pass; the hosted sample makes no inference call and rejects mutation.
 - OpenCode 2.0.32 live compatibility probe passed (version, catalog, and disposable session create/read/remove; no prompt or model call).
-- Production dependency audit at `--audit-level=high` passes. `npm audit` still reports six moderate `glob`/`minimatch` advisories reachable through the Sentry bundler plugin during developer builds; the suggested fix is a breaking Sentry downgrade and was not applied.
+- Production dependency audit at `--audit-level=high` passes, and the full `npm audit` now reports **0 vulnerabilities**. The vulnerable transitive `glob`/`minimatch` pair under the Sentry bundler plugin is overridden to fixed versions without changing the Sentry major line.
 
 `npm run test:visual` needs a Chromium executable. It prefers `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, then system Chrome/Chromium, then Playwright's browser.
 
 ## Status and limitations
 
-The prior release phases remain integrated. **Platform Phase 7** adds macOS support alongside the existing Linux x64 path: the official cross-platform `@opencode/cli` replaces the Linux-only package, runtime resolution prefers a compatible global `opencode` then the lockfile binary, and CI run `41252770576` passed Linux x64, macOS Apple Silicon, and macOS Intel. Upgrade Phase 6 rewrites the public story around one canonical Driftwatch sample: the landing page now has one primary action, a four-stage workflow, a coherent abandoned-open-source sample, a direct OpenCode explanation, local setup and privacy, and a short FAQ. Upgrade Phase 5 remains the focused workshop: one main task, a collapsible outline, contextual Activity & results, editable Project memory, a compact model/connection header, and lazy Advanced diagnostics. Schema v7 is unchanged.
+The prior release phases remain integrated. **Phase 8** adds the final hardening gate: an end-to-end workshop journey test, responsive snapshots at 390/768/1440, loading/offline/long-content checks, accessible revision tabs and live progress announcements, broader security route tests, a zero-advisory dependency audit, and in-repository hackathon copy/assets. **Platform Phase 7** adds macOS support alongside the existing Linux x64 path: the official cross-platform `@opencode/cli` replaces the Linux-only package, runtime resolution prefers a compatible global `opencode` then the lockfile binary, and CI runs `41252770576` and `41253037115` passed Linux x64, macOS Apple Silicon, and macOS Intel. Upgrade Phase 6 rewrites the public story around one canonical Driftwatch sample. Upgrade Phase 5 remains the focused workshop. Schema v7 is unchanged.
 
 Known limitations:
 
 - The application is a trusted single-project tool, not a multi-tenant sandbox. Remote imports are public HTTPS clones into a managed local directory; private/authenticated repositories, shared-host isolation, arbitrary Maker access to selected repositories, and remote browser-to-local pairing remain deferred.
-- The supported local hosts are **Linux x64**, **macOS Apple Silicon**, and **macOS Intel**. Linux x64 is verified in this checkout; macOS support is gated by the `macos-15` and `macos-15-intel` CI jobs and is not claimed from an unrun job. Windows, Linux ARM64, and 32-bit hosts are unsupported.
+- The supported local hosts are **Linux x64**, **macOS Apple Silicon**, and **macOS Intel**, verified by local runs and CI runs `41252770576`/`41253037115`. Windows, Linux ARM64, and 32-bit hosts are unsupported.
 - Maker edits only `UB_DATA_DIR/demo-workspace`; the Node check is not an OS sandbox.
 - Generated section review supports a deliberately small, safe Markdown subset (headings, paragraphs, lists, emphasis, links, tables, and code), not full CommonMark or raw HTML. Contract validation checks structure and topic coverage, not prose quality.
 - Model availability, pricing, quota, training terms, and billing are controlled by OpenCode/provider. The spending limit only checks cost OpenCode reports after a session; unknown-price providers may bill before that value is visible.
@@ -153,6 +153,7 @@ Canonical:
 
 - [Product brief](docs/PRODUCT_BRIEF.md) — positioning, landing claims, three usage paths.
 - [Architecture](docs/ARCHITECTURE.md) — routes, trust boundaries, persistence, modes, security.
+- [Security model](docs/SECURITY_MODEL.md) — trust boundaries, controls, threat-to-test mapping, residual risks.
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md) — phase history and release gate.
 - [OpenCode integration](docs/OPENCODE_INTEGRATION.md) — tested version/API surface, discovery, credentials ownership, sessions, limits.
 - [Local setup](docs/LOCAL_SETUP.md) — tested commands and troubleshooting.
@@ -165,6 +166,7 @@ Canonical:
 - [Changelog](docs/CHANGELOG.md) — released changes.
 - [Evidence index](docs/EVIDENCE.md) — requirements-to-evidence matrix, commands, limitations.
 - [Release notes](docs/RELEASE_NOTES.md) — concise release handoff.
+- [Hackathon and release copy](docs/release/HACKATHON_COPY.md) — prepared pitch, description, demo script, claim checklist, asset manifest; not published.
 
 History and provenance:
 
@@ -186,7 +188,7 @@ History and provenance:
 
 ## Delivery
 
-The first release targets a local browser on Linux x64 and macOS (Apple Silicon and Intel). CI run `41252770576` verified all three platforms. A real recorded demonstration and a reproducible local-start guide provide judge access; hosted code execution is outside this release. Backboard, Sentry Agent Tracing, and Entire remain selected partner targets, with qualification conditional on meaningful actual use and evidence. Publication, deployment, domain registration, credit claiming, and submission remain pending separate authorization.
+The first release targets a local browser on Linux x64 and macOS (Apple Silicon and Intel). CI runs `41252770576` and `41253037115` verified all three platforms. A real recorded demonstration and a reproducible local-start guide provide judge access; hosted code execution is outside this release. Release copy and an asset manifest are prepared in `docs/release/HACKATHON_COPY.md`, but no article, video, hosted submission, or external publication has been performed. Backboard, Sentry Agent Tracing, and Entire remain selected partner targets, with qualification conditional on meaningful actual use and evidence. Publication, deployment, domain registration, credit claiming, and submission remain pending separate authorization.
 
 ## License
 

@@ -148,9 +148,11 @@ Additional controls:
 |---|---|
 | Continue waiting | Dismisses the recovery panel; polling continues; nothing is repeated |
 | Open in OpenCode | Focuses the app's OpenCode panel with the native session list |
-| Cancel | Interrupts the native session (for an active in-process runner) and records `CANCELLED` |
-| Retry after failure | `POST /api/runs/:id/retry` — Maker runs only, after a confirmed `FAILED` outcome; creates a new operation with `retryOf` lineage |
+| Cancel | Checks the persisted terminal status first, then interrupts an active native session and records `CANCELLED`; a finished/abandoned row gets a stable conflict |
+| Retry after failure | `POST /api/runs/:id/retry` — Maker runs only, after a persisted confirmed `FAILED`; creates a new operation with `retryOf` lineage and does not wait for old-run cleanup |
 | Mark abandoned | `POST /api/runs/:id/abandon` — refuses active in-process runners and already-finished/abandoned rows |
+
+Terminal handling is deterministic across fast and slow hosts: a persisted `FAILED`/`SUCCEEDED`/`CANCELLED` status is authoritative even if the original in-process runner is still finishing cleanup. Phase 8 covers this with `tests/observable-runs.test.ts`, `tests/runs.test.ts`, and the full journey in `tests/journey.test.ts`.
 
 Retries never reuse the prior native session or operation id, so a retried run cannot duplicate a previous native edit; the original row keeps its history.
 

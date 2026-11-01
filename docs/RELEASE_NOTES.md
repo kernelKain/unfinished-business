@@ -1,9 +1,23 @@
 # Release notes — Unfinished Business release candidate
 
 **Date:** 2026-11-01
-**Status:** Platform Phase 7 implemented; deployment, publication, and submission remain outside this phase.
+**Status:** Phase 8 complete; deployment, publication, and submission remain outside this phase.
 
 ## What changed
+
+### Phase 8 — final quality, accessibility, security, and release hardening
+
+- Added one deterministic end-to-end workshop journey test covering source selection, Oracle questions, proposal, product approval, revision preview/supersede/accept, all section approvals, Maker scope, live progress, timeout, reconciliation, Node evidence, Witness drafts, and export.
+- Added **768px** tablet snapshots for landing, workshop, demo, and onboarding while retaining 390px and 1440px coverage. Fixed the tablet header so the brand, engine state, and model controls stay readable.
+- Hardened accessibility: revision review is now a keyboard-operable ARIA tab panel with Arrow/Home/End support, roving tabindex, `aria-controls`, and a labelled panel; live run progress is a polite status region.
+- Added deliberate loading and offline behavior. A lost API connection now shows “The workshop lost its connection” with a reload action instead of a raw browser fetch error.
+- Extended coverage for 200% text zoom, long provider/model identities, long unbroken generated Markdown, focus return from the setup dialog, rendered contrast tokens, reduced motion, empty states, pending permissions, and provider errors.
+- Added route-level security cases for local-source traversal/broad roots/system symlinks, remote URL schemes/credentials/query/fragment/port/traversal, failed imports, stale revisions, duplicate approvals, and replayed memory mutations.
+- Kept Sentry on the latest 11.10.0 line and overrode only the vulnerable transitive `glob`/`minimatch` pair to `glob@14.0.3` and `minimatch@11.0.3`. Both `npm audit` and the production high-severity audit now report **0 vulnerabilities**.
+- Added [Security model](SECURITY_MODEL.md), [hackathon/release copy](release/HACKATHON_COPY.md), and an asset manifest. Nothing was published or submitted externally.
+- Verification passes: typecheck, **207 tests**, **26 visual/accessibility/resilience tests**, production build, all five bundle/asset budgets, platform diagnostics, OpenCode server smoke, and a zero-vulnerability audit.
+
+Known limits: the complete journey uses a deterministic guide and makes no live provider call; macOS execution remains CI evidence; automated Chromium checks do not replace a full manual screen-reader or cross-browser audit; the release copy is prepared but not published.
 
 ### Platform Phase 7 — macOS support
 

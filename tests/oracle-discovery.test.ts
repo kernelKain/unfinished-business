@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, realpath } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, mkdtemp, realpath, symlink, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { createApp } from "../src/server/app.ts";
@@ -8,7 +8,11 @@ import type { SpiritGuide } from "../src/server/experience/guide.ts";
 import { ExperienceService } from "../src/server/experience/service.ts";
 import { ExperienceFailure } from "../src/server/experience/service.ts";
 import { oracleReplySchema } from "../src/server/experience/parse.ts";
-import { ProjectSourceError, ProjectSourceService } from "../src/server/project-sources.ts";
+import {
+  ProjectSourceError,
+  ProjectSourceService,
+  validateRemoteRepositoryUrl,
+} from "../src/server/project-sources.ts";
 import { AtomicProjectStore } from "../src/server/store/atomic-project-store.ts";
 import { createProject } from "../src/server/workflow/model.ts";
 import { WorkflowService } from "../src/server/workflow/service.ts";
@@ -139,6 +143,79 @@ test("remote source validation rejects credentials and private hosts without per
     privateSources.select("private-url", 0, { kind: "REMOTE_REPOSITORY", url: "https://internal.example/repo/project.git" }),
     (error: unknown) => error instanceof ProjectSourceError && error.code === "REMOTE_HOST_BLOCKED",
   );
+});
+
+test("remote repository URL policy rejects unsafe schemes, ports, queries, and traversal", async () => {
+  const cases: Array<[string, string]> = [
+    ["http://github.com/example/project.git", "REMOTE_URL_INSECURE"],
+    ["file:///tmp/project.git", "REMOTE_URL_INSECURE"],
+    ["ssh://git@github.com/example/project.git", "REMOTE_URL_INSECURE"],
+    ["https://token@github.com/example/project.git", "REMOTE_URL_CREDENTIALS"],
+    ["https://github.com/example/project.git?ref=main", "REMOTE_URL_CREDENTIALS"],
+    ["https://github.com/example/project.git#main", "REMOTE_URL_CREDENTIALS"],
+    ["https://github.com:8443/example/project.git", "REMOTE_URL_PORT"],
+    ["https://github.com/only-one-segment", "REMOTE_URL_INVALID"],
+    ["https://github.com/example/../project.git", "REMOTE_URL_INVALID"],
+  ];
+  for (const [url, code] of cases) {
+    await assert.rejects(
+      validateRemoteRepositoryUrl(url, publicResolver),
+      (error: unknown) => error instanceof ProjectSourceError && error.code === code,
+      url,
+    );
+  }
+  const valid = await validateRemoteRepositoryUrl("https://github.com/example/project.git", publicResolver);
+  assert.equal(valid.hostname, "github.com");
+});
+
+test("local source selection rejects broad, missing, non-directory, and system-symlink paths", async () => {
+  const fixture = await sourceFixture();
+  const missing = join(fixture.directory, "missing-repository");
+  await assert.rejects(
+    fixture.sources.select("missing-local", 0, { kind: "LOCAL_REPOSITORY", path: missing }),
+    (error: unknown) => error instanceof ProjectSourceError && error.code === "LOCAL_REPOSITORY_INVALID",
+  );
+  for (const path of ["/", homedir(), join(fixture.directory, "..", "..", "etc")]) {
+    await assert.rejects(
+      fixture.sources.select(`broad-${path.replaceAll("/", "-")}`, 0, { kind: "LOCAL_REPOSITORY", path }),
+      (error: unknown) => error instanceof ProjectSourceError && error.code === "LOCAL_REPOSITORY_INVALID",
+    );
+  }
+  const file = join(fixture.directory, "not-a-directory.txt");
+  await writeFile(file, "not a repo");
+  await assert.rejects(
+    fixture.sources.select("file-local", 0, { kind: "LOCAL_REPOSITORY", path: file }),
+    (error: unknown) => error instanceof ProjectSourceError && error.code === "LOCAL_REPOSITORY_INVALID",
+  );
+  const systemLink = join(fixture.directory, "system-link");
+  await symlink("/etc", systemLink);
+  await assert.rejects(
+    fixture.sources.select("symlink-local", 0, { kind: "LOCAL_REPOSITORY", path: systemLink }),
+    (error: unknown) => error instanceof ProjectSourceError && error.code === "LOCAL_REPOSITORY_INVALID",
+  );
+});
+
+test("a failed remote import leaves the source pending and saves no credentials", async () => {
+  const fixture = await sourceFixture();
+  const staged = await fixture.sources.select("import-failure-select", 0, {
+    kind: "REMOTE_REPOSITORY",
+    url: "https://github.com/example/project.git",
+  });
+  const failing = new ProjectSourceService(fixture.workflow, {
+    managedImportRoot: join(fixture.directory, "managed-imports"),
+    resolver: publicResolver,
+    importer: async () => {
+      throw new Error("clone failed with an ephemeral token");
+    },
+  });
+  await assert.rejects(
+    failing.confirmRemote("import-failure-confirm", staged.project.revision),
+    (error: unknown) => error instanceof ProjectSourceError && error.code === "REMOTE_IMPORT_FAILED",
+  );
+  const after = await fixture.workflow.get();
+  assert.equal(after.source.status, "PENDING_CONFIRMATION");
+  assert.equal(after.source.importedAt, null);
+  assert.equal(JSON.stringify(after).includes("ephemeral token"), false);
 });
 
 test("project source routes require authorization and never expose canonical local paths", async () => {

@@ -178,7 +178,8 @@ Status chips include a dot and text; color is never the only signal. `.status-ch
 - The project outline is a native `<details>` drawer with the approval progress and selectable section cards. It opens without hiding the main task.
 - Project memory is a native `<details>` drawer. It is open when memory exists and collapsed when empty.
 - Activity & results is a native `<details>` drawer that is absent until an operation or check exists. It opens automatically for an active or abandoned run.
-- Mobile keeps the same reading order; drawers become full-width disclosures. No horizontal overflow at 390px or 200% text zoom.
+- Mobile and tablet keep the same reading order; drawers become full-width disclosures. No horizontal overflow at 390px, 768px, or 200% text zoom. At 768px the header hides low-priority links and the model label, keeps the brand on one line, and preserves the engine/model controls.
+- Loading, API-loss, empty, permission, and provider-error states are explicit. An API loss shows a stable connection-loss alert and a reload action, not a raw fetch string.
 - Stage changes move focus to the main task. A polite live region announces busy, permission, and run state without duplicating every timer tick.
 - Drawer summaries are keyboard-operable and have visible focus. No hover-only or color-only state.
 
@@ -300,8 +301,10 @@ The state classes also drive the workshop header character: Oracle listening/cla
 - Status chips pair color with text.
 - Character SVGs are decorative by default; labelled instances expose `role="img"` and `<title>`.
 - No essential information in the hero image.
-- Text zoom to 200% keeps the page usable; flex/grid children have `min-width: 0`, and long labels wrap.
-- Contrast checks cover body, muted body, amber action text, and warning text; the Playwright suite enforces ≥4.5:1 for the tested token pairs.
+- Text zoom to 200% keeps the landing, workshop, and sample usable; flex/grid children have `min-width: 0`, and long labels wrap.
+- Long provider/model identities truncate with an ellipsis, and long unbroken generated Markdown wraps without widening the document.
+- Contrast checks cover body, muted body, amber action text, warning/danger/positive/active status text, dim text, and the focus accent; the Playwright suite enforces ≥4.5:1 for the tested token pairs.
+- Revision review is a keyboard-operable ARIA tab panel (Arrow/Home/End, roving tabindex, `aria-controls`, labelled `tabpanel`). Live run progress is a polite status region.
 - `prefers-contrast: more` increases border contrast and widths.
 - `forced-colors: active` adds system borders and disables the grain overlay.
 - Reduced-motion and low-bandwidth fallbacks are complete: AVIF → WebP → JPEG, no animation dependency, no font dependency.
@@ -346,14 +349,14 @@ All four characters are hand-authored SVG in this repository. They are not gener
 | Metric | Budget | Measured (2026-11-01) | Status |
 |---|---|---|---|
 | Initial JS (gzip) | ≤ 220 KiB | 201.5 KiB | PASS |
-| All JS chunks (gzip) | ≤ 290 KiB | 280.1 KiB | PASS |
+| All JS chunks (gzip) | ≤ 290 KiB | 280.4 KiB | PASS |
 | CSS (gzip) | ≤ 18 KiB | 17.0 KiB | PASS |
 | All hero variants (total) | ≤ 640 KiB | 581.2 KiB | PASS |
 | Largest single hero file | ≤ 190 KiB | 87.8 KiB | PASS |
 
 The all-JS budget remains 290 KiB after Upgrade Phase 6 replaced the static recommendation block and hero with the canonical sample and a new image. CSS remains within the 18 KiB budget raised in Phase 4 for the safe Markdown typography, diff review, and audit-history surfaces. Any increase is recorded here rather than silently accepted.
 
-The initial route is the landing page. Workshop and sample are lazy-loaded (69.4 KiB and 5.6 KiB gzip, plus 3.5 KiB shared stage tabs). The canonical fixture is shared by the eager landing chunk and the lazy sample chunk; the sample chunk adds the playback reducer and guided UI. This raises initial JS to 201.5 KiB while keeping all-JS at 280.1 KiB. The workshop chunk includes the connection/discovery wizard, project memory, Activity & results, and lazy Advanced diagnostics. The hero transfers **15.6–56.3 KiB** as AVIF on a typical wide viewport and **32.8–52.4 KiB** as AVIF on mobile depending on pixel density; the total covers all breakpoints and formats, not one visit.
+The initial route is the landing page. Workshop and sample are lazy-loaded (69.4 KiB and 5.6 KiB gzip, plus 3.5 KiB shared stage tabs). The canonical fixture is shared by the eager landing chunk and the lazy sample chunk; the sample chunk adds the playback reducer and guided UI. This raises initial JS to 201.5 KiB while keeping all-JS at 280.4 KiB. The workshop chunk includes the connection/discovery wizard, project memory, Activity & results, and lazy Advanced diagnostics. The hero transfers **15.6–56.3 KiB** as AVIF on a typical wide viewport and **32.8–52.4 KiB** as AVIF on mobile depending on pixel density; the total covers all breakpoints and formats, not one visit.
 
 ### Rules
 
@@ -383,4 +386,4 @@ npm run test:visual
 - API copy distinguishes invalid session token, invalid origin, rate limit, concurrent mutation, request too large, stale revision, unknown native outcome, pending permission, and corrupt/busy state.
 - There is no landing-page recommender in this release. The static recommendation table was removed in Upgrade Phase 6; a future recommender must be capability-driven, cite source freshness, and never imply an install, paid model, arbitrary shell, or approval.
 - Evidence and Activity & results labels keep fixture results separate from live `NOT_RUN`/native results. No color or animation is the only status signal.
-- The final accessibility matrix covers keyboard focus, dialog Escape, setup-tab arrow keys, 200% text zoom, 390px/wide layouts, overflow, reduced motion, contrast, and relevant screen-reader/live-region semantics.
+- The final accessibility matrix covers keyboard focus, dialog Escape/focus return, setup-tab and revision-tab arrow keys, live progress, 200% text zoom, 390/768/1440 layouts, overflow, reduced motion, contrast, long content, loading/offline states, and relevant screen-reader/live-region semantics.

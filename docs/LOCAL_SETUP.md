@@ -220,6 +220,10 @@ Stop the previous process or set `UB_PORT` to a free port. Vite reads `UB_PORT` 
 5. Run `npm run diagnose:platform` and `npm run smoke:opencode` to separate CLI resolution from server/network problems.
 6. Restart the API after changing `.env`.
 
+### The workshop lost its connection
+
+The initial project/connection load failed. Start or restart the API, confirm `http://127.0.0.1:4200/api/health`, then use **Reload the workshop**. Do not repeat a mutation blindly; reload first and inspect the persisted revision. The UI intentionally replaces raw browser fetch text with this actionable message.
+
 ### The OpenCode executable is missing or not executable
 
 `npm run diagnose:platform` returns `OPENCODE_CLI_MISSING` or `OPENCODE_CLI_PERMISSION_DENIED`. Run `npm ci` with install scripts enabled. On macOS/Linux, avoid `sudo`; fix ownership on the install directory instead. `@opencode/cli` materializes its native binary during postinstall, so `--ignore-scripts` installs are incomplete.
@@ -284,5 +288,7 @@ npm run test:platform
 npm run smoke:opencode
 npm audit --omit=dev --audit-level=high
 ```
+
+The current gate is 207 unit/integration/component tests, 26 Playwright visual/accessibility/resilience tests, and `npm audit` with zero vulnerabilities. The Playwright suite covers 390px, 768px, and 1440px layouts plus loading, offline, 200% zoom, long content, keyboard, contrast, and reduced-motion checks.
 
 The interface's full visual and accessibility check is `npm run test:visual`. It needs a Chromium executable. The config prefers `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, then system Chrome/Chromium (including the standard macOS application paths), then Playwright's installed browser. The web-server data directory comes from the host temporary directory, not a hardcoded `/tmp`.

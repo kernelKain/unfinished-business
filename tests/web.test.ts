@@ -8,6 +8,7 @@ import { SpiritCharacter, type SpiritState } from "../src/web/components/SpiritC
 import { ProviderErrorCard } from "../src/web/components/ProviderErrorCard.tsx";
 import { ProjectMemory } from "../src/web/components/ProjectMemory.tsx";
 import { RunInspector } from "../src/web/components/RunInspector.tsx";
+import { RevisionReview, reviewTabAfterKey } from "../src/web/components/RevisionReview.tsx";
 import { OpenCodePanel } from "../src/web/opencode-panel.tsx";
 import { connectionStatusSchema } from "../src/shared/opencode.ts";
 import { createProject } from "../src/server/workflow/model.ts";
@@ -336,9 +337,99 @@ test("provider error cards expose safe repair and technical details", () => {
   assert.doesNotMatch(html, /sk-[A-Za-z0-9_-]{16,}/);
 });
 
+test("live progress, recovery controls, and long model names stay readable and announced", () => {
+  const base = demoFixture.project.operations.find((operation) => operation.kind === "maker") ?? demoFixture.project.operations[0];
+  const longProvider = "provider-with-a-very-long-name-that-must-not-overflow";
+  const operation = {
+    ...base,
+    id: "op-live-hardening",
+    kind: "maker" as const,
+    status: "RUNNING" as const,
+    result: "Running in OpenCode with a long provider/model identity.",
+    model: { providerID: longProvider, id: `${"model-".repeat(20)}end`, variant: "reasoning-variant-with-a-long-name" },
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    progress: { phase: "WAITING_FOR_MODEL" as const, detail: "A safe observed phase.", updatedAt: new Date().toISOString() },
+  };
+  const html = renderToStaticMarkup(createElement(RunInspector, {
+    operations: [operation],
+    evidence: [],
+    capabilities: [],
+    onReconcile: () => undefined,
+    onCancel: () => undefined,
+    onRetry: () => undefined,
+    onAbandon: () => undefined,
+    onOpenOpenCode: () => undefined,
+  }));
+  const copy = text(html);
+  assert.match(html, /data-testid="run-progress"/);
+  assert.match(html, /role="status"/);
+  assert.match(html, /aria-live="polite"/);
+  assert.match(copy, /waiting for the model/);
+  assert.match(copy, /Reconcile now/);
+  assert.match(copy, /Continue waiting/);
+  assert.match(copy, /Open in OpenCode/);
+  assert.match(copy, /Cancel/);
+  assert.ok(copy.includes(longProvider));
+  assert.match(copy, /reasoning-variant-with-a-long-name/);
+});
+
 test("FAQ answers cover the open-source engine and the sample's limits", () => {
   assert.ok(faqs.some((item) => /second coding harness/i.test(item.question)));
   assert.ok(faqs.some((item) => /hosted page read my local repository/i.test(item.question)));
   assert.ok(faqs.some((item) => /recorded fixture/i.test(item.answer)));
   assert.ok(faqs.some((item) => /What is the Driftwatch sample/i.test(item.question)));
+});
+
+test("revision review exposes an accessible tab panel and survives long hostile content", () => {
+  const longSummary = `Summary ${"x".repeat(1200)}`;
+  const longRequestedChange = `Requested ${"y".repeat(1200)}`;
+  const candidate = {
+    id: "candidate-hardening",
+    version: 4,
+    baseVersion: 3,
+    status: "PENDING",
+    createdAt: "2026-11-01T00:00:00.000Z",
+    summary: longSummary,
+    requestedChange: longRequestedChange,
+    content: [
+      "# Very long section",
+      "",
+      "z".repeat(4000),
+      "",
+      "<script>alert('not executable')</script>",
+      "",
+      "[unsafe](javascript:alert(1))",
+    ].join("\n"),
+  };
+  const html = renderToStaticMarkup(createElement(RevisionReview, {
+    sectionTitle: "System architecture",
+    currentContent: "# Current draft\n\nold text",
+    candidate,
+    busy: false,
+    onAccept: () => undefined,
+    onReject: () => undefined,
+    onRequestAnother: () => undefined,
+  }));
+
+  assert.match(html, /role="tablist"/);
+  assert.match(html, /id="revision-tab-changes"/);
+  assert.match(html, /aria-controls="revision-panel"/);
+  assert.match(html, /role="tabpanel"/);
+  assert.match(html, /aria-labelledby="revision-tab-changes"/);
+  assert.match(html, /tabindex="0"/);
+  assert.match(html, /role="tab"[^>]*aria-selected="true"[^>]*aria-controls="revision-panel"/);
+  assert.match(html, /Accept revision/);
+  assert.match(html, /Request another revision/);
+  assert.doesNotMatch(html, /<script>alert/);
+  assert.doesNotMatch(html, /href="javascript:/);
+  assert.ok(html.includes(longSummary));
+  assert.ok(html.includes(longRequestedChange));
+
+  assert.equal(reviewTabAfterKey("changes", "ArrowRight"), "revision");
+  assert.equal(reviewTabAfterKey("revision", "ArrowRight"), "changes");
+  assert.equal(reviewTabAfterKey("changes", "ArrowLeft"), "revision");
+  assert.equal(reviewTabAfterKey("revision", "Home"), "changes");
+  assert.equal(reviewTabAfterKey("changes", "End"), "revision");
+  assert.equal(reviewTabAfterKey("changes", "Tab"), null);
 });

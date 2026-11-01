@@ -46,8 +46,11 @@ const broadRoots = new Set([
   "/Volumes",
   "/private",
   "/private/tmp",
+  "/private/var",
   "/private/var/tmp",
   "/private/var/folders",
+  "/private/var/log",
+  "/private/etc",
   "/System",
 ]);
 

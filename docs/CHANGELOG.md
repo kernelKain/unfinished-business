@@ -4,6 +4,36 @@
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
+## 2026-11-01 — Phase 8 final quality and release hardening
+
+### Added
+
+- Complete journey test from source selection through Oracle, revisions, approvals, Maker recovery, Witness, and export.
+- 768px tablet snapshots for landing, workshop, demo, and onboarding.
+- Loading and offline workshop states with an actionable reload path.
+- Accessible revision tab panel and polite live progress announcements.
+- Route-level security cases for source traversal, unsafe URLs, stale revisions, and replayed mutations.
+- `docs/SECURITY_MODEL.md`, `docs/release/HACKATHON_COPY.md`, and a canonical asset manifest.
+
+### Changed
+
+- Tablet header hides low-priority links and the model label while preserving the brand and engine controls.
+- Initial API failure now uses a deliberate connection-loss message instead of raw fetch text.
+- Long model identities and long unbroken Markdown are covered by responsive containment tests.
+- Sentry remains at 11.10.0; transitive `glob`/`minimatch` are overridden to fixed versions.
+- Test evidence is now 207 unit/integration/component tests and 26 visual/accessibility/resilience tests.
+
+### Removed
+
+- The six moderate `glob`/`minimatch` audit advisories from the production tree.
+- Raw fetch error text from the workshop's initial-load alert.
+
+### Not in this entry
+
+- No schema change or migration; schema v7 remains current.
+- No live provider call, deployment, publication, article, video, or external submission.
+- No claim of a full manual screen-reader, cross-browser, or penetration-test audit.
+
 ## 2026-11-01 — Platform Phase 7 macOS support
 
 ### Added

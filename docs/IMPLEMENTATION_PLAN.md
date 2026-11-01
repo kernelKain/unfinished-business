@@ -1,6 +1,6 @@
 # Implementation plan and phase record
 
-**Status:** Platform Phase 7 complete and verified.
+**Status:** Phase 8 complete and verified.
 **Owner:** Engineering.
 **Last verified:** 2026-11-01.
 
@@ -25,6 +25,7 @@
 | Upgrade Phase 5 — Focused workshop and reorganized OpenCode controls | One primary task, collapsible outline, contextual Activity & results, editable Project memory, compact model/connection header, lazy Advanced diagnostics, accessible drawers | Complete and verified; commit recorded by `git log -1` after phase handoff |
 | Upgrade Phase 6 — Canonical sample and rewritten landing page | One Driftwatch fixture, coherent abandoned-open-source story, rewritten landing hierarchy, one primary CTA, direct OpenCode explanation, bespoke hero, fixture-consistency and visual tests | Complete and verified; commit recorded by `git log -1` after phase handoff |
 | Platform Phase 7 — macOS support | Official cross-platform `@opencode/cli`, platform-aware resolver with global-first preference, macOS workspace/temp safety, setup UI and docs, Linux/macOS CI matrix, CLI and server diagnostics | Complete and verified; CI run `41252770576` passed `linux-x64`, `darwin-arm64`, and `darwin-x64` |
+| Phase 8 — final hardening | Complete journey test, 390/768/1440 responsive snapshots, loading/offline/long-content checks, accessible revision tabs/live progress, route-level security matrix, zero-vulnerability audit, release copy/assets | Complete and verified; 207 tests, 26 visual tests, build/budget, platform smoke, and audit pass |
 
 The guided-interface line (`origin/main` at `b2d2654`) and the hardening line (`origin/phase-8-hardening` at `8c50439`) both descended from `2205774`. Phase 9 integrates them rather than choosing one and losing the other. The release candidate therefore keeps the landing page, onboarding, deterministic demo, security middleware, state migration, retention, and recovery in one build.
 
@@ -299,7 +300,40 @@ The local workshop now supports Linux x64, macOS Apple Silicon, and macOS Intel.
 
 Platform Phase 7 acceptance passed on 2026-11-01. CI run `41252770576` passed the full matrix (`linux-x64`, `darwin-arm64`, and `darwin-x64`), including dependency installation, CLI resolution, typecheck, tests, build, workspace path safety, and the OpenCode server smoke test. No live provider inference was used.
 
-## Phase 8 hardening units
+## Phase 8 — final quality, accessibility, and release hardening
+
+### Outcome
+
+The upgraded workshop has one complete journey test, responsive evidence at 390px, 768px, and 1440px, deliberate loading/offline/long-content states, accessible revision tabs and live progress, broader route-level security tests, a zero-vulnerability audit, and in-repository release copy/assets. No schema or product-workflow behavior was broadened; the only user-facing behavior changes are the deliberate offline message and the tablet header/accessibility refinements.
+
+**Phase commit:** `chore(release): harden and document the upgraded workshop`.
+
+### Work units
+
+| Unit | Outcome | Evidence |
+|---|---|---|
+| P8-1 complete journey | Source selection → Oracle questions → proposal → product approval → revision preview/supersede/accept → every section approval → Maker scope → live progress → timeout → reconcile → Node evidence → Witness → export | `tests/journey.test.ts` |
+| P8-2 responsive matrix | 390px and 1440px remain covered; new 768px landing/workshop/demo/onboarding snapshots; tablet header fixed | `tests/visual/hardening.spec.ts`, `tests/visual/snapshots/*-tablet.png` |
+| P8-3 accessibility | Revision tabs are a real keyboard-operable tab panel; live progress is a polite status; focus return, contrast, reduced motion, 200% zoom, and long content are checked | `RevisionReview.tsx`, `RunInspector.tsx`, `tests/web.test.ts`, visual suite |
+| P8-4 states | Loading, API-loss, empty, permission, and provider-error states are explicit; raw fetch text is replaced with an actionable alert | `WorkshopPage.tsx`, `tests/visual/hardening.spec.ts` |
+| P8-5 security | Source traversal/symlink/broad-root, remote URL matrix, import failure, stale revision, approval replay, and memory replay are covered | `tests/oracle-discovery.test.ts`, `tests/http-workflow.test.ts`, `tests/security.test.ts` |
+| P8-6 dependencies | Sentry stays at 11.10.0; transitive `glob`/`minimatch` overridden to fixed versions; audit clean | `package.json`, `package-lock.json`, `npm audit` |
+| P8-7 release copy | Pitch, description, demo script, claim checklist, limits, and canonical asset manifest prepared in-repo; nothing published | `docs/release/HACKATHON_COPY.md` |
+| P8-8 documentation | Architecture, setup, integration, security model, recovery, platforms, limitations, evidence, release notes, changelog | canonical documentation set |
+
+### Acceptance status
+
+- [x] The complete journey test passes without a live provider call.
+- [x] Responsive snapshots cover 390px, 768px, and 1440px.
+- [x] Keyboard, focus return, live announcements, reduced motion, contrast, zoom, long names/content, and loading/offline states have automated evidence or an explicit limitation.
+- [x] Security tests cover redaction, malicious Markdown, repository traversal, unsafe URLs, duplicate/replayed mutations, and stale revisions.
+- [x] `npm audit` reports zero vulnerabilities after the narrow transitive override; Sentry has no unrelated major migration.
+- [x] Typecheck, 207 tests, 26 visual tests, build, budget, platform diagnostics, and OpenCode smoke pass.
+- [x] The final worktree is clean after the phase commit; only pre-existing untracked `.backboard/` remains.
+
+Phase 8 acceptance passed on 2026-11-01. No live provider inference was used. Automated accessibility checks do not replace a full manual screen-reader or cross-browser audit.
+
+## Historical Phase 8 hardening units (security-and-recovery line)
 
 | Unit | Outcome | Evidence |
 |---|---|---|
@@ -347,7 +381,7 @@ Platform Phase 7 acceptance passed on 2026-11-01. CI run `41252770576` passed th
 | Demo/reset isolation | PASS — fixture tests and Playwright request capture | — |
 | Recommendation fixtures | REMOVED in Upgrade Phase 6 — the static table was not capability-driven | No replacement recommender is claimed |
 | Security/recovery | PASS — traversal, SSRF, origin, rate, size, redaction, corruption, disk, retention | Rate limiter is in-process |
-| Production dependency audit | PASS at `--audit-level=high`; 6 moderate advisories remain | Sentry bundler plugin, developer build path |
+| Production dependency audit | PASS at `--audit-level=high`; 6 moderate advisories remained at Phase 9 (resolved in Phase 8) | Sentry bundler plugin, developer build path |
 | Sentry release/maps/traces | NOT RUN in Phase 9 | No authorized `SENTRY_AUTH_TOKEN`/deployment; config is statically reviewed |
 | Render/private-host validation | PASS — static Blueprint/env review | No live deployment was authorized |
 | Article/video/submission | NOT STARTED | Publication and submission are separate authorization |
@@ -370,7 +404,8 @@ Platform Phase 7 acceptance passed on 2026-11-01. CI run `41252770576` passed th
 4. Live Sentry release/source-map/trace verification with authorized credentials.
 5. Public hosted URL, recorded video, published article, and submission.
 6. A deliberate chunk-splitting improvement for the initial browser bundle if it grows.
-7. A resolved dependency advisory path without a breaking Sentry downgrade.
+
+Phase 8 resolved the former dependency-advisory item with a narrow `glob`/`minimatch` override; `npm audit` now reports zero vulnerabilities.
 
 ## Verification commands
 

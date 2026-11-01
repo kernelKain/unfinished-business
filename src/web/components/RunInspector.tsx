@@ -98,7 +98,7 @@ export function RunInspector({
                 </div>
                 <p className="run-result">{latestOperation.result ?? "No native result recorded."}</p>
                 {latestOperation.progress?.phase ? (
-                  <p className="run-session meta" data-testid="run-progress">
+                  <p className="run-session meta" data-testid="run-progress" role="status" aria-live="polite">
                     Progress: {phaseLabels[latestOperation.progress.phase] ?? latestOperation.progress.phase.toLowerCase()}
                     {latestOperation.progress.detail && !demo ? ` — ${latestOperation.progress.detail}` : ""}
                   </p>

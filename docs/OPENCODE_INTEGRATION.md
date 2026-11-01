@@ -2,7 +2,7 @@
 
 **Status:** Implemented and verified on Linux x64 locally and on macOS Apple Silicon and macOS Intel through CI.
 **Owner:** Engineering/integration.
-**Last verified:** 2026-11-01 against Platform Phase 7 and the Phase 5 focused-workshop/OpenCode-controls surface.
+**Last verified:** 2026-11-01. Phase 8 did not change the OpenCode contract; it added an end-to-end journey test, accessible live progress, and route-level replay/stale-revision coverage around it.
 
 This document describes the supported OpenCode surface, not every endpoint OpenCode exposes. OpenCode remains the owner of inference, the agent loop, tools, permissions, and native sessions.
 

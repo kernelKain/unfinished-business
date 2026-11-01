@@ -74,12 +74,14 @@ test.describe("landing", () => {
 
   test("connect dialog opens and closes with Escape", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Connect OpenCode" }).first().click();
+    const trigger = page.getByRole("button", { name: "Connect OpenCode" }).first();
+    await trigger.click();
     const dialog = page.getByRole("dialog", { name: /Point the workshop/ });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText("docs/LOCAL_SETUP.md")).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
   });
 
   test("setup tabs expose tested commands and arrow-key navigation", async ({ page }) => {
@@ -135,6 +137,11 @@ test.describe("landing", () => {
         muted: ratio(styles.getPropertyValue("--text-muted"), styles.getPropertyValue("--ink-1")),
         action: ratio(styles.getPropertyValue("--amber-ink"), styles.getPropertyValue("--amber")),
         warning: ratio(styles.getPropertyValue("--status-warning"), styles.getPropertyValue("--ink-1")),
+        danger: ratio(styles.getPropertyValue("--status-danger"), styles.getPropertyValue("--ink-0")),
+        positive: ratio(styles.getPropertyValue("--status-positive"), styles.getPropertyValue("--ink-0")),
+        active: ratio(styles.getPropertyValue("--status-active"), styles.getPropertyValue("--ink-0")),
+        dim: ratio(styles.getPropertyValue("--text-dim"), styles.getPropertyValue("--ink-1")),
+        focus: ratio(styles.getPropertyValue("--amber-bright"), styles.getPropertyValue("--ink-0")),
       };
     });
     for (const value of Object.values(ratios)) expect(value).toBeGreaterThanOrEqual(4.5);

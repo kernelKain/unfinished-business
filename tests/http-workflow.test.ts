@@ -80,4 +80,79 @@ test("accepts a reviewed candidate and keeps approval separate through validated
   assert.equal(approval.status, 200);
   const approved = await approval.json();
   assert.equal(approved.project.currentSectionId, "architecture");
+
+  const replayedApproval = await app.request("/api/sections/control/approve", {
+    method: "POST", headers,
+    body: JSON.stringify({ actionId: "approve", expectedRevision: accepted.project.revision, version: section.version, hash: section.hash }),
+  });
+  assert.equal(replayedApproval.status, 200);
+  const replayed = await replayedApproval.json();
+  assert.equal(replayed.duplicate, true);
+  assert.equal(replayed.project.revision, approved.project.revision);
+  assert.equal(replayed.project.currentSectionId, "architecture");
+  assert.equal(replayed.project.sections[0].status, "APPROVED");
+});
+
+test("stale revisions and replayed mutations never apply twice", async () => {
+  const { app } = await fixture();
+  const headers = { "content-type": "application/json", "x-ub-session-token": "test-token" };
+  const first = await app.request("/api/memory", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      actionId: "memory-once",
+      expectedRevision: 0,
+      kind: "decision",
+      text: "Keep the bounded Node check.",
+    }),
+  });
+  assert.equal(first.status, 200);
+  const firstBody = await first.json();
+  assert.equal(firstBody.project.memory.decisions.length, 1);
+  const revision = firstBody.project.revision;
+
+  const replay = await app.request("/api/memory", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      actionId: "memory-once",
+      expectedRevision: 0,
+      kind: "decision",
+      text: "Keep the bounded Node check.",
+    }),
+  });
+  assert.equal(replay.status, 200);
+  const replayed = await replay.json();
+  assert.equal(replayed.duplicate, true);
+  assert.equal(replayed.project.revision, revision);
+  assert.equal(replayed.project.memory.decisions.length, 1);
+
+  const stale = await app.request("/api/memory", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      actionId: "memory-stale",
+      expectedRevision: 0,
+      kind: "constraint",
+      text: "This must not apply against an old revision.",
+    }),
+  });
+  assert.equal(stale.status, 409);
+  assert.equal((await stale.json()).code, "WORKFLOW_CONFLICT");
+
+  const reused = await app.request("/api/memory", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      actionId: "memory-once",
+      expectedRevision: revision,
+      kind: "decision",
+      text: "A different payload under the same action id.",
+    }),
+  });
+  assert.equal(reused.status, 409);
+  assert.equal((await reused.json()).code, "WORKFLOW_CONFLICT");
+  const final = await (await app.request("/api/project", { headers })).json();
+  assert.equal(final.memory.decisions.length, 1);
+  assert.equal(final.memory.constraints.length, 0);
 });

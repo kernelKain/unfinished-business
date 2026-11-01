@@ -22,9 +22,9 @@ This catalog distinguishes what the product **uses** and what is only a **docume
 
 | Tool | Role | Status | Evidence/limitation |
 |---|---|---|---|
-| Node test runner | Unit/integration/component tests | **Integrated** | 200 passing tests. |
-| Playwright 1.62 | Visual, keyboard, contrast, zoom, reduced-motion, overflow, and canonical-sample tests | **Integrated** | 20 passing tests with committed snapshots; uses system Chromium on Linux or macOS. |
-| `scripts/check-budget.mjs` | Production bundle/asset budget | **Integrated** | Passes: initial JS 201.5 KiB gzip, all JS 280.1 KiB (290 KiB budget), CSS 17.0 KiB (18 KiB budget), hero 581.2 KiB. |
+| Node test runner | Unit/integration/component tests | **Integrated** | 207 passing tests. |
+| Playwright 1.62 | Visual, keyboard, contrast, zoom, reduced-motion, overflow, responsive, loading/offline, and canonical-sample tests | **Integrated** | 26 passing tests with committed snapshots; 390/768/1440 widths; uses system Chromium on Linux or macOS. |
+| `scripts/check-budget.mjs` | Production bundle/asset budget | **Integrated** | Passes: initial JS 201.5 KiB gzip, all JS 280.4 KiB (290 KiB budget), CSS 17.0 KiB (18 KiB budget), hero 581.2 KiB. |
 | `scripts/preflight.mjs` | Read-only environment diagnostic | **Integrated** | Checks toolchain, supported platform, DNS, loopback, OpenCode CLI/help/client metadata, Git reads, Entire status. Not an integration proof. |
 | `scripts/opencode-platform-diagnostic.ts` | Platform and CLI resolution diagnostic | **Integrated** | Supported-host gate, global/local resolution, version, permission, and start diagnostics. No path or credential output. |
 | `scripts/opencode-smoke.ts` | No-inference server smoke | **Integrated** | Starts the resolved OpenCode server on an ephemeral loopback port, reads `/api/info`, and stops it. |
@@ -54,6 +54,7 @@ Source freshness for this catalog:
 | Entire capture presence | Repository hooks/checkpoints and prior phase records | 2026-10-31 |
 | Render templates | `render.yaml`, `render.demo.yaml` static review | 2026-10-31 |
 | Playwright/browser availability | Visual suite against system Chromium on Linux; macOS candidate paths in `playwright.config.ts` | 2026-11-01 |
+| Dependency audit | `npm audit` and production high-severity audit | 2026-11-01 — zero vulnerabilities after the narrow `glob`/`minimatch` override |
 
 ## Partner qualification truth
 

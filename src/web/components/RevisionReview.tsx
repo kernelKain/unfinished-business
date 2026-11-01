@@ -1,7 +1,19 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Check, GitCompareArrows, RotateCcw, Trash2 } from "lucide-react";
 import { Markdown } from "./Markdown.tsx";
 import { RevisionDiff, type DiffView } from "./RevisionDiff.tsx";
+
+const reviewTabs = ["changes", "revision"] as const;
+type ReviewTab = (typeof reviewTabs)[number];
+
+export function reviewTabAfterKey(tab: ReviewTab, key: string): ReviewTab | null {
+  const index = reviewTabs.indexOf(tab);
+  if (key === "ArrowRight") return reviewTabs[(index + 1) % reviewTabs.length];
+  if (key === "ArrowLeft") return reviewTabs[(index - 1 + reviewTabs.length) % reviewTabs.length];
+  if (key === "Home") return reviewTabs[0];
+  if (key === "End") return reviewTabs[reviewTabs.length - 1];
+  return null;
+}
 
 export interface PendingRevision {
   id: string;
@@ -36,8 +48,21 @@ export function RevisionReview({
   onReject: () => void;
   onRequestAnother: () => void;
 }) {
-  const [tab, setTab] = useState<"changes" | "revision">("changes");
+  const [tab, setTab] = useState<ReviewTab>("changes");
   const [view, setView] = useState<DiffView | undefined>(undefined);
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  function select(next: ReviewTab, focus = false) {
+    setTab(next);
+    if (focus) tabRefs.current[reviewTabs.indexOf(next)]?.focus();
+  }
+
+  function onTabKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    const next = reviewTabAfterKey(tab, event.key);
+    if (!next) return;
+    event.preventDefault();
+    select(next, true);
+  }
 
   return (
     <section className="revision-review" aria-labelledby="revision-review-title">
@@ -52,21 +77,48 @@ export function RevisionReview({
       {candidate.requestedChange ? (
         <p className="meta revision-request">Requested: {candidate.requestedChange}</p>
       ) : null}
-      <div className="revision-tabs" role="tablist" aria-label="Revision review view">
-        <button type="button" role="tab" aria-selected={tab === "changes"} className={tab === "changes" ? "is-active" : ""} onClick={() => setTab("changes")}>
+      <div className="revision-tabs" role="tablist" aria-label="Revision review view" onKeyDown={onTabKeyDown}>
+        <button
+          ref={(element) => { tabRefs.current[0] = element; }}
+          id="revision-tab-changes"
+          type="button"
+          role="tab"
+          aria-selected={tab === "changes"}
+          aria-controls="revision-panel"
+          tabIndex={tab === "changes" ? 0 : -1}
+          className={tab === "changes" ? "is-active" : ""}
+          onClick={() => select("changes")}
+        >
           <GitCompareArrows size={15} aria-hidden="true" /> Changes
         </button>
-        <button type="button" role="tab" aria-selected={tab === "revision"} className={tab === "revision" ? "is-active" : ""} onClick={() => setTab("revision")}>
+        <button
+          ref={(element) => { tabRefs.current[1] = element; }}
+          id="revision-tab-revision"
+          type="button"
+          role="tab"
+          aria-selected={tab === "revision"}
+          aria-controls="revision-panel"
+          tabIndex={tab === "revision" ? 0 : -1}
+          className={tab === "revision" ? "is-active" : ""}
+          onClick={() => select("revision")}
+        >
           Full revision
         </button>
       </div>
-      {tab === "changes" ? (
-        <RevisionDiff before={currentContent} after={candidate.content} view={view} onViewChange={setView} />
-      ) : (
-        <div className="reading section-reading revision-preview">
-          <Markdown content={candidate.content} />
-        </div>
-      )}
+      <div
+        id="revision-panel"
+        role="tabpanel"
+        aria-labelledby={`revision-tab-${tab}`}
+        tabIndex={0}
+      >
+        {tab === "changes" ? (
+          <RevisionDiff before={currentContent} after={candidate.content} view={view} onViewChange={setView} />
+        ) : (
+          <div className="reading section-reading revision-preview">
+            <Markdown content={candidate.content} />
+          </div>
+        )}
+      </div>
       <p className="meta">Accepting replaces the current draft. It does not approve the section; approval stays a separate exact-version action.</p>
       <div className="actions">
         <button className="action" type="button" disabled={busy} onClick={onAccept}>

@@ -37,7 +37,7 @@ test("rejects broad filesystem, home, temporary, and repository roots", async ()
 });
 
 test("rejects macOS system roots and the resolved temporary root", () => {
-  for (const root of ["/Users", "/Volumes", "/System", "/private", "/private/tmp", "/private/var/tmp", "/private/var/folders"]) {
+  for (const root of ["/Users", "/Volumes", "/System", "/private", "/private/tmp", "/private/var", "/private/var/tmp", "/private/var/folders", "/private/var/log", "/private/etc"]) {
     assert.throws(() => assertNotBroadRoot(root), WorkspacePolicyError, root);
   }
   assert.throws(() => assertNotBroadRoot(realpathSync(tmpdir())), WorkspacePolicyError);

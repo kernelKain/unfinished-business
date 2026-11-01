@@ -2721,6 +2721,10 @@ textarea:focus-visible { border-color: var(--amber); box-shadow: 0 0 0 4px var(-
 
 @media (max-width: 960px) {
   .site-nav { display: none; }
+  .workshop-header-actions a { display: none; }
+  .header-model-inline { display: none; }
+  .brand-name { white-space: nowrap; }
+  .workshop-header-inner { gap: var(--space-3); }
   .demo-intro { grid-template-columns: minmax(0, 1fr); }
   .demo-main-card { grid-template-columns: minmax(0, 1fr); }
   .demo-main-art { min-height: 260px; border-right: 0; border-bottom: 1px solid var(--border); }
