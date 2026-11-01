@@ -1,7 +1,7 @@
 ---
-title: "Unfinished Business: four ghosts that help a hackathon project cross the finish line"
+title: "Unfinished Business: building an evidence-first OpenCode workshop with Entire"
 published: false
-description: "A local-first OpenCode workshop for turning a stalled idea into an approved plan, a bounded build, and evidence you can defend."
+description: "A local-first workshop that uses OpenCode for the build and Entire checkpoints to preserve how the work happened."
 tags: devchallenge, hf26challenge, opensource, ai
 cover_image: https://raw.githubusercontent.com/kernelKain/unfinished-business/main/docs/assets/screenshots/cover-photo.png
 ---
@@ -13,6 +13,8 @@ The repository exists. There may even be a half-working feature. But the next de
 I built **Unfinished Business** for that gap.
 
 It is a local-first workshop around OpenCode. Four small spirits take one project from a vague idea to a proposal, a reviewable plan, one bounded implementation, and an evidence-based review. The point is not to make the agent more autonomous. The point is to make the handoffs harder to fake.
+
+OpenCode performs the native work. Entire records the agent sessions and checkpoints behind the project itself. That pairing made provenance part of both the product and the way I built it.
 
 ## Try it
 
@@ -75,6 +77,24 @@ Project state is written atomically. Runs are persisted operations with progress
 
 The browser never receives a provider API key. In local mode it talks to the Unfinished Business server, which connects to OpenCode on loopback. The only credential the local wizard accepts is the OpenCode server password, held in the application process rather than project data or browser storage.
 
+## Entire kept the build from becoming another ghost
+
+The product is about preserving decisions and evidence, so I wanted the development history to follow the same rule. I used [Entire](https://github.com/entireio/cli) to capture agent-assisted OpenCode sessions as checkpoints connected to the commits they produced.
+
+This was not a badge added after the build. The repository contains the [OpenCode hook integration](https://github.com/kernelKain/unfinished-business/blob/main/.opencode/plugin/entire.ts), [git-refs checkpoint configuration](https://github.com/kernelKain/unfinished-business/blob/main/.entire/settings.json), and a [preflight check](https://github.com/kernelKain/unfinished-business/blob/main/scripts/preflight.mjs) that treats Entire capture as release evidence rather than assuming it is active.
+
+[Implementation commits](https://github.com/kernelKain/unfinished-business/commit/8273240) carry an `Entire-Checkpoint` trailer:
+
+```text
+refactor(demo): say a session was not run instead of NOT_RUN
+
+Entire-Checkpoint: 01M6AFB74ZNJM4MXC6K2FAZE5A
+```
+
+That link matters when a diff is no longer enough. A maintainer can trace a change back to the agent session and checkpoint that produced it, instead of reverse-engineering intent from the final code. At the time of this write-up, the GitHub remote contains 37 Entire checkpoint refs covering model integration, platform fixes, Render hardening, documentation, and the recorded demo.
+
+Entire also exposed a useful failure honestly: later documentation-only commits made while the `entire` binary was unavailable did not receive a checkpoint trailer. The Git hook reported that and continued without pretending the session had been captured. That is exactly the behavior I wanted for this project—missing evidence stays missing instead of being reconstructed after the fact.
+
 ## Why open innovation matters here
 
 The project would make much less sense if it were tied to one closed model endpoint.
@@ -129,16 +149,25 @@ Open <http://127.0.0.1:4310> and use the OpenCode server password in the wizard.
 
 - TypeScript, React, Vite, Hono, and Zod
 - OpenCode through `@opencode/client` and the pinned cross-platform CLI
+- Entire CLI with OpenCode hooks and git-ref checkpoints
 - Atomic JSON project storage
 - Node's test runner and Playwright
 - Render for the public read-only preview
 - Optional Sentry instrumentation
 
-## Prize category
+## Prize categories
 
-**Best Use of Render:** Render hosts the no-login interactive front end and recorded workflow while the server independently enforces read-only behavior. The deployment is useful to judges without exposing a model credential or pretending to be a public coding sandbox.
+### Best Use of Entire — primary category
 
-I am claiming only the Render category. Optional development tooling is not listed as a prize-category integration without specific public evidence.
+Entire is the development-memory layer behind Unfinished Business. Its OpenCode hooks captured real agent sessions, attached checkpoints to implementation commits, and pushed checkpoint refs separately from the main code history. That gives reviewers something a polished final diff cannot provide: the prompt, agent transcript, touched files, and session context behind a change.
+
+It also mirrors the product's central idea. Unfinished Business keeps an evidence trail inside the application; Entire keeps an evidence trail for how the application itself was built. Both treat provenance as part of the work rather than a story written afterward.
+
+The claim is verifiable in the repository through the hook integration, enabled settings, commit trailers, remote checkpoint refs, and preflight evidence check linked above.
+
+### Best Use of Render — secondary category
+
+Render hosts the no-login interactive front end and recorded workflow while the server independently enforces read-only behavior. The deployment is useful to judges without exposing a model credential or pretending to be a public coding sandbox.
 
 ## AI assistance and timing
 
