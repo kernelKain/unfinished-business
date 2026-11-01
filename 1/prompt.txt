@@ -1,0 +1,12 @@
+Help me create and set up Sentry projects for this application.
+
+org slug: kernelkain
+run code: b8543ee6eb
+
+---
+
+yes
+
+---
+
+Give a summary of what we have done here.
