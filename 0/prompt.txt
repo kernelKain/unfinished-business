@@ -1,0 +1,39 @@
+Repository: /home/kernel-kain/Documents/Github/unfinished-business (branch main).
+Prerequisites: Prompts 1–3 committed. Spending approved in Prompt 1.
+
+Goal: two live Render services and one README section that tells judges and visitors exactly how to use each. Judges must reach a working app in under five minutes.
+
+Services (keep both render.yaml and render.demo.yaml):
+- Public read-only sample (render.demo.yaml, hosted-demo mode): no login, no OpenCode, no keys. It shows the recorded Driftwatch walkthrough.
+- Live private instance (render.yaml, private-hosted mode): password-protected. Runs the real workflow with OpenCode and DeepSeek.
+
+Step 1: Check the Render setup and existing blueprints:
+- Read render.yaml, render.demo.yaml, src/server/render-start.ts, docs/HOSTED_DEPLOYMENT.md.
+- Confirm the persistent disk path (UB_DATA_DIR=/var/data/...) has a disk declared. If the blueprint has no disk, add one or stop and tell me, because data will not persist without a paid disk.
+- Confirm the plan name in render.yaml is a currently valid Render plan. Check the Render docs. Do not guess.
+- Confirm the build command runs typecheck and tests. If tests are too slow for a build, say so and tell me the tradeoff.
+
+Step 2: Deploy:
+- Use Render's blueprint flow (from the repo). Set secrets in the Render dashboard only: UB_ACCESS_PASSWORD (generated), DEEPSEEK_API_KEY, optional SENTRY_*. Never commit them.
+- Apply the Render promo credits from hacktoberfest.com/my/promos if I have claimed them. I will do the claim; do not claim for me.
+- Record both URLs in docs/SUBMISSION.md (created in a later prompt). Do not invent URLs.
+
+Step 3: Verify the live URLs (report results with timestamps):
+- curl /api/health on both. Log in to the live instance with the password. Run "Try the example" on the public sample. Run one short live Oracle message on the private instance.
+- Confirm the 403 on writes for the public sample.
+
+Step 4: Judge instructions in README.md (one section, "For judges"):
+- Start here: the public sample URL (no login), 90-second walkthrough.
+- Live instance: URL, username, and "ask the organizer for the password" (do not put the password in the repo or the post).
+- What each stage does, what a live run costs (DeepSeek API, paid, with a confirmation step), and how to stop a run.
+- Troubleshooting: the three likely errors and the fix for each.
+
+Step 5: Local run instructions in README.md (one section, "Run it locally"):
+- Prerequisites: Node 22.14+, Linux x64 or macOS, OpenCode 2.0.32 (pinned), DeepSeek API key (optional, for live runs).
+- Exactly these commands, in order: `npm ci`, `npm start`, open the printed URL, follow the wizard. Port conflicts are reported by the launcher (from Prompt 1). Do not add a second place where setup is described; link to this section only.
+- Offline path: stated honestly. Say the app runs offline for the sample, and that live runs need a model provider.
+
+Step 6: Clean-clone test:
+- `git clone` into /tmp/opencode/clean-test (from the committed state), follow only README instructions, and report every step that failed or needed a guess. Fix the README until it works without guessing.
+
+Commit: "docs(readme): judge access and local run instructions", and "chore(render): hosted sample and live instance blueprints". Report both URLs status and the clean-clone result.
