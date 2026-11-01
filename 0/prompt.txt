@@ -1,0 +1,5 @@
+complete anything pending in this P1
+
+---
+
+1. A, 2. figure out youreself what to do about it, authoried to commit and push
