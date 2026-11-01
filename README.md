@@ -61,6 +61,8 @@ Open the URL the app prints, `http://127.0.0.1:4310/`. The landing page and the 
 
 A hosted copy runs at `https://unfinished-business.onrender.com`. It is password-protected: the browser asks for Basic auth. Username `unfinished-business`. The password is shared with judges separately and is not stored in this repository. Health check: `https://unfinished-business.onrender.com/api/health`. The live instance runs its own OpenCode server on a private disk and edits only its isolated demo workspace. Open the workshop at `/workshop`. The wizard asks for the OpenCode server password, which is shared with judges separately along with the Basic-auth password.
 
+Where live model runs happen: the local workshop runs DeepSeek V4.1 Flash (`opencode/deepseek-v4.1-flash` through OpenCode Go). The hosted instance reaches the free OpenCode route, which is subject to free-tier limits; if it reports a usage limit, run the live workshop locally with the steps above. The hosted instance is still the place to see the product, the recorded sample, and the connection check without installing anything.
+
 ## Quick start
 
 Prerequisites: **Linux x64**, **macOS Apple Silicon**, or **macOS Intel**, Node **22.14+**, npm, and a supported OpenCode 2.x server. The pinned `@opencode/cli` package selects the native binary for the host; a compatible global `opencode` on `PATH` is preferred automatically. Copying `.env.example` to `.env` is optional for local work; the first-run wizard can hold the server password in memory.
