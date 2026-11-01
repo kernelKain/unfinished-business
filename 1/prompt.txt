@@ -1,0 +1,35 @@
+Repository: /home/kernel-kain/Documents/Github/unfinished-business (branch main).
+Read /tmp/opencode/unfinished-business-final-plan.md for background. This prompt overrides the plan where they conflict.
+
+Context: DEV Hacktoberfest Open-Source AI Challenge Week 4, "Ghost in the Machine". Entries close Oct 31 2026 11:59 PM PDT (06:59 UTC Nov 1). At the start of this prompt about 6 hours remain. Do not assume the window is open; check first.
+
+Step 0 (gate, ask me before editing anything):
+1. Open https://dev.to/challenges/hacktoberfest-week4-2026-10-26 and report whether the submission action is still available. Report the page status text exactly.
+2. Confirm the deadline in the time zone I give you.
+3. Ask me to approve spending: DeepSeek API credits (small, pay-as-you-go) and Render plan/credits. Do not spend anything without a yes.
+If the submission window is closed, stop and tell me. The rest of the plan does not apply to a closed challenge.
+
+Step 1: Write /tmp/opencode/requirements-matrix.md with every requirement from the challenge page mapped to: the artifact that satisfies it, the file path or URL, and its status (MET / PARTIAL / MISSING). Include: open-source AI core; theme; "why open innovation matters"; new project within window; post template sections; tags devchallenge and hf26challenge; Best Use of Entire; Best Use of Render; judging by writing quality; hosted demo link; judge setup instructions; local run instructions.
+
+Step 2: Confirm the current state without changing code:
+- Read src/server/config.ts, .env.example, render.yaml, render.demo.yaml, docs/HOSTED_DEPLOYMENT.md, src/server/render-start.ts.
+- Check ports with `ss -ltnp`: 4096 (OpenCode), 4200 (held by an unrelated litellm process), 4210, 5173.
+
+Step 3: Set a scope order for the remaining prompts, in this order, because time is short:
+  P1 must-have: working local run and live Render URL with judge instructions.
+  P2 must-have: DeepSeek V4.1 Flash running through OpenCode.
+  P3 must-have: Entire sessions/checkpoint links used in the app and the post.
+  P4 must-have: Render deployment verified from a clean clone.
+  P5 nice-to-have: repo cleanup, prompt renames, one setup path.
+  P6 must-have: one real end-to-end run recorded, then the dev.to draft.
+Report the matrix and the order, and ask me to confirm the order before continuing.
+
+Rules: no commits in this prompt. Do not push anything. Do not publish.
+
+---
+
+1. Approved, i have opencode go; 2. approved paid service, 3. Confirmed, now contiune with P1
+
+---
+
+do it

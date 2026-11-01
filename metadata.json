@@ -3,9 +3,20 @@
   "checkpoint_id": "01M6A9GNDKNVJYVF937913A4MJ",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 3,
   "files_touched": [
-    "src/server/index.ts"
+    ".env.example",
+    "README.md",
+    "docs/LOCAL_SETUP.md",
+    "package.json",
+    "src/server/config.ts",
+    "src/server/index.ts",
+    "src/server/launch-check.ts",
+    "src/server/start.ts",
+    "src/web/instrument.ts",
+    "src/web/setup.ts",
+    "tests/launch-check.test.ts",
+    "vite.config.ts"
   ],
   "sessions": [
     {
@@ -14,17 +25,31 @@
       "compact_transcript": "/0/transcript.jsonl",
       "content_hash": "/0/content_hash.txt",
       "prompt": "/0/prompt.txt"
+    },
+    {
+      "metadata": "/1/metadata.json",
+      "transcript": "/1/full.jsonl",
+      "compact_transcript": "/1/transcript.jsonl",
+      "content_hash": "/1/content_hash.txt",
+      "prompt": "/1/prompt.txt"
     }
   ],
+  "token_usage": {
+    "input_tokens": 1758,
+    "cache_creation_tokens": 174559,
+    "cache_read_tokens": 8001297,
+    "output_tokens": 23641,
+    "api_call_count": 59
+  },
   "redaction": {
-    "replacements": 189,
+    "replacements": 1268,
     "layers": {
-      "betterleaks": 170,
+      "betterleaks": 192,
       "connection_string": 0,
       "credential_key": 0,
-      "credential_value": 19,
+      "credential_value": 25,
       "credentialed_uri": 0,
-      "entropy": 0,
+      "entropy": 1051,
       "key_context": 0,
       "provider_token": 0,
       "shell_stdin": 0
