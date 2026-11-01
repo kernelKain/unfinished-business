@@ -3,11 +3,33 @@ import { join } from "node:path";
 
 export type OpenCodeAuth = Record<string, { type: string } & Record<string, unknown>>;
 
-export function parseOpenCodeAuth(raw: string): OpenCodeAuth {
-  let parsed: unknown;
+function parseJsonValue(raw: string): unknown {
   try {
-    parsed = JSON.parse(raw);
+    return JSON.parse(raw);
   } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Secret fields are pasted by hand, so accept the common paste shapes: the
+ * JSON object itself, the same object wrapped in quotes, an escaped or
+ * double-encoded string, and a bare API key. Anything else is rejected.
+ */
+export function parseOpenCodeAuth(raw: string): OpenCodeAuth {
+  let value = raw.trim();
+  if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith("\"") && value.endsWith("\""))) {
+    value = value.slice(1, -1).trim();
+  }
+  let parsed = parseJsonValue(value);
+  if (typeof parsed === "string") parsed = parseJsonValue(parsed.trim()) ?? parsed;
+  if (parsed === undefined && value.includes("\\\"")) {
+    parsed = parseJsonValue(value.replace(/\\"/g, "\"").replace(/\\\\/g, "\\"));
+  }
+  if ((typeof parsed === "string" && /^\S{8,}$/.test(parsed)) || (parsed === undefined && /^\S{8,}$/.test(value))) {
+    parsed = { opencode: { type: "api", key: typeof parsed === "string" ? parsed : value } };
+  }
+  if (parsed === undefined) {
     throw new Error("OPENCODE_AUTH_JSON is not valid JSON. Check the Render secret; its value is not shown.");
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {

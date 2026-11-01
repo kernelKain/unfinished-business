@@ -55,10 +55,26 @@ test("the OpenCode credential seed accepts provider-keyed objects and rejects an
   const secret = "sk-test-do-not-print-0123456789";
   assert.equal(parseOpenCodeAuth(JSON.stringify({ opencode: { type: "api", key: secret } })).opencode?.type, "api");
   for (const bad of [`[${JSON.stringify(secret)}]`, `{"opencode":"${secret}"}`, `{"opencode":{"key":"${secret}"}}`, "not json " + secret]) {
+
     assert.throws(() => parseOpenCodeAuth(bad), (error: Error) => {
       assert.equal(error.message.includes(secret), false);
       return true;
     });
+  }
+});
+
+test("the credential parser accepts the paste shapes a dashboard secret arrives in", () => {
+  const object = { opencode: { type: "api", key: "pasted-key-123" } };
+  const json = JSON.stringify(object);
+  for (const shape of [
+    json,
+    `  ${json}  `,
+    JSON.stringify(json),
+    `'${json}'`,
+    json.replace(/"/g, '\\"'),
+    "pasted-key-123",
+  ]) {
+    assert.equal(parseOpenCodeAuth(shape).opencode?.key, "pasted-key-123", `shape: ${shape.slice(0, 24)}`);
   }
 });
 

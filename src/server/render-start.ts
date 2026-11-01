@@ -54,8 +54,9 @@ try {
     log.info("opencode_auth_seeded", { source: "OPENCODE_AUTH_JSON" });
   }
 } catch (error) {
+  // Keep the site up so the sample and the connection screen still load; the
+  // workshop reports the missing credentials when a model is selected.
   log.error("opencode_auth_invalid", { message: error instanceof Error ? error.message : "invalid OPENCODE_AUTH_JSON" });
-  process.exit(1);
 }
 
 const openCode = spawn(resolution.executable, ["serve", "--hostname", "127.0.0.1", "--port", port], {
