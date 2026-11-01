@@ -3,9 +3,18 @@
   "checkpoint_id": "01M6AFA13A7N90003YWQC9MDQP",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 8,
+  "checkpoints_count": 9,
   "files_touched": [
-    "docs/ENGINEERING_BLUEPRINT.md"
+    "docs/ENGINEERING_BLUEPRINT.md",
+    "src/web/content/landing.ts",
+    "src/web/demo/DemoPage.tsx",
+    "src/web/landing/Hero.tsx",
+    "src/web/landing/LandingPage.tsx",
+    "src/web/setup.ts",
+    "src/web/workshop/WorkshopPage.tsx",
+    "tests/platform.test.ts",
+    "tests/visual/landing.spec.ts",
+    "tests/web.test.ts"
   ],
   "sessions": [
     {
@@ -35,19 +44,33 @@
       "compact_transcript": "/3/transcript.jsonl",
       "content_hash": "/3/content_hash.txt",
       "prompt": "/3/prompt.txt"
+    },
+    {
+      "metadata": "/4/metadata.json",
+      "transcript": "/4/full.jsonl",
+      "compact_transcript": "/4/transcript.jsonl",
+      "content_hash": "/4/content_hash.txt",
+      "prompt": "/4/prompt.txt"
     }
   ],
+  "token_usage": {
+    "input_tokens": 87453,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 23555968,
+    "output_tokens": 15205,
+    "api_call_count": 68
+  },
   "redaction": {
-    "replacements": 431,
+    "replacements": 6087,
     "layers": {
-      "betterleaks": 253,
+      "betterleaks": 299,
       "connection_string": 0,
       "credential_key": 18,
-      "credential_value": 64,
+      "credential_value": 74,
       "credentialed_uri": 0,
-      "entropy": 132,
+      "entropy": 5748,
       "key_context": 0,
-      "provider_token": 2,
+      "provider_token": 8,
       "shell_stdin": 0
     }
   }

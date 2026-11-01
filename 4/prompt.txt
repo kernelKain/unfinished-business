@@ -1,0 +1,21 @@
+Repository: /home/kernel-kain/Documents/Github/unfinished-business (branch main).
+Prerequisites: Prompts 1–4 committed. Keep this prompt small. Time is short.
+
+Goal: remove what a judge would notice as unfinished or confusing. Do not delete anything without listing it first.
+
+Step 1: Audit (no edits). Walk /, /demo, /workshop, and the live Render URLs at 1440px and 390px. Save screenshots to /tmp/opencode/screens/. Record browser console errors. List issues grouped as: jargon ("Phase", "NOT_RUN", schema, IDs), dev-only text ("npm run dev", "Stop the dev servers"), empty panels, repeated setup instructions, broken links, console errors, accessibility failures.
+
+Step 2: Fix in this order:
+- Setup instructions: keep them in README.md ("Run it locally") and the in-app wizard only. Remove copies from LandingPage.tsx ("Before you start") and src/web/setup.ts tabs, and the /#local-setup links. Delete unused setup files only after grep confirms no use.
+- Jargon and dev-only text in the UI and README.
+- Empty or placeholder panels: hide or add one empty state.
+- Broken links and console errors.
+- README: remove phase history, duplicated test counts, "Upgrade Phase 5" wording, and Backboard mentions. Keep only numbers that come from a fresh run.
+- Docs: merge into README + docs/ARCHITECTURE.md + docs/SUBMISSION.md. Delete the others only after merging. Check that no link breaks. Do not delete docs/prompts/.
+- Repo: delete .backboard/ (untracked, unused) after confirming with me. Keep render*.yaml, Entire files, and scripts used by the README.
+
+Step 3: Snapshots: `npm run test:visual -- --update-snapshots` only after you view each changed PNG. List every changed image.
+
+Step 4: Verify: `npm run typecheck`, `npm test`, `npm run build`, `npm run test:visual`. Then `npm start` and load the local URL once more.
+
+Commits in logical groups, subjects describing the change (no phase numbers). Report the audit list, what was fixed, what remains.
