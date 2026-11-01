@@ -31,6 +31,11 @@ test("the workshop default is preferred over any free model when OpenCode report
   assert.equal(preferredWorkshopModel(models)?.key, DEFAULT_WORKSHOP_MODEL_KEY);
 });
 
+test("without the OpenCode Go model, the free DeepSeek V4.1 Flash route is preferred over other free models", () => {
+  const models = [entry("opencode/big-pickle", "free"), entry("opencode/deepseek-v4.1-flash-free", "free"), entry("x/y", "free")];
+  assert.equal(preferredWorkshopModel(models)?.key, "opencode/deepseek-v4.1-flash-free");
+});
+
 test("without the workshop default, the first free tool-capable model is chosen, then any available model", () => {
   assert.equal(preferredWorkshopModel([entry("a/paid", "paid"), entry("b/free", "free")])?.key, "b/free");
   assert.equal(preferredWorkshopModel([entry("a/paid", "paid")])?.key, "a/paid");
