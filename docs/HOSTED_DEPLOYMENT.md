@@ -4,6 +4,21 @@
 **Owner:** Engineering/deployment.
 **Last verified:** 2026-10-31 by static Blueprint/config review and a local hosted-demo smoke run.
 
+## Deployed services (verified 2026-11-01)
+
+| Service | URL | Plan | Disk | Template |
+|---|---|---|---|---|
+| Public read-only sample | https://unfinished-business-demo.onrender.com | `free` | none | `render.demo.yaml` |
+| Private live instance | https://unfinished-business.onrender.com | `0.5c-512mb` (Render plan ID for 0.5 CPU / 512 MB) | 1 GB at `/var/data` | `render.yaml` |
+
+Plan IDs were checked against Render's compute-plan documentation; `0.5c-512mb` is current (the legacy name for the same size is `starter`). Both services use the same build command, which includes `npm run typecheck` and `npm test`; on the 0.5 CPU instance that adds roughly a minute to each build, which is acceptable for a project of this size.
+
+### Credential reality on the hosted instance
+
+- `OPENCODE_AUTH_JSON` seeds OpenCode's `auth.json`, which activates the free `opencode` provider only. It does not activate `opencode-go`: that access lives in OpenCode's local account database, and the CLI has no supported headless import for it. A fresh data directory seeded with the exported credentials still reported only the free provider.
+- The free route enforces an allowance; the hosted instance returns `Free usage limit reached` once it is exhausted. Live DeepSeek V4.1 Flash runs are therefore verified in the local workshop, not on the hosted instance.
+- A `DEEPSEEK_API_KEY` is not used by this deployment. The app never holds a provider key; OpenCode does.
+
 ## Two hosted shapes
 
 | Shape | Mode | Public? | OpenCode | Persistence | Template |
