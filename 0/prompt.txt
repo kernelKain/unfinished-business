@@ -1,0 +1,30 @@
+Repository: /home/kernel-kain/Documents/Github/unfinished-business (branch main).
+Prerequisite: Prompt 1 confirmed and approved spending.
+
+Goal: the app runs its Oracle, Architect, Maker, and Witness stages on DeepSeek V4.1 Flash (API id `deepseek-flash`), through OpenCode. The app never holds the provider key. OpenCode does.
+
+Step 1: Verify the provider path before coding:
+- Run `opencode --version` (the pinned version is 2.0.32) and find how OpenCode 2.x configures a provider: its config file, how it accepts a base URL and an API key, and how it names the DeepSeek provider. Read `opencode --help` and the OpenCode docs for the installed version. Do not guess the config key names.
+- Confirm the DeepSeek endpoint with one curl using a real key (base https://api.deepseek.com, model `deepseek-flash`). Keep the key in the environment only. Never write it to a file in the repo.
+- Note: DeepSeek V4.1 Flash weights (552B) are not runnable on a laptop. The local run uses the DeepSeek API unless I approve an alternative. Do not claim a fully offline run unless it is tested.
+
+Step 2: Configure OpenCode, not the app:
+- Create a project-level OpenCode config (for example opencode.jsonc under docs/ or a judge-config folder, whichever OpenCode reads) that defines the DeepSeek provider with the model `deepseek-flash` and reads the key from an environment variable such as DEEPSEEK_API_KEY. Use the exact syntax that OpenCode 2.0.32 supports (verify it).
+- Set the app's model policy so the selected model is `deepseek-flash` by default. Keep the existing "free and local only" and "paid confirmation" rules: DeepSeek is paid, so the first use needs explicit confirmation in the app. Check src/server/opencode/discovery.ts and src/shared/modes.ts to see how a paid remote model is classified.
+
+Step 3: Render:
+- In render.yaml, add DEEPSEEK_API_KEY as `sync: false` (secret set in the Render dashboard). Point OPENCODE_CONFIG_HOME at the config from Step 2 (or copy it in the start helper).
+- Keep REDACTED for the live instance.
+- Do not put real keys in any file.
+
+Step 4: Verify live (this is a real model call, so keep it small):
+- Start OpenCode locally, then start the app (npm start), connect in the wizard, select deepseek-flash, and send one short Oracle message. Record the reply and the time.
+- Run `scripts/opencode-smoke.ts` and `scripts/opencode-live-diagnostic.ts` if they still apply. Record results.
+
+Step 5: Tests: add or update tests for the config generation, the model-policy classification of deepseek-flash as paid, and the redaction of the key in logs. Run `npm run typecheck`, `npm test`.
+
+Commit: "feat(models): run the workshop on DeepSeek V4.1 Flash through OpenCode". Report the config path, the test result, and the live reply evidence path under /tmp/opencode/e2e/.
+
+---
+
+B
