@@ -122,6 +122,34 @@ test("enforces host, origin, fetch-site, content type, and request size policy",
     body: JSON.stringify({ actionId: "cross", expectedRevision: 0, content: "scope" }),
   })).status, 403);
 
+  // Opening the deployed URL from another site (dashboard, chat, email) is a
+  // cross-site top-level navigation and must still render the app shell.
+  const shellNavigation = await app.request("/", {
+    headers: {
+      accept: "text/html",
+      "sec-fetch-site": "cross-site",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-dest": "document",
+    },
+  });
+  assert.notEqual(shellNavigation.status, 403);
+
+  // The allowance covers the shell only: cross-site API calls and sub-resource
+  // loads stay blocked, including API paths opened as a document.
+  assert.equal((await app.request("/api/mode", {
+    headers: { "sec-fetch-site": "cross-site", "sec-fetch-mode": "cors", "sec-fetch-dest": "empty" },
+  })).status, 403);
+  assert.equal((await app.request("/api/mode", {
+    headers: { "sec-fetch-site": "cross-site", "sec-fetch-mode": "navigate", "sec-fetch-dest": "document" },
+  })).status, 403);
+  assert.equal((await app.request("/", {
+    headers: {
+      "sec-fetch-site": "cross-site",
+      "sec-fetch-mode": "no-cors",
+      "sec-fetch-dest": "image",
+    },
+  })).status, 403);
+
   assert.equal((await app.request("/api/sections/control/revisions", {
     method: "POST",
     headers: { "x-ub-session-token": token, "content-type": "text/plain" },

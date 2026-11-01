@@ -195,6 +195,22 @@ function hostnameOf(hostHeader: string): string {
   return value.split(":")[0];
 }
 
+/**
+ * A cross-site link (for example the deployed URL opened from a dashboard,
+ * chat, or email) is still a legitimate top-level navigation to the app shell.
+ * Only that navigation is allowed through; sub-resource loads and every API
+ * request must stay same-origin, and mutations are still guarded by the JSON
+ * content-type rule and the local session token.
+ */
+function isAppShellNavigation(context: Context): boolean {
+  if (context.req.path.startsWith("/api")) return false;
+  if (context.req.method !== "GET" && context.req.method !== "HEAD") return false;
+  const mode = context.req.header("sec-fetch-mode");
+  if (mode && mode !== "navigate") return false;
+  const destination = context.req.header("sec-fetch-dest");
+  return !destination || destination === "document";
+}
+
 function originMatchesRequest(origin: string, context: Context, security: HttpSecurityOptions): boolean {
   let parsed: URL;
   try {
@@ -292,7 +308,8 @@ export function createApp(first: WorkflowHttpOptions | EngineProbe, second?: Wor
       return context.json({ code: "INVALID_ORIGIN", message: "Cross-origin requests are not allowed.", retryable: false }, 403);
     }
     const fetchSite = context.req.header("sec-fetch-site");
-    if (fetchSite && fetchSite !== "same-origin" && fetchSite !== "none") {
+    const sameOriginRequest = fetchSite === "same-origin" || fetchSite === "none";
+    if (fetchSite && !sameOriginRequest && !isAppShellNavigation(context)) {
       return context.json({ code: "INVALID_ORIGIN", message: "Cross-site requests are not allowed.", retryable: false }, 403);
     }
     return next();
