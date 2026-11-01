@@ -28,7 +28,7 @@
   <rect x="48" y="118" width="420" height="500" rx="12" class="panel"/>
   <text x="76" y="154" class="eyebrow">PUBLIC PATH</text>
   <text x="76" y="184" class="section">Read-only Render demo</text>
-  <text x="76" y="208" class="body">For judges and visitors. No account or provider access required.</text>
+  <text x="76" y="208" class="body">For judges and visitors. No account or provider access.</text>
 
   <rect x="84" y="248" width="348" height="76" rx="8" class="box"/>
   <text x="106" y="278" class="label">Visitor browser</text>
@@ -53,7 +53,7 @@
 
   <rect x="536" y="248" width="218" height="76" rx="8" class="box-accent"/>
   <text x="558" y="278" class="label">Human + browser</text>
-  <text x="558" y="301" class="body">Reviews and approves each stage</text>
+  <text x="558" y="301" class="body">Approves each stage</text>
   <path d="M754 286H790" class="line"/>
 
   <rect x="794" y="248" width="384" height="76" rx="8" class="box"/>
@@ -75,7 +75,7 @@
   <rect x="794" y="494" width="384" height="86" rx="8" class="box"/>
   <text x="816" y="524" class="label">Managed local workspace</text>
   <text x="816" y="547" class="body">Bounded Maker scope, observed diff, and check evidence</text>
-  <text x="816" y="567" class="body">Native OpenCode permission decisions remain authoritative</text>
+  <text x="816" y="567" class="body">OpenCode permission decisions stay authoritative</text>
 
   <rect x="536" y="494" width="218" height="86" rx="8" class="box-accent"/>
   <text x="558" y="524" class="label">Approval gates</text>

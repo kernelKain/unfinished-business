@@ -12,6 +12,7 @@
     "dev:web": "vite",
     "build": "vite build",
     "assets:hero": "python3 scripts/build-hero-assets.py",
+    "assets:architecture": "node scripts/build-architecture-image.mjs",
     "budget": "node scripts/check-budget.mjs",
     "test:visual": "playwright test",
     "start": "npm run build && node --env-file-if-exists=.env --import tsx src/server/start.ts",

@@ -86,7 +86,7 @@ idea → Oracle proposal → Architect sections → Maker scope → Witness evid
 
 There are two deployment paths, and I kept them separate on purpose:
 
-![Unfinished Business architecture](https://raw.githubusercontent.com/kernelKain/unfinished-business/main/docs/assets/architecture.svg)
+![Architecture diagram: the read-only Render demo stops at a recorded fixture, while the full workshop runs locally against the user's own OpenCode server](https://raw.githubusercontent.com/kernelKain/unfinished-business/main/docs/assets/architecture.png)
 
 *The hosted path stops at a read-only recording. Real model access, approvals, and repository changes remain in the user's local OpenCode environment.*
 
