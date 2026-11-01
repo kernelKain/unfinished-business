@@ -1,0 +1,808 @@
+the render deployed link gives this:{
+  "code": "INVALID_ORIGIN",
+  "message": "Cross-site requests are not allowed.",
+  "retryable": false
+}, https://unfinished-business.onrender.com/, when i deploy for latest commit, what is the issue, here is logs: ok 63 - sanitization removes script/style blocks and control characters
+  ---
+  duration_ms: 0.177645
+  ...
+# Subtest: the parser keeps block boundaries deterministic
+ok 64 - the parser keeps block boundaries deterministic
+  ---
+  duration_ms: 0.69329
+  ...
+# Subtest: project memory can be added and corrected without touching sections or approvals
+ok 65 - project memory can be added and corrected without touching sections or approvals
+  ---
+  duration_ms: 12.386818
+  ...
+# [@sentry/hono] Sentry is not initialized. Call `init()` from `@sentry/hono/node` in an `instrument.ts` file loaded via `--import` to set up Sentry for your application.
+# Subtest: the memory route requires the session token and keeps a superseded history
+ok 66 - the memory route requires the session token and keeps a superseded history
+  ---
+  duration_ms: 63.949932
+  ...
+# Subtest: v1 fixed-model projects migrate to v7 without losing workflow history
+ok 67 - v1 fixed-model projects migrate to v7 without losing workflow history
+  ---
+  duration_ms: 17.222513
+  ...
+# Subtest: v2 projects preserve proposals, approvals, evidence, operations, and selected model
+ok 68 - v2 projects preserve proposals, approvals, evidence, operations, and selected model
+  ---
+  duration_ms: 4.167562
+  ...
+# Subtest: v2 UNKNOWN operations migrate to ABANDONED without losing native references
+ok 69 - v2 UNKNOWN operations migrate to ABANDONED without losing native references
+  ---
+  duration_ms: 1.418467
+  ...
+# Subtest: v3 projects migrate to v7 with their access policy, limits, and selected model preserved
+ok 70 - v3 projects migrate to v7 with their access policy, limits, and selected model preserved
+  ---
+  duration_ms: 7.084189
+  ...
+# Subtest: v4 projects migrate to v7 with recovery metadata and keep prior run history
+ok 71 - v4 projects migrate to v7 with recovery metadata and keep prior run history
+  ---
+  duration_ms: 4.336569
+  ...
+# Subtest: migration is deterministic and idempotent
+ok 72 - migration is deterministic and idempotent
+  ---
+  duration_ms: 2.262683
+  ...
+# Subtest: loading and saving a migrated project persists schema v7
+ok 73 - loading and saving a migrated project persists schema v7
+  ---
+  duration_ms: 24.429995
+  ...
+# Subtest: new v7 projects serialize guided discovery state and default to all accessible models
+ok 74 - new v7 projects serialize guided discovery state and default to all accessible models
+  ---
+  duration_ms: 2.204134
+  ...
+# Subtest: provider errors round-trip on v7 operations without losing their safe references
+ok 75 - provider errors round-trip on v7 operations without losing their safe references
+  ---
+  duration_ms: 2.01453
+  ...
+# Subtest: v6 saved projects migrate candidates to explicit review metadata
+ok 76 - v6 saved projects migrate candidates to explicit review metadata
+  ---
+  duration_ms: 3.611995
+  ...
+# Subtest: v5 saved projects migrate explicitly to guided discovery memory
+ok 77 - v5 saved projects migrate explicitly to guided discovery memory
+  ---
+  duration_ms: 0.840827
+  ...
+# Subtest: operation states expose the complete Phase 0 state model
+ok 78 - operation states expose the complete Phase 0 state model
+  ---
+  duration_ms: 0.100249
+  ...
+# Subtest: accepts both historical v2 variants with deterministic defaults
+ok 79 - accepts both historical v2 variants with deterministic defaults
+  ---
+  duration_ms: 1.251442
+  ...
+# Subtest: unsupported project schema versions fail visibly
+ok 80 - unsupported project schema versions fail visibly
+  ---
+  duration_ms: 0.448085
+  ...
+# [@sentry/hono] Sentry is not initialized. Call `init()` from `@sentry/hono/node` in an `instrument.ts` file loaded via `--import` to set up Sentry for your application.
+# Subtest: new projects default to all accessible models with no spending limit
+ok 81 - new projects default to all accessible models with no spending limit
+  ---
+  duration_ms: 49.209384
+  ...
+# [@sentry/hono] Sentry is not initialized. Call `init()` from `@sentry/hono/node` in an `instrument.ts` file loaded via `--import` to set up Sentry for your application.
+# Subtest: free and local models can be selected without a cost confirmation
+ok 82 - free and local models can be selected without a cost confirmation
+  ---
+  duration_ms: 25.094278
+  ...
+# [@sentry/hono] Sentry is not initialized. Call `init()` from `@sentry/hono/node` in an `instrument.ts` file loaded via `--import` to set up Sentry for your application.
+# Subtest: paid and unknown-price models require an explicit first-use confirmation
+ok 83 - paid and unknown-price models require an explicit first-use confirmation
+  ---
+  duration_ms: 20.995815
+  ...
+# [@sentry/hono] Sentry is not initialized. Call `init()` from `@sentry/hono/node` in an `instrument.ts` file loaded via `--import` to set up Sentry for your application.
+# Subtest: free/local-only mode blocks paid and unknown-price models even with a confirmation flag
+ok 84 - free/local-only mode blocks paid and unknown-price models even with a confirmation flag
+  ---
+  duration_ms: 17.062056
+  ...
+# [@sentry/hono] Sentry is not initialized. Call `init()` from `@sentry/hono/node` in an `instrument.ts` file loaded via `--import` to set up Sentry for your application.
+# Subtest: the spending limit can be disabled or made positive, and rejects zero
+ok 85 - the spending limit can be disabled or made positive, and rejects zero
+  ---
+  duration_ms: 17.825718
+  ...
+# Subtest: native proof denies broad edits and allows only the evidence file
+ok 86 - native proof denies broad edits and allows only the evidence file
+  ---
+  duration_ms: 3.487284
+  ...
+# Subtest: a slow Oracle run reports persisted progress before it finishes
+ok 87 - a slow Oracle run reports persisted progress before it finishes
+  ---
+  duration_ms: 317.883893
+  ...
+# Subtest: a late Oracle response is reconciled and applied exactly once
+ok 88 - a late Oracle response is reconciled and applied exactly once
+  ---
+  duration_ms: 97.693039
+  ...
+# Subtest: a section 06 Architect timeout is recovered when the late reply finally lands
+ok 89 - a section 06 Architect timeout is recovered when the late reply finally lands
+  ---
+  duration_ms: 121.010095
+  ...
+# Subtest: a late Maker diff is applied exactly once with its observed check result
+ok 90 - a late Maker diff is applied exactly once with its observed check result
+  ---
+  duration_ms: 174.057964
+  ...
+# Subtest: a resolved permission is required before reconciliation applies a Maker diff
+ok 91 - a resolved permission is required before reconciliation applies a Maker diff
+  ---
+  duration_ms: 172.451157
+  ...
+# Subtest: cancellation leaves a guide run cancelled even when its late reply arrives
+ok 92 - cancellation leaves a guide run cancelled even when its late reply arrives
+  ---
+  duration_ms: 103.343714
+  ...
+# Subtest: a retry runs a new native turn and cannot reconcile or duplicate the failed one
+ok 93 - a retry runs a new native turn and cannot reconcile or duplicate the failed one
+  ---
+  duration_ms: 314.92681
+  ...
+# Subtest: reconnecting after a server restart reconciles the persisted late maker diff
+ok 94 - reconnecting after a server restart reconciles the persisted late maker diff
+  ---
+  duration_ms: 139.075237
+  ...
+# Subtest: a lost native session stays reconcilable instead of blocking the project
+ok 95 - a lost native session stays reconcilable instead of blocking the project
+  ---
+  duration_ms: 75.245875
+  ...
+# Subtest: mark abandoned records the operator decision for an outstanding run
+ok 96 - mark abandoned records the operator decision for an outstanding run
+  ---
+  duration_ms: 10.396247
+  ...
+# [@sentry/hono] Sentry is not initialized. Call `init()` from `@sentry/hono/node` in an `instrument.ts` file loaded via `--import` to set up Sentry for your application.
+# Subtest: a clean deployment reports not configured without inventing a connection
+ok 97 - a clean deployment reports not configured without inventing a connection
+  ---
+  duration_ms: 45.851272
+  ...
+# [@sentry/hono] Sentry is not initialized. Call `init()` from `@sentry/hono/node` in an `instrument.ts` file loaded via `--import` to set up Sentry for your application.
+# Subtest: the wizard rejects remote HTTP and provider-key payloads
+ok 98 - the wizard rejects remote HTTP and provider-key payloads
+  ---
+  duration_ms: 9.630842
+  ...
+# [@sentry/hono] Sentry is not initialized. Call `init()` from `@sentry/hono/node` in an `instrument.ts` file loaded via `--import` to set up Sentry for your application.
+# Subtest: authentication failure is precise and a correct password recovers
+ok 99 - authentication failure is precise and a correct password recovers
+  ---
+  duration_ms: 16.562578
+  ...
+# [@sentry/hono] Sentry is not initialized. Call `init()` from `@sentry/hono/node` in an `instrument.ts` file loaded via `--import` to set up Sentry for your application.
+# Subtest: model selection accepts only discovered models and reported variants
+ok 100 - model selection accepts only discovered models and reported variants
+  ---
+  duration_ms: 18.845672
+  ...
+# [@sentry/hono] Sentry is not initialized. Call `init()` from `@sentry/hono/node` in an `instrument.ts` file loaded via `--import` to set up Sentry for your application.
+# Subtest: managed hosted deployments do not expose browser connection editing
+ok 101 - managed hosted deployments do not expose browser connection editing
+  ---
+  duration_ms: 4.081867
+  ...
+# [@sentry/hono] Sentry is not initialized. Call `init()` from `@sentry/hono/node` in an `instrument.ts` file loaded via `--import` to set up Sentry for your application.
+# Subtest: connection and session mutations require the local browser session token
+ok 102 - connection and session mutations require the local browser session token
+  ---
+  duration_ms: 8.176955
+  ...
+# Subtest: every fresh project waits for one of the four source paths
+ok 103 - every fresh project waits for one of the four source paths
+  ---
+  duration_ms: 65.674887
+  ...
+# Subtest: source action IDs are idempotent without treating different private paths as the same input
+ok 104 - source action IDs are idempotent without treating different private paths as the same input
+  ---
+  duration_ms: 6.776142
+  ...
+# Subtest: Oracle is blocked before source selection and limits each turn to three questions
+ok 105 - Oracle is blocked before source selection and limits each turn to three questions
+  ---
+  duration_ms: 4.154
+  ...
+# Subtest: remote source validation rejects credentials and private hosts without persisting them
+ok 106 - remote source validation rejects credentials and private hosts without persisting them
+  ---
+  duration_ms: 3.432941
+  ...
+# Subtest: remote repository URL policy rejects unsafe schemes, ports, queries, and traversal
+ok 107 - remote repository URL policy rejects unsafe schemes, ports, queries, and traversal
+  ---
+  duration_ms: 0.782431
+  ...
+# Subtest: local source selection rejects broad, missing, non-directory, and system-symlink paths
+ok 108 - local source selection rejects broad, missing, non-directory, and system-symlink paths
+  ---
+  duration_ms: 5.027692
+  ...
+# Subtest: a failed remote import leaves the source pending and saves no credentials
+ok 109 - a failed remote import leaves the source pending and saves no credentials
+  ---
+  duration_ms: 11.091083
+  ...
+# [@sentry/hono] Sentry is not initialized. Call `init()` from `@sentry/hono/node` in an `instrument.ts` file loaded via `--import` to set up Sentry for your application.
+# Subtest: project source routes require authorization and never expose canonical local paths
+ok 110 - project source routes require authorization and never expose canonical local paths
+  ---
+  duration_ms: 27.067276
+  ...
+# Subtest: incomplete intake produces at most three explained questions and survives reload
+ok 111 - incomplete intake produces at most three explained questions and survives reload
+  ---
+  duration_ms: 43.538445
+  ...
+# Subtest: Oracle keeps the complete discovery procedure ahead of the persistence contract
+ok 112 - Oracle keeps the complete discovery procedure ahead of the persistence contract
+  ---
+  duration_ms: 29.097141
+  ...
+# Subtest: proposal generation distinguishes facts, decisions, and assumptions
+ok 113 - proposal generation distinguishes facts, decisions, and assumptions
+  ---
+  duration_ms: 28.999934
+  ...
+# Subtest: assumed essential answers require explicit proceed permission
+ok 114 - assumed essential answers require explicit proceed permission
+  ---
+  duration_ms: 85.665736
+  ...
+# Subtest: a corrected answer supersedes earlier answer memory
+ok 115 - a corrected answer supersedes earlier answer memory
+  ---
+  duration_ms: 64.778869
+  ...
+# Subtest: provider failure fixtures cover policy, authentication, rate, and generic failures
+ok 116 - provider failure fixtures cover policy, authentication, rate, and generic failures
+  ---
+  duration_ms: 1.077585
+  ...
+# Subtest: timing fixtures distinguish slow, timed-out, and late unapplied results
+ok 117 - timing fixtures distinguish slow, timed-out, and late unapplied results
+  ---
+  duration_ms: 0.244635
+  ...
+# Subtest: permission and reconciliation fixtures never imply native approval or replay
+ok 118 - permission and reconciliation fixtures never imply native approval or replay
+  ---
+  duration_ms: 0.113107
+  ...
+# Subtest: the complete fixture catalog is deterministic, serializable, and secret-free
+ok 119 - the complete fixture catalog is deterministic, serializable, and secret-free
+  ---
+  duration_ms: 0.482102
+  ...
+# Subtest: platform support is limited to configurations with recorded evidence
+ok 120 - platform support is limited to configurations with recorded evidence
+  ---
+  duration_ms: 0.859905
+  ...
+# Subtest: candidate order prefers an explicit executable, then PATH, then the local pin
+ok 121 - candidate order prefers an explicit executable, then PATH, then the local pin
+  ---
+  duration_ms: 0.779832
+  ...
+# Subtest: a compatible globally installed CLI is preferred over the local package
+ok 122 - a compatible globally installed CLI is preferred over the local package
+  ---
+  duration_ms: 0.377153
+  ...
+# Subtest: an incompatible global CLI is skipped in favor of a compatible local pin
+ok 123 - an incompatible global CLI is skipped in favor of a compatible local pin
+  ---
+  duration_ms: 0.21032
+  ...
+# Subtest: a different 2.x patch resolves with an untested-version warning
+ok 124 - a different 2.x patch resolves with an untested-version warning
+  ---
+  duration_ms: 0.247553
+  ...
+# Subtest: missing, permission, unusable, and incompatible binaries have distinct diagnostics
+ok 125 - missing, permission, unusable, and incompatible binaries have distinct diagnostics
+  ---
+  duration_ms: 0.530298
+  ...
+# Subtest: unsupported architectures fail before probing any executable
+ok 126 - unsupported architectures fail before probing any executable
+  ---
+  duration_ms: 0.183859
+  ...
+# Subtest: version parsing and compatibility cover the CLI output shapes
+ok 127 - version parsing and compatibility cover the CLI output shapes
+  ---
+  duration_ms: 0.361666
+  ...
+# Subtest: server start failures are classified without exposing a path
+ok 128 - server start failures are classified without exposing a path
+  ---
+  duration_ms: 0.374787
+  ...
+# Subtest: the repository installs the official cross-platform CLI, not a Linux-only package
+ok 129 - the repository installs the official cross-platform CLI, not a Linux-only package
+  ---
+  duration_ms: 6.412636
+  ...
+# Subtest: user-facing setup commands are platform-neutral and name npm and Homebrew installs
+ok 130 - user-facing setup commands are platform-neutral and name npm and Homebrew installs
+  ---
+  duration_ms: 0.324488
+  ...
+# Subtest: CI exercises Linux, macOS Apple Silicon, macOS Intel, and the OpenCode smoke path
+ok 131 - CI exercises Linux, macOS Apple Silicon, macOS Intel, and the OpenCode smoke path
+  ---
+  duration_ms: 1.124158
+  ...
+# Subtest: the installed CLI resolves on this supported host
+ok 132 - the installed CLI resolves on this supported host
+  ---
+  duration_ms: 80.186937
+  ...
+# Subtest: loads the complete oracle procedure
+ok 133 - loads the complete oracle procedure
+  ---
+  duration_ms: 3.092903
+  ...
+# Subtest: loads the complete architect procedure
+ok 134 - loads the complete architect procedure
+  ---
+  duration_ms: 1.048486
+  ...
+# Subtest: loads the complete maker procedure
+ok 135 - loads the complete maker procedure
+  ---
+  duration_ms: 0.830678
+  ...
+# Subtest: loads the complete witness procedure
+ok 136 - loads the complete witness procedure
+  ---
+  duration_ms: 0.743983
+  ...
+# Subtest: provider failures map to the required safe categories
+ok 137 - provider failures map to the required safe categories
+  ---
+  duration_ms: 6.577177
+  ...
+# Subtest: nested provider status and safe details survive redaction
+ok 138 - nested provider status and safe details survive redaction
+  ---
+  duration_ms: 0.50413
+  ...
+# Subtest: unrelated local failures are not presented as provider failures
+ok 139 - unrelated local failures are not presented as provider failures
+  ---
+  duration_ms: 0.556035
+  ...
+# Subtest: reclassifying an already structured provider error is stable
+ok 140 - reclassifying an already structured provider error is stable
+  ---
+  duration_ms: 0.20704
+  ...
+# Subtest: the synthetic provider fixtures remain representative of the required categories
+ok 141 - the synthetic provider fixtures remain representative of the required categories
+  ---
+  duration_ms: 0.38813
+  ...
+# Subtest: persists one idempotent action and rejects conflicting reuse
+ok 142 - persists one idempotent action and rejects conflicting reuse
+  ---
+  duration_ms: 26.350678
+  ...
+# Subtest: offers previous snapshot without overwriting corrupt current data
+ok 143 - offers previous snapshot without overwriting corrupt current data
+  ---
+  duration_ms: 8.172457
+  ...
+# Subtest: every Architect section has a contract and a compliant draft passes
+ok 144 - every Architect section has a contract and a compliant draft passes
+  ---
+  duration_ms: 7.603134
+  ...
+# Subtest: quality is not accepted on word count alone
+ok 145 - quality is not accepted on word count alone
+  ---
+  duration_ms: 1.040109
+  ...
+# Subtest: candidate creation leaves an approved section and its content untouched
+ok 146 - candidate creation leaves an approved section and its content untouched
+  ---
+  duration_ms: 13.288448
+  ...
+# Subtest: a new candidate supersedes the previous pending candidate without touching the draft
+ok 147 - a new candidate supersedes the previous pending candidate without touching the draft
+  ---
+  duration_ms: 1.93441
+  ...
+# Subtest: acceptance replaces the draft but never approves it
+ok 148 - acceptance replaces the draft but never approves it
+  ---
+  duration_ms: 3.075781
+  ...
+# Subtest: rejection discards the candidate and leaves the current draft unchanged
+ok 149 - rejection discards the candidate and leaves the current draft unchanged
+  ---
+  duration_ms: 1.482096
+  ...
+# Subtest: accepting an upstream candidate marks only transitive approvals stale
+ok 150 - accepting an upstream candidate marks only transitive approvals stale
+  ---
+  duration_ms: 5.270171
+  ...
+# Subtest: a candidate based on an older draft cannot be accepted
+ok 151 - a candidate based on an older draft cannot be accepted
+  ---
+  duration_ms: 1.565455
+  ...
+# Subtest: candidate content is sanitized before it is stored
+ok 152 - candidate content is sanitized before it is stored
+  ---
+  duration_ms: 1.672561
+  ...
+# Subtest: a candidate that fails its contract is never stored
+ok 153 - a candidate that fails its contract is never stored
+  ---
+  duration_ms: 0.752038
+  ...
+# Subtest: unified and side-by-side diffs describe the same change
+ok 154 - unified and side-by-side diffs describe the same change
+  ---
+  duration_ms: 0.648792
+  ...
+# Subtest: a Maker run returns before the native turn completes and records its model
+ok 155 - a Maker run returns before the native turn completes and records its model
+  ---
+  duration_ms: 174.189776
+  ...
+# Subtest: cancel interrupts the native session and does not let completion overwrite CANCELLED
+ok 156 - cancel interrupts the native session and does not let completion overwrite CANCELLED
+  ---
+  duration_ms: 148.197996
+  ...
+# Subtest: a failed native turn becomes FAILED with its model retained
+ok 157 - a failed native turn becomes FAILED with its model retained
+  ---
+  duration_ms: 86.969174
+  ...
+# Subtest: a duplicate run action never starts a second native turn
+ok 158 - a duplicate run action never starts a second native turn
+  ---
+  duration_ms: 160.797547
+  ...
+# Subtest: a disappeared selected model blocks the run before any native work
+ok 159 - a disappeared selected model blocks the run before any native work
+  ---
+  duration_ms: 5.016077
+  ...
+# Subtest: an inactive in-process runner is not silently cancelled
+ok 160 - an inactive in-process runner is not silently cancelled
+  ---
+  duration_ms: 157.078591
+  ...
+# Subtest: rejects broad filesystem, home, temporary, and repository roots
+ok 161 - rejects broad filesystem, home, temporary, and repository roots
+  ---
+  duration_ms: 2.858075
+  ...
+# Subtest: rejects macOS system roots and the resolved temporary root
+ok 162 - rejects macOS system roots and the resolved temporary root
+  ---
+  duration_ms: 2.052542
+  ...
+# Subtest: rejects traversal and symlink escapes from a workspace root
+ok 163 - rejects traversal and symlink escapes from a workspace root
+  ---
+  duration_ms: 7.058076
+  ...
+# Subtest: rejects special files and non-files for persisted state
+ok 164 - rejects special files and non-files for persisted state
+  ---
+  duration_ms: 1.166099
+  ...
+# Subtest: accepts loopback HTTP but requires HTTPS and an explicit host for remote OpenCode
+ok 165 - accepts loopback HTTP but requires HTTPS and an explicit host for remote OpenCode
+  ---
+  duration_ms: 1.344441
+  ...
+# Subtest: blocks metadata, loopback rebinding, and private DNS unless explicitly allowed
+ok 166 - blocks metadata, loopback rebinding, and private DNS unless explicitly allowed
+  ---
+  duration_ms: 4.459226
+  ...
+# Subtest: revalidates DNS on every request and blocks redirects and oversized bodies
+ok 167 - revalidates DNS on every request and blocks redirects and oversized bodies
+  ---
+  duration_ms: 22.282358
+  ...
+# Subtest: times out a hanging OpenCode request without following it
+ok 168 - times out a hanging OpenCode request without following it
+  ---
+  duration_ms: 20.888475
+  ...
+# Subtest: loadConfig enforces mode-specific secure defaults
+ok 169 - loadConfig enforces mode-specific secure defaults
+  ---
+  duration_ms: 8.890375
+  ...
+# Subtest: session spending limits support unlimited, disabled, and positive values
+ok 170 - session spending limits support unlimited, disabled, and positive values
+  ---
+  duration_ms: 1.641793
+  ...
+# Subtest: redacts credentials, cookies, provider keys, DSNs, identity, and local paths
+ok 171 - redacts credentials, cookies, provider keys, DSNs, identity, and local paths
+  ---
+  duration_ms: 1.763037
+  ...
+# Subtest: sanitizes Sentry events and structured logs independently
+ok 172 - sanitizes Sentry events and structured logs independently
+  ---
+  duration_ms: 0.815161
+  ...
+# Subtest: session listing is restricted to project-owned native sessions
+ok 173 - session listing is restricted to project-owned native sessions
+  ---
+  duration_ms: 13.348674
+  ...
+# Subtest: an unrelated session cannot be inspected or interrupted
+ok 174 - an unrelated session cannot be inspected or interrupted
+  ---
+  duration_ms: 1.584085
+  ...
+# Subtest: fork, compact, and revert expose OpenCode semantics and errors
+ok 175 - fork, compact, and revert expose OpenCode semantics and errors
+  ---
+  duration_ms: 1.797906
+  ...
+# Subtest: permission replies are limited to pending requests for project-owned sessions
+ok 176 - permission replies are limited to pending requests for project-owned sessions
+  ---
+  duration_ms: 2.45945
+  ...
+# Subtest: usage is only reported from project-owned session values
+ok 177 - usage is only reported from project-owned session values
+  ---
+  duration_ms: 1.502205
+  ...
+# Subtest: preserves the corrupt current file and quarantines it before recovery
+ok 178 - preserves the corrupt current file and quarantines it before recovery
+  ---
+  duration_ms: 26.362408
+  ...
+# Subtest: rejects corrupt state when no valid previous snapshot exists without overwriting it
+ok 179 - rejects corrupt state when no valid previous snapshot exists without overwriting it
+  ---
+  duration_ms: 4.576212
+  ...
+# Subtest: refuses a newer schema version and preserves the original
+ok 180 - refuses a newer schema version and preserves the original
+  ---
+  duration_ms: 3.408729
+  ...
+# Subtest: migrates a v1 snapshot to the current schema without resetting content
+ok 181 - migrates a v1 snapshot to the current schema without resetting content
+  ---
+  duration_ms: 3.114042
+  ...
+# Subtest: reports lock contention and maps write failures without replacing state
+ok 182 - reports lock contention and maps write failures without replacing state
+  ---
+  duration_ms: 106.502786
+  ...
+# Subtest: retains bounded actions, operations, evidence, transcript, and drafts
+ok 183 - retains bounded actions, operations, evidence, transcript, and drafts
+  ---
+  duration_ms: 1.422395
+  ...
+# Subtest: aligns runtime mode and demo workspace without changing approvals
+ok 184 - aligns runtime mode and demo workspace without changing approvals
+  ---
+  duration_ms: 6.080808
+  ...
+# Subtest: marks in-flight operations abandoned after restart and never repeats them
+ok 185 - marks in-flight operations abandoned after restart and never repeats them
+  ---
+  duration_ms: 11.492583
+  ...
+# Subtest: keeps rolling backups bounded and does not overwrite a corrupt current with a backup
+ok 186 - keeps rolling backups bounded and does not overwrite a corrupt current with a backup
+  ---
+  duration_ms: 19.075315
+  ...
+# Subtest: prunes quarantined corrupt files by the configured count
+ok 187 - prunes quarantined corrupt files by the configured count
+  ---
+  duration_ms: 5.035578
+  ...
+# Subtest: rejects a reused action with a different payload and nested payload hashes are canonical
+ok 188 - rejects a reused action with a different payload and nested payload hashes are canonical
+  ---
+  duration_ms: 5.171653
+  ...
+# Subtest: routes keep the landing, real workshop, and guided sample separate
+ok 189 - routes keep the landing, real workshop, and guided sample separate
+  ---
+  duration_ms: 1.49935
+  ...
+# Subtest: landing hero presents one primary action and four user outcomes
+ok 190 - landing hero presents one primary action and four user outcomes
+  ---
+  duration_ms: 51.010161
+  ...
+# Subtest: usage modes are described truthfully and never claim local repository access
+ok 191 - usage modes are described truthfully and never claim local repository access
+  ---
+  duration_ms: 30.485309
+  ...
+# Subtest: the non-interactive tool recommendation block stays out of the product story
+ok 192 - the non-interactive tool recommendation block stays out of the product story
+  ---
+  duration_ms: 24.437348
+  ...
+# Subtest: the four spirits each expose distinct roles and states
+ok 193 - the four spirits each expose distinct roles and states
+  ---
+  duration_ms: 4.483441
+  ...
+# Subtest: setup tabs expose the tested local commands
+ok 194 - setup tabs expose the tested local commands
+  ---
+  duration_ms: 24.148565
+  ...
+# Subtest: demo and evidence previews use the canonical sample and keep the missing live proof visible
+ok 195 - demo and evidence previews use the canonical sample and keep the missing live proof visible
+  ---
+  duration_ms: 33.073446
+  ...
+# Subtest: landing preview and guided demo share one canonical sample outcome
+ok 196 - landing preview and guided demo share one canonical sample outcome
+  ---
+  duration_ms: 42.786226
+  ...
+# Subtest: empty Run Inspector states do not imply success
+ok 197 - empty Run Inspector states do not imply success
+  ---
+  duration_ms: 1.068522
+  ...
+# Subtest: activity and results are organized into progress, changes, checks, and technical details
+ok 198 - activity and results are organized into progress, changes, checks, and technical details
+  ---
+  duration_ms: 3.007099
+  ...
+# Subtest: project memory presents decisions, answers, assumptions, constraints, and editable memory
+ok 199 - project memory presents decisions, answers, assumptions, constraints, and editable memory
+  ---
+  duration_ms: 11.529655
+  ...
+# Subtest: OpenCode controls keep permissions visible and advanced diagnostics collapsed
+ok 200 - OpenCode controls keep permissions visible and advanced diagnostics collapsed
+  ---
+  duration_ms: 6.923621
+  ...
+# Subtest: provider error cards expose safe repair and technical details
+ok 201 - provider error cards expose safe repair and technical details
+  ---
+  duration_ms: 3.742579
+  ...
+# Subtest: live progress, recovery controls, and long model names stay readable and announced
+ok 202 - live progress, recovery controls, and long model names stay readable and announced
+  ---
+  duration_ms: 2.210232
+  ...
+# Subtest: FAQ answers cover the open-source engine and the sample's limits
+ok 203 - FAQ answers cover the open-source engine and the sample's limits
+  ---
+  duration_ms: 0.329354
+  ...
+# Subtest: revision review exposes an accessible tab panel and survives long hostile content
+ok 204 - revision review exposes an accessible tab panel and survives long hostile content
+  ---
+  duration_ms: 4.083062
+  ...
+# Subtest: advances only after exact current-version approval
+ok 205 - advances only after exact current-version approval
+  ---
+  duration_ms: 16.115768
+  ...
+# Subtest: upstream revision invalidates only transitive dependents
+ok 206 - upstream revision invalidates only transitive dependents
+  ---
+  duration_ms: 5.495766
+  ...
+# Subtest: compiles exact approved blocks only
+ok 207 - compiles exact approved blocks only
+  ---
+  duration_ms: 3.334017
+  ...
+1..207
+# tests 207
+# suites 0
+# pass 207
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 32132.035138
+
+> unfinished-business@0.1.0 build
+> vite build
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 2765 modules transformed.
+rendering chunks...
+[sentry-vite-plugin] Info: Successfully uploaded source maps to Sentry
+computing gzip size...
+dist/web/index.html                            0.45 kB │ gzip:   0.29 kB
+dist/web/assets/index-4RNM2gpY.css            93.44 kB │ gzip:  17.42 kB
+dist/web/assets/SpiritStageTabs-DUL6WFsB.js   11.07 kB │ gzip:   3.79 kB │ map:    18.89 kB
+dist/web/assets/DemoPage-C4lkplvh.js          21.93 kB │ gzip:   5.94 kB │ map:    56.68 kB
+dist/web/assets/WorkshopPage-BKT_F6iK.js     241.89 kB │ gzip:  72.00 kB │ map: 1,092.18 kB
+dist/web/assets/index-DCJWMeNJ.js            652.56 kB │ gzip: 209.04 kB │ map: 3,181.57 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 8.82s
+[PLUGIN_TIMINGS] JavaScript callbacks ran for 8.4s of this 8.8s build (95%).
+The slowest callbacks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
+  - plugin sentry-vite-plugin writeBundle (89%, 7.9s, 1 call)
+Additional callback time came from the callbacks below and from callbacks under 1s.
+1 callback is listed without a time. Its calls overlapped, so the time inside one call includes work from other calls. To find its cost, profile the build with `node --cpu-prof`:
+  - plugin vite:css-post renderChunk (4 calls)
+See https://rolldown.rs/reference/InputOptions.checks#bundlertimings for more details.
+
+==> Uploading build...
+==> Uploaded in 14.8s. Compression took 2.8s
+==> Build successful 🎉
+==> Deploying...
+==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+==> Running 'npm run start:render'
+
+> unfinished-business@0.1.0 start:render
+> node --import tsx src/server/render-start.ts
+
+{"time":"2026-11-01T00:14:45.031Z","level":"info","event":"opencode_resolved","platform":"linux-x64","source":"path","version":"2.0.32"}
+server listening on http://127.0.0.1:4096
+[Sentry] `beforeSendTransaction` and `ignoreTransactions` are ignored with `traceLifecycle: 'stream'` (enabled by default). Use `beforeSendSpan` and `ignoreSpans` instead, or set `traceLifecycle: 'static'`.
+{"time":"2026-11-01T00:14:53.018Z","level":"info","event":"state_migrated","fromVersion":2}
+{"time":"2026-11-01T00:14:53.034Z","level":"info","event":"server_listening","mode":"private-hosted","address":"0.0.0.0","port":10000,"stateReady":true,"authRequired":true}
+{"time":"2026-11-01T00:14:53.191Z","level":"error","event":"request_failed","requestId":"aa4bb4cd-e78e-4db2-ab3e-3f5873f20c50","method":"HEAD","path":"/","code":"INTERNAL_ERROR","status":401}
+==> Your service is live 🎉
+==> 
+==> ///////////////////////////////////////////////////////////
+==> 
+==> Available at your primary URL https://unfinished-business.onrender.com
+==> 
+==> ///////////////////////////////////////////////////////////
+
+---
+
+so debug it , commit and push
