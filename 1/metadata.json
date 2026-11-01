@@ -1,0 +1,45 @@
+{
+  "cli_version": "0.12.3-nightly.202610310614.54b6a5cac",
+  "checkpoint_id": "01M6AKVB5EYBQ0QSM0ZK0XWF5Q",
+  "session_id": "ses_e6acad2deffe5rxeOq8LH2N8NW",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-01T03:53:32.809201401Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "save_step_count": 1,
+  "files_touched": [
+    "docs/WRITEUP.md",
+    "docs/assets/architecture.png",
+    "docs/assets/architecture.svg",
+    "package.json",
+    "scripts/build-architecture-image.mjs"
+  ],
+  "agent": "OpenCode",
+  "model": "deepseek-v4.1-flash",
+  "turn_id": "b88d70cc9a1c",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 77808,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 914688,
+    "output_tokens": 6406,
+    "api_call_count": 33
+  },
+  "redaction": {
+    "replacements": 4928,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 4928,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 1
+  }
+}
