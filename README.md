@@ -57,6 +57,10 @@ npm start
 
 Open the URL the app prints, `http://127.0.0.1:4310/`. The landing page and the recorded sample at `/demo` need nothing else. For a live run, open `/workshop`, connect to OpenCode with the password from Terminal 1, and choose a model. If the port is busy, `npm start` names the process holding it. Set `UB_PORT` in `.env` to use another port.
 
+## Live instance (judges)
+
+A hosted copy runs at `https://unfinished-business.onrender.com`. It is password-protected: the browser asks for Basic auth. Username `unfinished-business`. The password is shared with judges separately and is not stored in this repository. Health check: `https://unfinished-business.onrender.com/api/health`. The live instance runs its own OpenCode server on a private disk and edits only its isolated demo workspace. Open the workshop at `/workshop`. The wizard asks for the OpenCode server password, which is shared with judges separately along with the Basic-auth password.
+
 ## Quick start
 
 Prerequisites: **Linux x64**, **macOS Apple Silicon**, or **macOS Intel**, Node **22.14+**, npm, and a supported OpenCode 2.x server. The pinned `@opencode/cli` package selects the native binary for the host; a compatible global `opencode` on `PATH` is preferred automatically. Copying `.env.example` to `.env` is optional for local work; the first-run wizard can hold the server password in memory.
