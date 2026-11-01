@@ -277,7 +277,7 @@ test("the demo page exposes accessible controls, live regions, and all four insp
   assert.match(copy, /Every run, diff, check, and finding is recorded sample data/);
   assert.match(copy, /Reset changes only this sample/);
   assert.match(copy, /Representative diff and recorded check/);
-  assert.match(copy, /The live session remains NOT_RUN/);
+  assert.match(copy, /live session was not run/i);
 
   assert.match(html, /Skip to the guided example/);
   assert.match(html, /aria-live="polite"/);

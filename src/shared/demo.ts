@@ -1016,7 +1016,7 @@ export const demoPreviewSteps: readonly DemoPreviewStep[] = [
     lines: [
       `Check: ${demoFixture.verification.command}.`,
       `Sample: ${demoFixture.verification.summary}`,
-      `Live session: ${demoFixture.project.evidence.find((item) => item.id === "ev-demo-live")?.result ?? "NOT_RUN"} — run locally for a native result.`,
+      `Live session: ${(demoFixture.project.evidence.find((item) => item.id === "ev-demo-live")?.result ?? "NOT_RUN") === "NOT_RUN" ? "not run" : demoFixture.project.evidence.find((item) => item.id === "ev-demo-live")?.result} — run locally for a native result.`,
     ],
   },
 ];
