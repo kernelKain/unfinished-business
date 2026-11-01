@@ -1,0 +1,51 @@
+Generate entire plan to imeplenet these and more udpates you thisg it should have, do notimplenet anything yet : - Update the docs and sugegst user to inetrgate operns source tools from these into theri project:
+Render
+TabPFN
+Tinker
+Arduino
+DigitalOcean
+Gemma
+Auth0 for AI Agents
+Backboard
+ElevenLabs
+Browserbase
+Entire
+GitHub Copilot
+Mastra
+MongoDB Atlas
+Ultramarine
+Sentry Agent Tracing
+SerpApi
+a .tech Domain
+Temporal
+Tiger Data
+ Form these only filter out open source tools or free tools for solo builder for a hackthon.
+ - Also suggets user more tools based on theri idea
+
+- It has no good quality landing page, and the entire inetrface look very 2D.
+- Add good Animations, animated charcter of the 4 prompts Orcla,e architect, maker, witness.
+- Also befofre gernating 1 Prompt work I am not able to see other, lets me see other tabs also.
+- Also make outline for each part written betetr in frontend.
+- There are sevral chnages i have done before and now and  will do for implementing these changes, so update all docs and also give them proper nameing relevant to the project.
+- Also there are many UI/UX and sveral bacnekdn changes need to be done so identify them.
+- Also i want user to run opencoe like harness on this but with my skeleton i craeted, so give user all options and things available at eashc part like models, uage limit, reasoning levle, etc all what opnecode offers. For this intiially we ask user to connect their opencode  and login to theri opencode or add theri api key something whtever the porcess.
+- We are focusde only on opencode so other options like codex and claude,etc are not needed.
+- Aslo the landing pasge shoudl shave instruction to tell user how to set it up locally.
+- ia am deploiyng it but some things user need to set up lcoally, so.
+- There shoudl we 2 ways to sue it either user do it theorugh my live deplomendt readner like with necesary set up or entire thing running locally for user.
+- Also remove unndecray things if not used and not neeeded.
+- Update docs for eaach thing you do.
+
+- Also as a user i am not able to see what is happing once i send the input so a tabe to show the inetnal working like the opencode cli has  add it.
+- ALso there should be a demo exaplme for peopel to uderatd the working of it.
+- The maker i s taking a lot of time and i feel user will drop it here as it feels like not wroking, showing this: "This is taking longer than usual. The saved section is unchanged until a response arrives." I am not able to move ahed form the maker stage.
+- Make entire things betetr such that peopel prefer using this over opencode for hackthons.
+- Sell it as hackthon proejct buider.
+- ALso add a good themse relavant to this ahcakthon.
+- For landing pasge you may add a good backgroun image gernated by you, it should be well prompted and after genating it carefully put it in background, you mya blur it if needed, it shoudl serve as good background for landing pasge.
+- Aslo the other pasges also have nice them and hbacnkorund relaben to the hacakhton theme.
+-
+
+---
+
+alright for implementing each phase, generate prompts for each, make sure each prompt updates the relevant docs.
