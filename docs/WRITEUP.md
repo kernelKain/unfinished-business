@@ -81,6 +81,10 @@ The browser never receives a provider API key. In local mode it talks to the Unf
 
 The product is about preserving decisions and evidence, so I wanted the development history to follow the same rule. I used [Entire](https://github.com/entireio/cli) to capture agent-assisted OpenCode sessions as checkpoints connected to the commits they produced.
 
+I did not stay in one coding harness for the whole project. Usage limits meant I had to move between OpenCode, Cursor, and Codex. [My public Entire session history](https://entire.com/gh/kernelKain/unfinished-business/sessions) gave those handoffs one inspectable trail: I could see which session produced a checkpoint, what files it touched, and which commit carried the result instead of trying to reconstruct the previous agent's work from a diff alone.
+
+That was most useful when a limit arrived in the middle of a debugging or hardening pass. I could pick up from a concrete checkpoint and commit trail in the next harness while still reviewing what changed and why the earlier session stopped. Entire did not make the tools interchangeable, but it made switching between them much less lossy.
+
 This was not a badge added after the build. The repository contains the [OpenCode hook integration](https://github.com/kernelKain/unfinished-business/blob/main/.opencode/plugin/entire.ts), [git-refs checkpoint configuration](https://github.com/kernelKain/unfinished-business/blob/main/.entire/settings.json), and a [preflight check](https://github.com/kernelKain/unfinished-business/blob/main/scripts/preflight.mjs) that treats Entire capture as release evidence rather than assuming it is active.
 
 [Implementation commits](https://github.com/kernelKain/unfinished-business/commit/8273240) carry an `Entire-Checkpoint` trailer:
@@ -160,6 +164,8 @@ Open <http://127.0.0.1:4310> and use the OpenCode server password in the wizard.
 ### Best Use of Entire — primary category
 
 Entire is the development-memory layer behind Unfinished Business. Its OpenCode hooks captured real agent sessions, attached checkpoints to implementation commits, and pushed checkpoint refs separately from the main code history. That gives reviewers something a polished final diff cannot provide: the prompt, agent transcript, touched files, and session context behind a change.
+
+It was especially valuable when usage limits pushed me between OpenCode, Cursor, and Codex: the [public session history](https://entire.com/gh/kernelKain/unfinished-business/sessions) kept the work reviewable across those harness changes instead of splitting the project's development story into disconnected fragments.
 
 It also mirrors the product's central idea. Unfinished Business keeps an evidence trail inside the application; Entire keeps an evidence trail for how the application itself was built. Both treat provenance as part of the work rather than a story written afterward.
 
