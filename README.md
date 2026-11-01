@@ -42,6 +42,21 @@ The landing page has one primary action, **Try the example** (`/demo`), and one 
 
 Models are discovered from OpenCode rather than assumed. New projects default to **All accessible models**, so any model OpenCode reports as available can be selected. A project can deliberately switch to **Free and local only**, which blocks paid and unknown-price remote models. Paid or unknown-price remote models require an explicit first-use confirmation; the app never silently substitutes a model or makes a paid request without that confirmation. An optional USD session spending limit can be set, and the deployment can impose a stricter `UB_MAX_SESSION_COST_USD` ceiling. Cost is checked against the value OpenCode reports; an unknown-price provider may report it only after a request.
 
+## Run it locally (judge path)
+
+Prerequisites: Linux x64 or macOS, Node 22.14+, and npm.
+
+```bash
+# Terminal 1: OpenCode. Keep it running. Note the server password it prints.
+npx --no-install opencode serve --hostname 127.0.0.1 --port 4096
+
+# Terminal 2: the app. Builds the interface, then serves it and the API.
+npm ci
+npm start
+```
+
+Open the URL the app prints, `http://127.0.0.1:4310/`. The landing page and the recorded sample at `/demo` need nothing else. For a live run, open `/workshop`, connect to OpenCode with the password from Terminal 1, and choose a model. If the port is busy, `npm start` names the process holding it. Set `UB_PORT` in `.env` to use another port.
+
 ## Quick start
 
 Prerequisites: **Linux x64**, **macOS Apple Silicon**, or **macOS Intel**, Node **22.14+**, npm, and a supported OpenCode 2.x server. The pinned `@opencode/cli` package selects the native binary for the host; a compatible global `opencode` on `PATH` is preferred automatically. Copying `.env.example` to `.env` is optional for local work; the first-run wizard can hold the server password in memory.
@@ -81,14 +96,7 @@ npm run dev:web
 
 Open `http://127.0.0.1:5173/`. The first-run wizard asks for the server URL and the password printed by `opencode serve`; provider accounts are connected inside OpenCode with `/connect`, and the model list comes from OpenCode's catalog.
 
-For a single production process:
-
-```bash
-npm run build
-npm start
-```
-
-Then open `http://127.0.0.1:4200/`. The detailed, tested guide is [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md). All state and mutation API routes require the browser session token; the browser client obtains it from `/api/session` automatically.
+The detailed, tested guide is [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md). All state and mutation API routes require the browser session token; the browser client obtains it from `/api/session` automatically.
 
 If OpenCode cannot be resolved, run:
 

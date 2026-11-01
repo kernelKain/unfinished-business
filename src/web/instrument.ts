@@ -42,7 +42,7 @@ Sentry.init({
   environment,
   integrations: [
     Sentry.browserTracingIntegration(),
-    Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }),
+    Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true, useCompression: false }),
     Sentry.feedbackIntegration({ colorScheme: "system" }),
   ],
   tracesSampleRate,

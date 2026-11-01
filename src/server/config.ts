@@ -175,7 +175,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     throw new ConfigError("Local mode must bind to a loopback address. Use UB_DEPLOYMENT_MODE=hosted-demo or hosted-private for a public listener.");
   }
 
-  const ubPort = integer(env, "UB_PORT", 4200, 1, 65_535);
+  const ubPort = integer(env, "UB_PORT", 4310, 1, 65_535);
   const port = env.PORT?.trim() ? integer(env, "PORT", ubPort, 1, 65_535) : ubPort;
   const dataDirectory = resolve(env.UB_DATA_DIR?.trim() || ".unfinished-business");
   const demoWorkspace = resolve(dataDirectory, "demo-workspace");

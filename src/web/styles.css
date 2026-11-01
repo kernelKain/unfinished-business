@@ -2740,6 +2740,15 @@ textarea:focus-visible { border-color: var(--amber); box-shadow: 0 0 0 4px var(-
   .technical-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
+@media (max-width: 900px) {
+  .site-header-inner,
+  .workshop-header-inner {
+    flex-wrap: wrap;
+  }
+
+  #sentry-feedback { display: none; }
+}
+
 @media (max-width: 720px) {
   .site-header-inner,
   .workshop-header-inner {

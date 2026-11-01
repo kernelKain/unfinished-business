@@ -55,7 +55,7 @@ export default defineConfig(({ mode }) => {
       host: "127.0.0.1",
       port: 5173,
       proxy: {
-        "/api": `http://127.0.0.1:${env.UB_PORT || "4200"}`,
+        "/api": `http://127.0.0.1:${env.UB_PORT || "4310"}`,
       },
     },
   };

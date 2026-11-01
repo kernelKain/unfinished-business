@@ -9,7 +9,7 @@
 - Landing page at `http://127.0.0.1:5173/` (Vite).
 - Real workshop at `http://127.0.0.1:5173/workshop`.
 - Guided sample at `http://127.0.0.1:5173/demo`.
-- API on `http://127.0.0.1:4200`.
+- API on `http://127.0.0.1:4310`.
 - OpenCode on `http://127.0.0.1:4096`.
 
 The browser app does not receive provider credentials or the OpenCode password. The local API connects to OpenCode over loopback.
@@ -45,7 +45,7 @@ cp .env.example .env
 UB_DEPLOYMENT_MODE=local
 OPENCODE_BASE_URL=http://127.0.0.1:4096
 OPENCODE_PASSWORD=
-UB_PORT=4200
+UB_PORT=4310
 UB_HOST=127.0.0.1
 UB_DATA_DIR=.unfinished-business
 ```
@@ -121,13 +121,13 @@ npm run dev
 Expected log:
 
 ```text
-Unfinished Business listening on http://127.0.0.1:4200
+Unfinished Business listening on http://127.0.0.1:4310
 ```
 
 Health check:
 
 ```bash
-curl http://127.0.0.1:4200/api/health
+curl http://127.0.0.1:4310/api/health
 ```
 
 Expected:
@@ -139,8 +139,8 @@ Expected:
 All other API reads require the browser session token. The browser obtains it from `/api/session` automatically. For manual curl checks:
 
 ```bash
-TOKEN=$(curl -s http://127.0.0.1:4200/api/session | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).token')
-curl -H "x-ub-session-token: $TOKEN" http://127.0.0.1:4200/api/project
+TOKEN=$(curl -s http://127.0.0.1:4310/api/session | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).token')
+curl -H "x-ub-session-token: $TOKEN" http://127.0.0.1:4310/api/project
 ```
 
 `/api/session` is loopback-only in local mode. Do not paste tokens into logs or screenshots.
@@ -157,7 +157,7 @@ npm run dev:watch
 npm run dev:web
 ```
 
-Open `http://127.0.0.1:5173/`. Vite proxies `/api` to `http://127.0.0.1:4200` (or `UB_PORT`).
+Open `http://127.0.0.1:5173/`. Vite proxies `/api` to `http://127.0.0.1:4310` (or `UB_PORT`).
 
 The engine pill reflects `/api/connection`; it shows **OpenCode connected** only after the server answers, the major version is compatible, the catalog is readable, and no warning remains. `degraded`, `authentication_required`, `incompatible_version`, `unavailable`, and `not_configured` each carry a diagnostic and a repair action.
 
@@ -192,7 +192,7 @@ npm run build
 npm start
 ```
 
-Then open `http://127.0.0.1:4200/`. The built app and API share the same server. `npm start` does not start OpenCode; keep the OpenCode server running separately.
+Then open `http://127.0.0.1:4310/`. The built app and API share the same server. `npm start` does not start OpenCode; keep the OpenCode server running separately.
 
 ## What local mode does and does not touch
 
@@ -207,7 +207,7 @@ Then open `http://127.0.0.1:4200/`. The built app and API share the same server.
 
 ## Troubleshooting
 
-### `Port 4200 is already in use`
+### `Port 4310 is already in use`
 
 Stop the previous process or set `UB_PORT` to a free port. Vite reads `UB_PORT` when proxying.
 
@@ -222,7 +222,7 @@ Stop the previous process or set `UB_PORT` to a free port. Vite reads `UB_PORT` 
 
 ### The workshop lost its connection
 
-The initial project/connection load failed. Start or restart the API, confirm `http://127.0.0.1:4200/api/health`, then use **Reload the workshop**. Do not repeat a mutation blindly; reload first and inspect the persisted revision. The UI intentionally replaces raw browser fetch text with this actionable message.
+The initial project/connection load failed. Start or restart the API, confirm `http://127.0.0.1:4310/api/health`, then use **Reload the workshop**. Do not repeat a mutation blindly; reload first and inspect the persisted revision. The UI intentionally replaces raw browser fetch text with this actionable message.
 
 ### The OpenCode executable is missing or not executable
 

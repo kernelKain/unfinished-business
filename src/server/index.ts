@@ -200,6 +200,9 @@ export const server = serve({ fetch: app.fetch, hostname: config.hostname, port:
     stateReady: storeReady,
     authRequired: Boolean(config.access),
   });
+  if (config.mode === "local") {
+    process.stdout.write(`Unfinished Business is ready: http://${config.hostname}:${boundPort}/\n`);
+  }
 });
 server.on("error", (error: NodeJS.ErrnoException) => {
   if (error.code === "EADDRINUSE") {

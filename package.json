@@ -14,7 +14,7 @@
     "assets:hero": "python3 scripts/build-hero-assets.py",
     "budget": "node scripts/check-budget.mjs",
     "test:visual": "playwright test",
-    "start": "node --env-file-if-exists=.env --import tsx src/server/start.ts",
+    "start": "npm run build && node --env-file-if-exists=.env --import tsx src/server/start.ts",
     "start:render": "node --import tsx src/server/render-start.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",

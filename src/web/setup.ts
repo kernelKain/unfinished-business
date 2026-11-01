@@ -25,7 +25,7 @@ export const setupTabs: readonly SetupTab[] = [
     id: "web",
     label: "Interface",
     title: "Start the Vite interface",
-    note: "Terminal 2. Open http://127.0.0.1:5173; Vite proxies /api to port 4200.",
+    note: "Terminal 2. Open http://127.0.0.1:5173; Vite proxies /api to port 4310.",
     command: "npm run dev:web",
   },
   {
@@ -46,7 +46,7 @@ export const setupTabs: readonly SetupTab[] = [
     id: "production",
     label: "Production",
     title: "Build and serve one local process",
-    note: "Stop the dev servers first. The built app and API share http://127.0.0.1:4200.",
+    note: "Stop the dev servers first. The built app and API share http://127.0.0.1:4310.",
     command: "npm run build && npm start",
   },
 ] as const;
