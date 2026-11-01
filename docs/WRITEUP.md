@@ -1,10 +1,14 @@
 ---
-title: "Unfinished Business: building an evidence-first OpenCode workshop with Entire"
+title: "Unfinished Business: Four AI Spirits for Abandoned Code"
 published: false
 description: "A local-first workshop that uses OpenCode for the build and Entire checkpoints to preserve how the work happened."
 tags: devchallenge, hf26challenge, opensource, ai
 cover_image: https://raw.githubusercontent.com/kernelKain/unfinished-business/main/docs/assets/screenshots/cover-photo.png
 ---
+
+*This is a submission for the [Hacktoberfest Open-Source AI Challenge Week 4: Ghost in the Machine](https://dev.to/challenges/hacktoberfest-week4-2026-10-26).*
+
+## What I Built
 
 A hackathon project can be technically alive and still feel dead.
 
@@ -16,12 +20,25 @@ It is a local-first workshop around OpenCode. Four small spirits take one projec
 
 OpenCode performs the native work. Entire records the agent sessions and checkpoints behind the project itself. That pairing made provenance part of both the product and the way I built it.
 
-## Try it
+## Demo
 
 - Live interactive example: <https://unfinished-business-demo.onrender.com>
 - Source: <https://github.com/kernelKain/unfinished-business>
 
 The Render version is a recorded, read-only example. It needs no login and has no model, provider credential, repository, or write access. For a real run, use the local setup below and connect your own OpenCode account.
+
+For the fastest judge path:
+
+1. Open the live example.
+2. Play the 90-second version.
+3. Inspect Architect's approved versions and Witness's evidence.
+4. Open the Entire session history to verify how the project was built.
+
+## Code
+
+{% github kernelKain/unfinished-business %}
+
+The complete source, local setup, tests, OpenCode integration, and Entire hooks are in the [public repository](https://github.com/kernelKain/unfinished-business).
 
 ## The four spirits
 
@@ -55,7 +72,7 @@ Oracle narrows the rule. Architect drafts and revises the plan. Maker receives a
 
 That last sentence matters. I wanted the demo to remain useful even when a provider quota is exhausted, without pretending a recording is a live inference result.
 
-## How it works
+## How I Built It
 
 OpenCode is the engine. It owns model access, the agent loop, tools, permissions, interruption, and native sessions.
 
@@ -79,7 +96,9 @@ Project state is written atomically. Runs are persisted operations with progress
 
 The browser never receives a provider API key. In local mode it talks to the Unfinished Business server, which connects to OpenCode on loopback. The only credential the local wizard accepts is the OpenCode server password, held in the application process rather than project data or browser storage.
 
-## Entire kept the build from becoming another ghost
+## My Agent Session
+
+### Entire kept the build from becoming another ghost
 
 The product is about preserving decisions and evidence, so I wanted the development history to follow the same rule. I used [Entire](https://github.com/entireio/cli) to capture agent-assisted OpenCode sessions as checkpoints connected to the commits they produced.
 
@@ -105,7 +124,7 @@ That link matters when a diff is no longer enough. A maintainer can trace a chan
 
 Entire also exposed a useful failure honestly: later documentation-only commits made while the `entire` binary was unavailable did not receive a checkpoint trailer. The Git hook reported that and continued without pretending the session had been captured. That is exactly the behavior I wanted for this project—missing evidence stays missing instead of being reconstructed after the fact.
 
-## Why open innovation matters here
+## Why Does Open Innovation Matter?
 
 The project would make much less sense if it were tied to one closed model endpoint.
 
@@ -114,6 +133,10 @@ OpenCode gives the user control over the engine. They can connect OpenCode Go, a
 That openness is also a boundary. Provider authentication stays in OpenCode. Native permissions stay in OpenCode. A model reply is treated as a proposal, not as authority to approve a section or widen an implementation scope.
 
 The public Render deployment uses the same interface without shipping my provider access to every visitor. Judges can understand the product immediately; people who want a real run bring their own OpenCode setup.
+
+## The Spirit of It
+
+The project landed for me when Witness refused to call a recorded fixture a live success. That small refusal captured what I wanted from the whole system. Unfinished projects do not need another agent that confidently invents progress; they need a careful way to recover their intent, finish one bounded piece, and preserve what really happened.
 
 ## What did not fit neatly
 
@@ -179,7 +202,7 @@ The claim is verifiable in the repository through the hook integration, enabled 
 
 ### Best Use of Render — secondary category
 
-Render hosts the no-login interactive front end and recorded workflow while the server independently enforces read-only behavior. The deployment is useful to judges without exposing a model credential or pretending to be a public coding sandbox.
+Render hosts the no-login interactive front end and recorded workflow while the server independently enforces read-only behavior. It serves the real React and Hono application, rejects mutation routes in hosted-demo mode, and exposes no provider key, repository access, or shared coding environment. That gives judges a useful product tour without pretending the deployment is a public code-execution sandbox.
 
 ## AI assistance and timing
 
