@@ -1,0 +1,443 @@
+Repository: /home/kernel-kain/Documents/Github/unfinished-business (branch main).
+Read /tmp/opencode/unfinished-business-final-plan.md for background. This prompt overrides the plan where they conflict.
+
+Context: DEV Hacktoberfest Open-Source AI Challenge Week 4, "Ghost in the Machine". Entries close Oct 31 2026 11:59 PM PDT (06:59 UTC Nov 1). At the start of this prompt about 6 hours remain. Do not assume the window is open; check first.
+
+Step 0 (gate, ask me before editing anything):
+1. Open https://dev.to/challenges/hacktoberfest-week4-2026-10-26 and report whether the submission action is still available. Report the page status text exactly.
+2. Confirm the deadline in the time zone I give you.
+3. Ask me to approve spending: DeepSeek API credits (small, pay-as-you-go) and Render plan/credits. Do not spend anything without a yes.
+If the submission window is closed, stop and tell me. The rest of the plan does not apply to a closed challenge.
+
+Step 1: Write /tmp/opencode/requirements-matrix.md with every requirement from the challenge page mapped to: the artifact that satisfies it, the file path or URL, and its status (MET / PARTIAL / MISSING). Include: open-source AI core; theme; "why open innovation matters"; new project within window; post template sections; tags devchallenge and hf26challenge; Best Use of Entire; Best Use of Render; judging by writing quality; hosted demo link; judge setup instructions; local run instructions.
+
+Step 2: Confirm the current state without changing code:
+- Read src/server/config.ts, .env.example, render.yaml, render.demo.yaml, docs/HOSTED_DEPLOYMENT.md, src/server/render-start.ts.
+- Check ports with `ss -ltnp`: 4096 (OpenCode), 4200 (held by an unrelated litellm process), 4210, 5173.
+
+Step 3: Set a scope order for the remaining prompts, in this order, because time is short:
+  P1 must-have: working local run and live Render URL with judge instructions.
+  P2 must-have: DeepSeek V4.1 Flash running through OpenCode.
+  P3 must-have: Entire sessions/checkpoint links used in the app and the post.
+  P4 must-have: Render deployment verified from a clean clone.
+  P5 nice-to-have: repo cleanup, prompt renames, one setup path.
+  P6 must-have: one real end-to-end run recorded, then the dev.to draft.
+Report the matrix and the order, and ask me to confirm the order before continuing.
+
+Rules: no commits in this prompt. Do not push anything. Do not publish.
+
+---
+
+Repository: /home/kernel-kain/Documents/Github/unfinished-business (branch main).
+Prerequisite: Prompt 1 confirmed and approved spending.
+
+Goal: the app runs its Oracle, Architect, Maker, and Witness stages on DeepSeek V4.1 Flash (API id `deepseek-flash`), through OpenCode. The app never holds the provider key. OpenCode does.
+
+Step 1: Verify the provider path before coding:
+- Run `opencode --version` (the pinned version is 2.0.32) and find how OpenCode 2.x configures a provider: its config file, how it accepts a base URL and an API key, and how it names the DeepSeek provider. Read `opencode --help` and the OpenCode docs for the installed version. Do not guess the config key names.
+- Confirm the DeepSeek endpoint with one curl using a real key (base https://api.deepseek.com, model `deepseek-flash`). Keep the key in the environment only. Never write it to a file in the repo.
+- Note: DeepSeek V4.1 Flash weights (552B) are not runnable on a laptop. The local run uses the DeepSeek API unless I approve an alternative. Do not claim a fully offline run unless it is tested.
+
+Step 2: Configure OpenCode, not the app:
+- Create a project-level OpenCode config (for example opencode.jsonc under docs/ or a judge-config folder, whichever OpenCode reads) that defines the DeepSeek provider with the model `deepseek-flash` and reads the key from an environment variable such as DEEPSEEK_API_KEY. Use the exact syntax that OpenCode 2.0.32 supports (verify it).
+- Set the app's model policy so the selected model is `deepseek-flash` by default. Keep the existing "free and local only" and "paid confirmation" rules: DeepSeek is paid, so the first use needs explicit confirmation in the app. Check src/server/opencode/discovery.ts and src/shared/modes.ts to see how a paid remote model is classified.
+
+Step 3: Render:
+- In render.yaml, add DEEPSEEK_API_KEY as `sync: false` (secret set in the Render dashboard). Point OPENCODE_CONFIG_HOME at the config from Step 2 (or copy it in the start helper).
+- Keep REDACTED for the live instance.
+- Do not put real keys in any file.
+
+Step 4: Verify live (this is a real model call, so keep it small):
+- Start OpenCode locally, then start the app (npm start), connect in the wizard, select deepseek-flash, and send one short Oracle message. Record the reply and the time.
+- Run `scripts/opencode-smoke.ts` and `scripts/opencode-live-diagnostic.ts` if they still apply. Record results.
+
+Step 5: Tests: add or update tests for the config generation, the model-policy classification of deepseek-flash as paid, and the redaction of the key in logs. Run `npm run typecheck`, `npm test`.
+
+Commit: "feat(models): run the workshop on DeepSeek V4.1 Flash through OpenCode". Report the config path, the test result, and the live reply evidence path under /tmp/opencode/e2e/.
+
+---
+
+1. Approved, i have opencode go; 2. approved paid service, 3. Confirmed, now contiune with P1
+
+---
+
+do it
+
+---
+
+complete anything pending in this P1
+
+---
+
+1. A, 2. figure out youreself what to do about it, authoried to commit and push
+
+---
+
+Repository: /home/kernel-kain/Documents/Github/unfinished-business (branch main).
+Prerequisite: Prompt 1 confirmed and approved spending.
+
+Goal: the app runs its Oracle, Architect, Maker, and Witness stages on DeepSeek V4.1 Flash (API id `deepseek-flash`), through OpenCode. The app never holds the provider key. OpenCode does.
+
+Step 1: Verify the provider path before coding:
+- Run `opencode --version` (the pinned version is 2.0.32) and find how OpenCode 2.x configures a provider: its config file, how it accepts a base URL and an API key, and how it names the DeepSeek provider. Read `opencode --help` and the OpenCode docs for the installed version. Do not guess the config key names.
+- Confirm the DeepSeek endpoint with one curl using a real key (base https://api.deepseek.com, model `deepseek-flash`). Keep the key in the environment only. Never write it to a file in the repo.
+- Note: DeepSeek V4.1 Flash weights (552B) are not runnable on a laptop. The local run uses the DeepSeek API unless I approve an alternative. Do not claim a fully offline run unless it is tested.
+
+Step 2: Configure OpenCode, not the app:
+- Create a project-level OpenCode config (for example opencode.jsonc under docs/ or a judge-config folder, whichever OpenCode reads) that defines the DeepSeek provider with the model `deepseek-flash` and reads the key from an environment variable such as DEEPSEEK_API_KEY. Use the exact syntax that OpenCode 2.0.32 supports (verify it).
+- Set the app's model policy so the selected model is `deepseek-flash` by default. Keep the existing "free and local only" and "paid confirmation" rules: DeepSeek is paid, so the first use needs explicit confirmation in the app. Check src/server/opencode/discovery.ts and src/shared/modes.ts to see how a paid remote model is classified.
+
+Step 3: Render:
+- In render.yaml, add DEEPSEEK_API_KEY as `sync: false` (secret set in the Render dashboard). Point OPENCODE_CONFIG_HOME at the config from Step 2 (or copy it in the start helper).
+- Keep REDACTED for the live instance.
+- Do not put real keys in any file.
+
+Step 4: Verify live (this is a real model call, so keep it small):
+- Start OpenCode locally, then start the app (npm start), connect in the wizard, select deepseek-flash, and send one short Oracle message. Record the reply and the time.
+- Run `scripts/opencode-smoke.ts` and `scripts/opencode-live-diagnostic.ts` if they still apply. Record results.
+
+Step 5: Tests: add or update tests for the config generation, the model-policy classification of deepseek-flash as paid, and the redaction of the key in logs. Run `npm run typecheck`, `npm test`.
+
+Commit: "feat(models): run the workshop on DeepSeek V4.1 Flash through OpenCode". Report the config path, the test result, and the live reply evidence path under /tmp/opencode/e2e/.
+
+---
+
+B
+
+---
+
+DO IT
+
+---
+
+done but not redployed it
+
+---
+
+deploy failed: 
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 2861 modules transformed.
+rendering chunks...
+[sentry-vite-plugin] Info: Successfully uploaded source maps to Sentry
+computing gzip size...
+dist/web/index.html                            0.45 kB │ gzip:   0.29 kB
+dist/web/assets/index-A3Z9vT_j.css            93.55 kB │ gzip:  17.44 kB
+dist/web/assets/SpiritStageTabs-FNRVIvuh.js   11.07 kB │ gzip:   3.80 kB │ map:    18.89 kB
+dist/web/assets/DemoPage-DfWt-wrm.js          21.93 kB │ gzip:   5.94 kB │ map:    56.68 kB
+dist/web/assets/WorkshopPage-CR4DuZDQ.js     341.97 kB │ gzip:  99.92 kB │ map: 1,659.30 kB
+dist/web/assets/index-l_PQYLsT.js            652.58 kB │ gzip: 209.04 kB │ map: 3,181.60 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 7.26s
+[PLUGIN_TIMINGS] JavaScript callbacks ran for 6.8s of this 7.3s build (94%).
+The slowest callbacks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
+  - plugin sentry-vite-plugin writeBundle (87%, 6.3s, 1 call)
+Additional callback time came from the callbacks below and from callbacks under 1s.
+1 callback is listed without a time. Its calls overlapped, so the time inside one call includes work from other calls. To find its cost, profile the build with `node --cpu-prof`:
+  - plugin vite:css-post renderChunk (4 calls)
+See https://rolldown.rs/reference/InputOptions.checks#bundlertimings for more details.
+
+==> Uploading build...
+==> Uploaded in 16.7s. Compression took 2.6s
+==> Build successful 🎉
+==> Deploying...
+==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+==> Running 'npm run start:render'
+
+> unfinished-business@0.1.0 start:render
+> node --import tsx src/server/render-start.ts
+
+{"time":"2026-11-01T01:22:14.333Z","level":"info","event":"opencode_resolved","platform":"linux-x64","source":"path","version":"2.0.32"}
+{"time":"2026-11-01T01:22:14.407Z","level":"error","event":"opencode_auth_invalid","message":"OPENCODE_AUTH_JSON is not valid JSON. Check the Render secret; its value is not shown."}
+==> Instance srv-dbis8467bikc73dnunig-slztn restarted
+==> Exited with status 1
+==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+==> Running 'npm run start:render'
+
+> unfinished-business@0.1.0 start:render
+> node --import tsx src/server/render-start.ts
+
+{"time":"2026-11-01T01:22:18.518Z","level":"info","event":"opencode_resolved","platform":"linux-x64","source":"path","version":"2.0.32"}
+{"time":"2026-11-01T01:22:18.521Z","level":"error","event":"opencode_auth_invalid","message":"OPENCODE_AUTH_JSON is not valid JSON. Check the Render secret; its value is not shown."}
+
+---
+
+these are all env values added from before: Key	Value
+Key
+NODE_VERSION
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+OPENCODE_AUTH_JSON
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+OPENCODE_BASE_URL
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+OPENCODE_CONFIG_HOME
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+OPENCODE_DATA_HOME
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+OPENCODE_PASSWORD
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+SENTRY_AGENT_TRACES_SAMPLE_RATE
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+SENTRY_AUTH_TOKEN
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+SENTRY_DEPLOY_ENVIRONMENT
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+SENTRY_DSN
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+SENTRY_ENVIRONMENT
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+SENTRY_ORG
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+SENTRY_PROFILES_SAMPLE_RATE
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+SENTRY_PROJECT
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+SENTRY_TRACES_SAMPLE_RATE
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+SENTRY_URL
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+UB_ACCESS_PASSWORD
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+UB_ACCESS_USERNAME
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+UB_DATA_DIR
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+UB_DEPLOYMENT_MODE
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+UB_HOST
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+UB_LOG_LEVEL
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+UB_OPENCODE_ALLOW_INSECURE_REMOTE
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+UB_REDACT_LOCAL_PATHS
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+UB_SESSION_TOKEN
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+UB_TRUST_PROXY
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+VITE_SENTRY_DSN
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+VITE_SENTRY_ENVIRONMENT
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+VITE_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+VITE_SENTRY_REPLAYS_SESSION_SAMPLE_RATE
+Value
+
+• • • • • • • • • • • •
+
+
+Key
+VITE_SENTRY_TRACES_SAMPLE_RATE
+Value
+
+• • • • • • • • • • • •
+
+---
+
+REDACTED
+
+---
+
+done but i didnt deployed it again
+
+---
+
+1
+
+---
+
+2. put it int the post as poeple will access the project live link
+
+---
+
+Repository: /home/kernel-kain/Documents/Github/unfinished-business (branch main).
+Prerequisites: Prompts 1–3 committed. Spending approved in Prompt 1.
+
+Goal: two live Render services and one README section that tells judges and visitors exactly how to use each. Judges must reach a working app in under five minutes.
+
+Services (keep both render.yaml and render.demo.yaml):
+- Public read-only sample (render.demo.yaml, hosted-demo mode): no login, no OpenCode, no keys. It shows the recorded Driftwatch walkthrough.
+- Live private instance (render.yaml, private-hosted mode): password-protected. Runs the real workflow with OpenCode and DeepSeek.
+
+Step 1: Check the Render setup and existing blueprints:
+- Read render.yaml, render.demo.yaml, src/server/render-start.ts, docs/HOSTED_DEPLOYMENT.md.
+- Confirm the persistent disk path (UB_DATA_DIR=/var/data/...) has a disk declared. If the blueprint has no disk, add one or stop and tell me, because data will not persist without a paid disk.
+- Confirm the plan name in render.yaml is a currently valid Render plan. Check the Render docs. Do not guess.
+- Confirm the build command runs typecheck and tests. If tests are too slow for a build, say so and tell me the tradeoff.
+
+Step 2: Deploy:
+- Use Render's blueprint flow (from the repo). Set secrets in the Render dashboard only: UB_ACCESS_PASSWORD (generated), DEEPSEEK_API_KEY, optional SENTRY_*. Never commit them.
+- Apply the Render promo credits from hacktoberfest.com/my/promos if I have claimed them. I will do the claim; do not claim for me.
+- Record both URLs in docs/SUBMISSION.md (created in a later prompt). Do not invent URLs.
+
+Step 3: Verify the live URLs (report results with timestamps):
+- curl /api/health on both. Log in to the live instance with the password. Run "Try the example" on the public sample. Run one short live Oracle message on the private instance.
+- Confirm the 403 on writes for the public sample.
+
+Step 4: Judge instructions in README.md (one section, "For judges"):
+- Start here: the public sample URL (no login), 90-second walkthrough.
+- Live instance: URL, username, and "ask the organizer for the password" (do not put the password in the repo or the post).
+- What each stage does, what a live run costs (DeepSeek API, paid, with a confirmation step), and how to stop a run.
+- Troubleshooting: the three likely errors and the fix for each.
+
+Step 5: Local run instructions in README.md (one section, "Run it locally"):
+- Prerequisites: Node 22.14+, Linux x64 or macOS, OpenCode 2.0.32 (pinned), DeepSeek API key (optional, for live runs).
+- Exactly these commands, in order: `npm ci`, `npm start`, open the printed URL, follow the wizard. Port conflicts are reported by the launcher (from Prompt 1). Do not add a second place where setup is described; link to this section only.
+- Offline path: stated honestly. Say the app runs offline for the sample, and that live runs need a model provider.
+
+Step 6: Clean-clone test:
+- `git clone` into /tmp/opencode/clean-test (from the committed state), follow only README instructions, and report every step that failed or needed a guess. Fix the README until it works without guessing.
+
+Commit: "docs(readme): judge access and local run instructions", and "chore(render): hosted sample and live instance blueprints". Report both URLs status and the clean-clone result.
