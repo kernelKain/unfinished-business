@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.12.3-nightly.202610310614.54b6a5cac",
+  "checkpoint_id": "01M6AD3D79T76ZESS1YCE5CXD5",
+  "session_id": "ses_e6b6fd16dffdnxrztR8mhWnV84",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-01T01:55:40.190997664Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "vite.config.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "deepseek-v4.1-flash",
+  "turn_id": "26404089d98b",
+  "checkpoint_transcript_start": 224,
+  "transcript_lines_at_start": 224,
+  "compact_transcript_start": 224,
+  "token_usage": {
+    "input_tokens": 6338,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 3417088,
+    "output_tokens": 2686,
+    "api_call_count": 13
+  },
+  "redaction": {
+    "replacements": 1849,
+    "layers": {
+      "betterleaks": 40,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 10,
+      "credentialed_uri": 0,
+      "entropy": 1809,
+      "key_context": 0,
+      "provider_token": 6,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 12
+  }
+}
