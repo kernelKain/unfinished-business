@@ -127,11 +127,11 @@ npm run smoke:opencode
 
 Current results (2026-11-01, Linux x64, Node 22.22.1, no live provider inference):
 
-- **207 unit/integration/component tests pass**, including a complete source → Oracle → proposal → revision → approval → Maker → timeout → reconcile → Witness journey test.
+- **218 unit/integration/component tests pass**, including a complete source → Oracle → proposal → revision → approval → Maker → timeout → reconcile → Witness journey test.
 - **26 Playwright visual/accessibility/resilience tests pass** with committed snapshots at **390px, 768px, and 1440px**, plus loading, offline, 200% zoom, long-content, keyboard, reduced-motion, and contrast checks.
 - Initial JS is **201.5 KiB gzip**; all JS **280.4 KiB**; CSS **17.0 KiB gzip**; all hero variants **581.2 KiB** total. The all-JS budget remains 290 KiB and CSS remains within its 18 KiB budget.
 - Platform resolution passes on Linux x64; `npm run smoke:opencode` starts a disposable OpenCode 2.0.32 server, reads `/api/info`, and stops it without a prompt or model call.
-- macOS Apple Silicon and macOS Intel run the same install, resolution, typecheck, tests, build, workspace-safety, and smoke steps in the `macos-15` and `macos-15-intel` CI jobs. CI runs `41252770576` and `41253037115` passed all three matrix jobs.
+- macOS Apple Silicon and macOS Intel run the same install, resolution, typecheck, tests, build, workspace-safety, and smoke steps as Linux in CI.
 - Keyboard focus order, dialog Escape, setup tab arrow keys, drawer operation, 200% text zoom, 390px overflow, reduced motion, and token contrast are checked.
 - Sample playback, reset isolation, fixture/schema drift, 90-second timing, tab inspection, no-network behavior, canonical landing/demo consistency, and hosted-sample mutation rejection are covered.
 - State migration deterministically upgrades schema v1, both supported v2 shapes, schema v3, schema v4, schema v5, and schema v6 to v7 without dropping proposals, approvals, transcripts, operations, evidence, selected model data, provider policy, limits, or candidate history.
@@ -146,7 +146,7 @@ Current results (2026-11-01, Linux x64, Node 22.22.1, no live provider inference
 
 ## Status and limitations
 
-The prior release phases remain integrated. **Phase 8** adds the final hardening gate: an end-to-end workshop journey test, responsive snapshots at 390/768/1440, loading/offline/long-content checks, accessible revision tabs and live progress announcements, broader security route tests, a zero-advisory dependency audit, and in-repository hackathon copy/assets. **Platform Phase 7** adds macOS support alongside the existing Linux x64 path: the official cross-platform `@opencode/cli` replaces the Linux-only package, runtime resolution prefers a compatible global `opencode` then the lockfile binary, and CI runs `41252770576` and `41253037115` passed Linux x64, macOS Apple Silicon, and macOS Intel. Upgrade Phase 6 rewrites the public story around one canonical Driftwatch sample. Upgrade Phase 5 remains the focused workshop. Schema v7 is unchanged.
+The workshop runs on Linux x64 and macOS (Apple Silicon and Intel) through the official cross-platform `@opencode/cli`, prefers a compatible global `opencode` on `PATH`, then the lockfile binary. The public story follows one canonical Driftwatch sample, and the state schema is version 7.
 
 Known limitations:
 
@@ -157,7 +157,7 @@ Known limitations:
 - Model availability, pricing, quota, training terms, and billing are controlled by OpenCode/provider. The spending limit only checks cost OpenCode reports after a session; unknown-price providers may bill before that value is visible.
 - The workspace privacy preference records intent; the app cannot attest every provider's training/retention contract. Provider rejections that mention training/data policy are explained as `PROVIDER_DATA_POLICY`.
 - Advanced diagnostics load only when opened. Permission polling is best-effort; a pending request remains visible in Activity & results and the contextual permission alert, but a provider-side change can lag by one refresh interval.
-- Backboard is not integrated and no partner category is claimed for installation alone. Sentry is configured but live release/source-map/trace verification requires authorized credentials and a deployment.
+- Sentry is configured, but live release, source-map, and trace verification requires authorized credentials and a deployment.
 - No public hosted URL, recorded video, published article, or submission is asserted by this repository.
 - A real recorded demonstration and final submission packaging remain separate acceptance work.
 
@@ -168,7 +168,6 @@ Canonical:
 - [Product brief](docs/PRODUCT_BRIEF.md) — positioning, landing claims, three usage paths.
 - [Architecture](docs/ARCHITECTURE.md) — routes, trust boundaries, persistence, modes, security.
 - [Security model](docs/SECURITY_MODEL.md) — trust boundaries, controls, threat-to-test mapping, residual risks.
-- [Implementation plan](docs/IMPLEMENTATION_PLAN.md) — phase history and release gate.
 - [OpenCode integration](docs/OPENCODE_INTEGRATION.md) — tested version/API surface, discovery, credentials ownership, sessions, limits.
 - [Local setup](docs/LOCAL_SETUP.md) — tested commands and troubleshooting.
 - [Hosted deployment](docs/HOSTED_DEPLOYMENT.md) — Render/private instance, demo policy, secrets, review procedure.
@@ -177,17 +176,9 @@ Canonical:
 - [Operations and recovery](docs/OPERATIONS_AND_RECOVERY.md) — data layout, backups, migrations, retention, failure matrix.
 - [Demo and submission](docs/DEMO_AND_SUBMISSION.md) — scenario, fixture provenance, playback/reset, exact claims, video beats, disclosure.
 - [Decisions](docs/DECISIONS.md) — product, interface, demo, and hardening decisions.
-- [Changelog](docs/CHANGELOG.md) — released changes.
 - [Evidence index](docs/EVIDENCE.md) — requirements-to-evidence matrix, commands, limitations.
-- [Release notes](docs/RELEASE_NOTES.md) — concise release handoff.
 - [Hackathon and release copy](docs/release/HACKATHON_COPY.md) — prepared pitch, description, demo script, claim checklist, asset manifest; not published.
 
-History and provenance:
-
-- [Engineering blueprint](docs/history/ENGINEERING_BLUEPRINT.md) — superseded planning record.
-- [Product idea packet](docs/history/Unfinished-Business-Idea-Packet-v1.md) — approved discovery record.
-- [Render deployment notes](docs/history/RENDER_DEPLOYMENT.md) — superseded by the hosted deployment guide.
-- [Sentry and OpenCode setup](docs/history/SENTRY_AND_OPENCODE_SETUP.md) — superseded by integration/deployment guides.
 - [Complete local prompt set](docs/prompts/README.md) — runtime Prompts 0–3 and project overrides.
 
 ## Development policy
@@ -202,7 +193,7 @@ History and provenance:
 
 ## Delivery
 
-The first release targets a local browser on Linux x64 and macOS (Apple Silicon and Intel). CI runs `41252770576` and `41253037115` verified all three platforms. A real recorded demonstration and a reproducible local-start guide provide judge access; hosted code execution is outside this release. Release copy and an asset manifest are prepared in `docs/release/HACKATHON_COPY.md`, but no article, video, hosted submission, or external publication has been performed. Backboard, Sentry Agent Tracing, and Entire remain selected partner targets, with qualification conditional on meaningful actual use and evidence. Publication, deployment, domain registration, credit claiming, and submission remain pending separate authorization.
+The first release targets a local browser on Linux x64 and macOS (Apple Silicon and Intel). A recorded demonstration and the local-start guide provide judge access; hosted code execution is outside this release. Release copy is in `docs/release/HACKATHON_COPY.md`. Publication, domain registration, credit claiming, and submission remain separate actions.
 
 ## License
 
